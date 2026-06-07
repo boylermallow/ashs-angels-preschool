@@ -49,6 +49,16 @@ st.set_page_config(
 
 
 def asset_url(path):
+    if not path.exists():
+        fallback_svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220">
+          <ellipse cx="160" cy="110" rx="150" ry="95" fill="#3154a5"/>
+          <text x="160" y="96" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="32" font-weight="800">Ash's Angels</text>
+          <text x="160" y="145" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="30" font-weight="800">Preschool</text>
+        </svg>
+        """
+        data = base64.b64encode(fallback_svg.encode("utf-8")).decode("ascii")
+        return f"data:image/svg+xml;base64,{data}"
     suffix = path.suffix.lower()
     mime = "image/svg+xml" if suffix == ".svg" else "image/png"
     data = base64.b64encode(path.read_bytes()).decode("ascii")
