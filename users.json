@@ -4,5 +4,11 @@
     "role": "Admin",
     "salt": "944094b484d3e7de61b1c9de9415ef27",
     "hash": "b95d908d2e95d2551098eae3a46eff3e513991a41cb9394678185105413bae12"
+  },
+  "childcare@ashsangels.com": {
+    "email": "childcare@ashsangels.com",
+    "role": "Admin",
+    "salt": "c89e30dcd1d65e39f5642541f6b7f00a",
+    "hash": "7e4a41aa4d536be2c9d6df34d90dbf183ef4ccecb1a62ade730ecdd7aa204f48"
   }
 }
