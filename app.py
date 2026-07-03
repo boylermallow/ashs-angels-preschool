@@ -11,6 +11,8 @@ from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 import numpy as np
 import streamlit as st
@@ -28,6 +30,8 @@ CHILDREN_DIR = APP_DIR / "assets" / "children"
 SESSIONS = ["Morning Session - 8:30am to 11:30am", "Afternoon Session - 12:00pm to 3:00pm"]
 PASSWORD_ROUNDS = 120_000
 BUILD_MODE = False
+DATA_REPOSITORY = "boylermallow/ashs-angels-preschool"
+DATA_BRANCH = "main"
 
 
 def setting(name, fallback=""):
@@ -77,6 +81,79 @@ def read_json(path, fallback):
 
 def write_json(path, value):
     path.write_text(json.dumps(value, indent=2))
+
+
+def github_data_token():
+    return setting("GITHUB_DATA_TOKEN")
+
+
+def github_api_request(method, path, payload=None):
+    token = github_data_token()
+    if not token:
+        return None
+    url = f"https://api.github.com/repos/{DATA_REPOSITORY}/contents/{path}"
+    if method == "GET":
+        url = f"{url}?ref={quote(DATA_BRANCH)}"
+    body = None
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if payload is not None:
+        body = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = Request(url, data=body, headers=headers, method=method)
+    try:
+        with urlopen(request, timeout=12) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+        st.session_state["data_save_warning"] = (
+            "This change was saved for now, but not permanently. "
+            "The GitHub data key needs checking."
+        )
+        st.session_state["data_save_error"] = str(exc)
+        return None
+
+
+def load_persistent_json(path, fallback):
+    local_value = read_json(APP_DIR / path, fallback)
+    remote = github_api_request("GET", path)
+    if not remote or "content" not in remote:
+        return local_value if isinstance(local_value, type(fallback)) else fallback
+    try:
+        encoded = "".join(str(remote["content"]).split())
+        value = json.loads(base64.b64decode(encoded).decode("utf-8"))
+        write_json(APP_DIR / path, value)
+        st.session_state[f"{path}_sha"] = remote.get("sha", "")
+        return value if isinstance(value, type(fallback)) else fallback
+    except Exception:
+        return local_value if isinstance(local_value, type(fallback)) else fallback
+
+
+def save_persistent_json(path, value, message):
+    write_json(APP_DIR / path, value)
+    if not github_data_token():
+        st.session_state["data_save_warning"] = (
+            "This change was saved for now, but permanent saving is not switched on yet."
+        )
+        return False
+    remote = github_api_request("GET", path)
+    if not remote or not remote.get("sha"):
+        return False
+    payload = {
+        "message": message,
+        "content": base64.b64encode(json.dumps(value, indent=2).encode("utf-8")).decode("ascii"),
+        "sha": remote["sha"],
+        "branch": DATA_BRANCH,
+    }
+    result = github_api_request("PUT", path, payload)
+    if result:
+        st.session_state.pop("data_save_warning", None)
+        st.session_state.pop("data_save_error", None)
+        st.session_state[f"{path}_sha"] = result.get("content", {}).get("sha", "")
+        return True
+    return False
 
 
 def hash_password(password, salt=None):
@@ -198,12 +275,12 @@ def app_href(page=None, **params):
 
 
 def load_children():
-    children = read_json(CHILDREN_FILE, [])
+    children = load_persistent_json("children.json", [])
     return children if isinstance(children, list) else []
 
 
 def save_children(children):
-    write_json(CHILDREN_FILE, children)
+    save_persistent_json("children.json", children, "Update children")
 
 
 def delete_child_and_clear_parent_links(child_id):
@@ -293,21 +370,21 @@ def save_uploaded_thumbnail(uploaded_file):
 
 
 def load_parents():
-    parents = read_json(PARENTS_FILE, [])
+    parents = load_persistent_json("parents.json", [])
     return parents if isinstance(parents, list) else []
 
 
 def save_parents(parents):
-    write_json(PARENTS_FILE, parents)
+    save_persistent_json("parents.json", parents, "Update parents")
 
 
 def load_messages():
-    messages = read_json(MESSAGES_FILE, [])
+    messages = load_persistent_json("messages.json", [])
     return messages if isinstance(messages, list) else []
 
 
 def save_messages(messages):
-    write_json(MESSAGES_FILE, messages)
+    save_persistent_json("messages.json", messages, "Update messages")
 
 
 def send_parent_notification(child, parent, message_body):
@@ -1321,6 +1398,9 @@ def render_admin_children():
     notification_sent = st.session_state.pop("notification_sent", "")
     if notification_sent:
         st.success(notification_sent)
+    data_save_warning = st.session_state.pop("data_save_warning", "")
+    if data_save_warning:
+        st.warning(data_save_warning)
     edit_child_id = st.query_params.get("edit_child")
     delete_child_id = st.query_params.get("delete_child")
     message_child_id = st.query_params.get("message_child")
