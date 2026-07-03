@@ -961,8 +961,16 @@ st.markdown(
         }}
         .mobile-menu-toggle {{
             position: absolute;
+            top: 0;
+            left: 0;
+            width: 58px;
+            height: 54px;
+            margin: 0;
             opacity: 0;
-            pointer-events: none;
+            z-index: 4;
+            pointer-events: auto;
+            appearance: none;
+            -webkit-appearance: none;
         }}
         .mobile-menu-button {{
             display: grid;
