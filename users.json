@@ -8,7 +8,7 @@
   "childcare@ashsangels.com": {
     "email": "childcare@ashsangels.com",
     "role": "Admin",
-    "salt": "a1070b88ecb26e4166d4894d978fb094",
-    "hash": "9f79200f2018d11ad66c5ca86aa5bd4d4f91d67991860ad83e3812c9efcbd8c1"
+    "salt": "bb7229199b80af71efff2bf49756fc6d",
+    "hash": "8295da2e8c1bec7872f619928b9ca28c672cbb5096f028a24cc0946b9dc9de8c"
   }
 }
