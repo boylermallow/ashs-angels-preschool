@@ -1397,16 +1397,21 @@ def render_admin_children():
                         unsafe_allow_html=True,
                     )
                     edited_thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"], key=f"edit_thumb_{edit_child_id}")
-                update_submitted = st.form_submit_button("Save Changes")
-                st.markdown(
-                    f"""
-                    <div class="edit-form-actions">
-                      <a class="section-edit" href="{app_href("Children")}" target="_self">Cancel Edit</a>
-                      <a class="delete-link" href="{app_href("Children", delete_child=edit_child_id)}" target="_self">Delete Child</a>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                save_col, cancel_col, delete_col = st.columns([1, 1, 1], gap="small")
+                update_submitted = save_col.form_submit_button("Save Changes")
+                cancel_submitted = cancel_col.form_submit_button("Cancel Edit")
+                delete_submitted = delete_col.form_submit_button("Delete Child")
+
+            if cancel_submitted:
+                st.query_params.pop("edit_child", None)
+                st.rerun()
+
+            if delete_submitted:
+                delete_child_and_clear_parent_links(edit_child_id)
+                for param in ("delete_child", "edit_child", "children_edit"):
+                    st.query_params.pop(param, None)
+                st.success("Child deleted.")
+                st.rerun()
 
             if update_submitted:
                 if not edited_name:
