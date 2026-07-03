@@ -412,7 +412,6 @@ st.markdown(
         display: block;
         margin: 0;
         filter:
-            drop-shadow(0 4px 10px rgba(42, 70, 120, .12))
             drop-shadow(3px 0 0 #fff)
             drop-shadow(-3px 0 0 #fff)
             drop-shadow(0 3px 0 #fff)
