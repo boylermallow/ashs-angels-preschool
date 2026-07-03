@@ -921,9 +921,20 @@ st.markdown(
         font-weight: 900 !important;
         min-height: 42px !important;
         padding: 8px 14px !important;
+        position: relative !important;
+        font-size: 0 !important;
+        line-height: 1 !important;
     }}
     div[data-testid="stFileUploader"] section button * {{
+        display: none !important;
+    }}
+    div[data-testid="stFileUploader"] section button::after {{
+        content: "Upload";
         color: #ffffff !important;
+        display: inline-block;
+        font-size: 1.04rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
     }}
     div[data-baseweb="select"] svg {{
         color: var(--brand-blue) !important;
