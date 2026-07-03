@@ -341,7 +341,7 @@ st.markdown(
         --muted: #66778a;
         --bg: #9FC9EB;
         --panel: #ffffff;
-        --brand-blue: #2f4f9f;
+        --brand-blue: #3154a5;
         --rose: #df4d9b;
         --red: #f43d2e;
         --orange: #ff9f1c;
@@ -356,7 +356,11 @@ st.markdown(
         color: var(--ink);
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
     }}
-    [data-testid="stHeader"] {{ background: transparent; }}
+    [data-testid="stHeader"] {{
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }}
     #MainMenu,
     [data-testid="stToolbar"],
     [data-testid="stDecoration"],
@@ -949,7 +953,7 @@ st.markdown(
             top: 0;
             left: 0;
             right: 0;
-            z-index: 999;
+            z-index: 2147483647;
             width: 100vw;
             margin: 0;
             transform: none;
@@ -983,14 +987,14 @@ st.markdown(
         .mobile-menu-icon {{
             width: 42px;
             height: 42px;
-            border-radius: 8px;
+            border-radius: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 2px;
-            background: rgba(255,255,255,.16);
-            border: 1px solid rgba(255,255,255,.24);
+            background: transparent;
+            border: 0;
         }}
         .mobile-menu-icon span,
         .mobile-menu-icon::before,
