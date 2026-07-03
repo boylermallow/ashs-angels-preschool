@@ -946,11 +946,13 @@ st.markdown(
             margin: 0;
             transform: none;
         }}
+        .mobile-menu[open] {{
+            bottom: auto;
+        }}
         .mobile-menu-button {{
             display: grid;
-            grid-template-columns: 44px minmax(0, 1fr) auto;
+            grid-template-columns: 48px minmax(0, 1fr) 48px;
             align-items: center;
-            gap: 10px;
             width: 100%;
             min-height: 54px;
             padding: 6px max(12px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
@@ -964,6 +966,11 @@ st.markdown(
             list-style: none;
             font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
             text-decoration: none !important;
+        }}
+        .mobile-menu-button::-webkit-details-marker,
+        .mobile-menu-button::marker {{
+            display: none;
+            content: "";
         }}
         .mobile-menu-icon {{
             width: 42px;
@@ -986,14 +993,12 @@ st.markdown(
             border-radius: 999px;
             background: #ffffff;
         }}
-        .mobile-menu-title {{
-            color: var(--brand-blue);
-            font-size: 1rem;
-            font-weight: 950;
-            line-height: 1.05;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .mobile-menu-logo {{
+            justify-self: center;
+            width: 132px;
+            height: 44px;
+            object-fit: contain;
+            display: block;
         }}
         .mobile-menu-page {{
             color: var(--muted);
@@ -1016,7 +1021,7 @@ st.markdown(
             border-radius: 0;
             box-shadow: 0 18px 34px rgba(35,52,95,.18);
         }}
-        .mobile-menu:focus-within .mobile-menu-panel {{
+        .mobile-menu[open] .mobile-menu-panel {{
             display: grid;
         }}
         .mobile-menu .menu-item,
@@ -1189,18 +1194,18 @@ def render_side_menu(role, selected_page):
     )
     st.markdown(
         f"""
-        <div class="mobile-menu">
-          <button class="mobile-menu-button" type="button" aria-label="Open navigation menu">
+        <details class="mobile-menu">
+          <summary class="mobile-menu-button" aria-label="Open navigation menu">
             <span class="mobile-menu-icon"><span></span></span>
-            <span class="mobile-menu-title">Ash's Angels</span>
+            <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
             <span class="mobile-menu-page">{html.escape(selected_page)}</span>
-          </button>
+          </summary>
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
             <div class="rainbow-rule"></div>
           </div>
-        </div>
+        </details>
         <div class="side-menu">
           <a class="side-logo-link" href="?app_page=Dashboard" target="_self" aria-label="Go to dashboard">
             <img class="side-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
