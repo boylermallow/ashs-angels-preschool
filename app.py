@@ -591,6 +591,17 @@ st.markdown(
     .edit-tools .muted {{
         margin-bottom: 8px;
     }}
+    .edit-form-actions {{
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }}
+    .edit-form-actions .section-edit,
+    .edit-form-actions .delete-link {{
+        margin-top: 0;
+    }}
     .muted {{ color: var(--muted); line-height: 1.48; }}
     .status {{
         display: flex; align-items: flex-start; gap: 12px; background: #fff1c7;
@@ -1386,17 +1397,15 @@ def render_admin_children():
                     )
                     edited_thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"], key=f"edit_thumb_{edit_child_id}")
                 update_submitted = st.form_submit_button("Save Changes")
-
-            if st.button("Cancel Edit"):
-                st.query_params.pop("edit_child", None)
-                st.rerun()
-
-            if st.button("Delete Child", key=f"delete_child_button_{edit_child_id}"):
-                delete_child_and_clear_parent_links(edit_child_id)
-                for param in ("delete_child", "edit_child", "children_edit"):
-                    st.query_params.pop(param, None)
-                st.success("Child deleted.")
-                st.rerun()
+                st.markdown(
+                    f"""
+                    <div class="edit-form-actions">
+                      <a class="section-edit" href="{app_href("Children")}" target="_self">Cancel Edit</a>
+                      <a class="delete-link" href="{app_href("Children", delete_child=edit_child_id)}" target="_self">Delete Child</a>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
             if update_submitted:
                 if not edited_name or edited_dob is None:
