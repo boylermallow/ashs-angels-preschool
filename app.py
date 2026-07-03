@@ -744,6 +744,21 @@ st.markdown(
         caret-color: var(--brand-blue) !important;
         -webkit-text-fill-color: var(--ink) !important;
     }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] {{
+        background: #ffffff !important;
+        color: var(--brand-blue) !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        min-height: 44px !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button svg,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] svg {{
+        color: var(--brand-blue) !important;
+        fill: var(--brand-blue) !important;
+        stroke: var(--brand-blue) !important;
+        opacity: 1 !important;
+    }}
     div[data-testid="stTextArea"] textarea {{
         position: relative !important;
         z-index: 2 !important;
