@@ -946,9 +946,6 @@ st.markdown(
             margin: 0;
             transform: none;
         }}
-        .mobile-menu[open] {{
-            bottom: auto;
-        }}
         .mobile-menu-button {{
             display: grid;
             grid-template-columns: 48px minmax(0, 1fr) 48px;
@@ -966,11 +963,6 @@ st.markdown(
             list-style: none;
             font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
             text-decoration: none !important;
-        }}
-        .mobile-menu-button::-webkit-details-marker,
-        .mobile-menu-button::marker {{
-            display: none;
-            content: "";
         }}
         .mobile-menu-icon {{
             width: 42px;
@@ -1021,7 +1013,7 @@ st.markdown(
             border-radius: 0;
             box-shadow: 0 18px 34px rgba(35,52,95,.18);
         }}
-        .mobile-menu[open] .mobile-menu-panel {{
+        .mobile-menu.open .mobile-menu-panel {{
             display: grid;
         }}
         .mobile-menu .menu-item,
@@ -1188,24 +1180,28 @@ def render_login():
 
 def render_side_menu(role, selected_page):
     nav_items = ["Dashboard", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    mobile_menu_open = st.query_params.get("mobile_menu") == "1"
+    mobile_menu_href = f"?app_page={quote(selected_page)}"
+    if not mobile_menu_open:
+        mobile_menu_href += "&mobile_menu=1"
     items_html = "\n".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="?app_page={quote(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
     )
     st.markdown(
         f"""
-        <details class="mobile-menu">
-          <summary class="mobile-menu-button" aria-label="Open navigation menu">
+        <div class="mobile-menu {'open' if mobile_menu_open else ''}">
+          <a class="mobile-menu-button" href="{mobile_menu_href}" target="_self" aria-label="{'Close' if mobile_menu_open else 'Open'} navigation menu">
             <span class="mobile-menu-icon"><span></span></span>
             <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
             <span class="mobile-menu-page">{html.escape(selected_page)}</span>
-          </summary>
+          </a>
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
             <div class="rainbow-rule"></div>
           </div>
-        </details>
+        </div>
         <div class="side-menu">
           <a class="side-logo-link" href="?app_page=Dashboard" target="_self" aria-label="Go to dashboard">
             <img class="side-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
