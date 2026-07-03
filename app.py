@@ -1391,11 +1391,12 @@ def render_admin_children():
                 st.query_params.pop("edit_child", None)
                 st.rerun()
 
-            delete_href = app_href("Children", delete_child=edit_child_id)
-            st.markdown(
-                f'<a class="delete-link" href="{delete_href}" target="_self">Delete Child</a>',
-                unsafe_allow_html=True,
-            )
+            if st.button("Delete Child", key=f"delete_child_button_{edit_child_id}"):
+                delete_child_and_clear_parent_links(edit_child_id)
+                for param in ("delete_child", "edit_child", "children_edit"):
+                    st.query_params.pop(param, None)
+                st.success("Child deleted.")
+                st.rerun()
 
             if update_submitted:
                 if not edited_name or edited_dob is None:
