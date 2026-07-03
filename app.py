@@ -699,10 +699,17 @@ st.markdown(
     .current-thumb-preview {{
         display: grid; justify-items: center; gap: 10px; color: var(--muted);
         font-weight: 900; margin: 0 0 12px;
+        min-height: 250px;
+        overflow: hidden;
     }}
     .current-thumb-preview .child-thumb {{
         width: 190px; height: 230px; min-height: 230px; border-radius: 8px;
         margin: 0; align-self: center; object-fit: contain;
+        position: static;
+        left: auto;
+        bottom: auto;
+        max-width: 100%;
+        background: transparent;
     }}
     .parent-row {{
         border: 1px solid var(--line); border-radius: 8px; background: #fffaf1;
