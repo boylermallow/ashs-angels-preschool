@@ -866,6 +866,9 @@ st.markdown(
     div[data-testid="stTextArea"] textarea::placeholder {{
         color: rgba(35,52,95,.48) !important;
     }}
+    div[data-testid="InputInstructions"] {{
+        display: none !important;
+    }}
     div[data-testid="stSegmentedControl"] {{
         width: fit-content;
         max-width: 100%;
@@ -1029,7 +1032,7 @@ def render_sign_in_dialog(selected_role):
 
     st.markdown(f'<div class="panel-title">{selected_role} Sign In</div>', unsafe_allow_html=True)
     email = st.text_input("Email address")
-    password = st.text_input("Password", type="password")
+    password = st.text_input("Password")
     if st.button(f"Sign In As {selected_role}", type="primary", width="stretch"):
         account = login_user(email, password, selected_role)
         if account:
