@@ -185,6 +185,8 @@ def sync_saved_login():
 def app_href(page=None, **params):
     query = []
     if page:
+        if page == "Dashboard":
+            page = "Children"
         query.append(f"app_page={quote(str(page))}")
     auth_token = st.query_params.get("auth")
     if auth_token:
@@ -1241,7 +1243,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Dashboard", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    nav_items = ["Children", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
     items_html = "\n".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
@@ -1262,7 +1264,7 @@ def render_side_menu(role, selected_page):
           </div>
         </div>
         <div class="side-menu">
-          <a class="side-logo-link" href="{app_href("Dashboard")}" target="_self" aria-label="Go to dashboard">
+          <a class="side-logo-link" href="{app_href("Children")}" target="_self" aria-label="Go to children">
             <img class="side-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
           </a>
           <div class="menu-label">Navigation</div>
@@ -1300,6 +1302,21 @@ def render_admin_children():
 
     if "show_add_child" not in st.session_state:
         st.session_state["show_add_child"] = False
+
+    st.markdown(
+        f"""
+        <div class="section-header">
+          <div class="section-title">Children</div>
+          <a class="section-edit" href="{app_href("Children", add_child=1)}" target="_self">Add Child</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.query_params.get("add_child"):
+        st.session_state["show_add_child"] = True
+        st.query_params.pop("add_child", None)
+        st.rerun()
 
     if message_child_id:
         child_to_message = next((child for child in children if child.get("ID") == message_child_id), None)
@@ -1375,7 +1392,7 @@ def render_admin_children():
                 st.query_params.pop("edit_child", None)
                 st.rerun()
 
-            delete_href = app_href("Dashboard", delete_child=edit_child_id)
+            delete_href = app_href("Children", delete_child=edit_child_id)
             st.markdown(
                 f'<a class="delete-link" href="{delete_href}" target="_self">Delete Child</a>',
                 unsafe_allow_html=True,
@@ -1427,7 +1444,7 @@ def render_admin_children():
                 )
                 if assigned_parent:
                     message_link = (
-                        f'<a class="message-link" href="{app_href("Dashboard", message_child=child_id)}" '
+                        f'<a class="message-link" href="{app_href("Children", message_child=child_id)}" '
                         f'aria-label="Message {html.escape(assigned_parent.get("FirstName", "parent"))}" '
                         f'title="Message {html.escape(assigned_parent.get("FirstName", "parent"))}" target="_self">{message_icon}</a>'
                     )
@@ -1436,7 +1453,7 @@ def render_admin_children():
                         f'<span class="message-link disabled" aria-label="No assigned parent" '
                         f'title="No approved parent assigned">{message_icon}</span>'
                     )
-                edit_link = f'<a class="edit-link" href="{app_href("Dashboard", children_edit=1, edit_child=child.get("ID", ""))}" aria-label="Edit child" title="Edit child" target="_self">...</a>'
+                edit_link = f'<a class="edit-link" href="{app_href("Children", children_edit=1, edit_child=child.get("ID", ""))}" aria-label="Edit child" title="Edit child" target="_self">...</a>'
                 sections_html.append(
                     '<div class="child-row">'
                     f'{child_thumb_html(child)}'
@@ -1551,19 +1568,21 @@ if BUILD_MODE:
 sync_saved_login()
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu", "add_child"):
         st.query_params.pop(protected_param, None)
     render_login()
     st.stop()
 
 
 current_role = st.session_state.get("role", "Parent")
-selected_page = st.query_params.get("app_page", "Dashboard")
-valid_pages = {"Dashboard", "Parents"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
+selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
+if current_role == "Admin" and selected_page == "Dashboard":
+    selected_page = "Children"
+valid_pages = {"Children", "Parents"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
 if selected_page not in valid_pages:
-    selected_page = "Dashboard"
+    selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if st.query_params.get("edit_child"):
-    selected_page = "Dashboard"
+    selected_page = "Children"
 if st.query_params.get("edit_parent"):
     selected_page = "Parents"
 
