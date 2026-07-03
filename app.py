@@ -355,6 +355,9 @@ st.markdown(
         left: 50%;
         transform: translateX(-50%);
     }}
+    .mobile-menu {{
+        display: none;
+    }}
     .menu-label {{
         color: var(--muted);
         font-size: .78rem;
@@ -874,6 +877,102 @@ st.markdown(
         overflow: hidden;
     }}
     @media (max-width: 760px) {{
+        .block-container {{
+            padding: .75rem .85rem 2rem;
+        }}
+        .side-menu {{
+            display: none;
+        }}
+        .mobile-menu {{
+            display: block;
+            position: sticky;
+            top: 46px;
+            z-index: 20;
+            margin: 34px 0 12px;
+        }}
+        .mobile-menu-button {{
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            min-height: 54px;
+            padding: 6px 12px 6px 6px;
+            background: rgba(255,255,255,.96);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: 0 10px 24px rgba(35,52,95,.13);
+            color: var(--brand-blue);
+            cursor: pointer;
+            list-style: none;
+            font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+            text-decoration: none !important;
+        }}
+        .mobile-menu-icon {{
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            background: var(--brand-blue);
+        }}
+        .mobile-menu-icon span,
+        .mobile-menu-icon::before,
+        .mobile-menu-icon::after {{
+            content: "";
+            display: block;
+            width: 21px;
+            height: 3px;
+            border-radius: 999px;
+            background: #ffffff;
+        }}
+        .mobile-menu-icon {{
+            gap: 4px;
+        }}
+        .mobile-menu-title {{
+            color: var(--brand-blue);
+            font-size: 1rem;
+            font-weight: 950;
+            line-height: 1.05;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .mobile-menu-page {{
+            color: var(--muted);
+            font-size: .74rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }}
+        .mobile-menu-panel {{
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            display: none;
+            gap: 8px;
+            padding: 10px;
+            background: rgba(255,255,255,.98);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: 0 18px 34px rgba(35,52,95,.18);
+        }}
+        .mobile-menu:focus-within .mobile-menu-panel {{
+            display: grid;
+        }}
+        .mobile-menu .menu-item,
+        .mobile-menu .sign-out {{
+            margin: 0;
+            min-height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+        }}
+        .mobile-menu .rainbow-rule {{
+            margin-top: 2px;
+        }}
         .app-top {{ align-items: flex-start; }}
         .top-logo {{ width: 96px; height: 66px; }}
         .quick-grid {{ grid-template-columns: 1fr; }}
@@ -1026,18 +1125,30 @@ def render_login():
 def render_side_menu(role, selected_page):
     nav_items = ["Dashboard", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
     items_html = "\n".join(
-        f'<a class="menu-item {"active" if item == selected_page else ""}" href="?app_page={quote(item)}">{html.escape(item)}</a>'
+        f'<a class="menu-item {"active" if item == selected_page else ""}" href="?app_page={quote(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
     )
     st.markdown(
         f"""
+        <div class="mobile-menu">
+          <button class="mobile-menu-button" type="button" aria-label="Open navigation menu">
+            <span class="mobile-menu-icon"><span></span></span>
+            <span class="mobile-menu-title">Ash's Angels</span>
+            <span class="mobile-menu-page">{html.escape(selected_page)}</span>
+          </button>
+          <div class="mobile-menu-panel">
+            {items_html}
+            <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
+            <div class="rainbow-rule"></div>
+          </div>
+        </div>
         <div class="side-menu">
-          <a class="side-logo-link" href="?app_page=Dashboard" aria-label="Go to dashboard">
+          <a class="side-logo-link" href="?app_page=Dashboard" target="_self" aria-label="Go to dashboard">
             <img class="side-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
           </a>
           <div class="menu-label">Navigation</div>
           {items_html}
-          <a class="sign-out" href="?sign_out=1">Sign out</a>
+          <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
           <div class="rainbow-rule"></div>
         </div>
         """,
@@ -1317,7 +1428,7 @@ if BUILD_MODE:
     st.session_state["email"] = DEFAULT_ADMIN_EMAIL
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu"):
         st.query_params.pop(protected_param, None)
     render_login()
     st.stop()
