@@ -808,7 +808,7 @@ st.markdown(
         color: var(--brand-blue) !important;
         font-size: 1.02rem !important;
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
-        font-weight: 900 !important;
+        font-weight: 760 !important;
         line-height: 1.15 !important;
     }}
     div[data-testid="stTextInput"] label p,
@@ -818,7 +818,7 @@ st.markdown(
     div[data-testid="stFileUploader"] label p {{
         color: var(--brand-blue) !important;
         font-size: 1.02rem !important;
-        font-weight: 900 !important;
+        font-weight: 760 !important;
         line-height: 1.15 !important;
     }}
     div[data-testid="stTextInput"] input,
@@ -836,7 +836,7 @@ st.markdown(
         color: var(--ink) !important;
         border: 2px solid #d9e5ef !important;
         font-size: 1.04rem !important;
-        font-weight: 900 !important;
+        font-weight: 620 !important;
         min-height: 48px !important;
         appearance: none !important;
         -webkit-appearance: none !important;
@@ -847,7 +847,7 @@ st.markdown(
     div[data-baseweb="select"] *,
     div[data-baseweb="textarea"] * {{
         color: var(--ink) !important;
-        font-weight: 900 !important;
+        font-weight: 620 !important;
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
     }}
     div[data-testid="stTextInput"] input,
@@ -878,7 +878,7 @@ st.markdown(
         caret-color: var(--brand-blue) !important;
         -webkit-text-fill-color: var(--ink) !important;
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
-        font-weight: 800 !important;
+        font-weight: 620 !important;
         padding: 14px !important;
         resize: vertical !important;
     }}
@@ -895,7 +895,7 @@ st.markdown(
         border: 2px solid #d9e5ef !important;
         border-radius: 8px !important;
         font-size: 1.04rem !important;
-        font-weight: 900 !important;
+        font-weight: 620 !important;
         min-height: 48px !important;
         box-shadow: none !important;
         line-height: 1.2 !important;
@@ -909,7 +909,7 @@ st.markdown(
         border-radius: 8px !important;
         caret-color: var(--brand-blue) !important;
         font-size: 1.04rem !important;
-        font-weight: 900 !important;
+        font-weight: 620 !important;
         min-height: 48px !important;
         box-shadow: none !important;
         line-height: 1.2 !important;
@@ -918,12 +918,12 @@ st.markdown(
     div[data-testid="stFileUploader"] section * {{
         color: var(--ink) !important;
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
-        font-weight: 900 !important;
+        font-weight: 620 !important;
     }}
     div[data-testid="stFileUploader"] section small,
     div[data-testid="stFileUploader"] section [data-testid="stMarkdownContainer"] p {{
         color: var(--muted) !important;
-        font-weight: 850 !important;
+        font-weight: 620 !important;
     }}
     div[data-testid="stFileUploader"] section button {{
         background: var(--brand-blue) !important;
@@ -960,7 +960,7 @@ st.markdown(
     }}
     div[role="option"] {{
         color: var(--ink) !important;
-        font-weight: 750 !important;
+        font-weight: 620 !important;
     }}
     div[role="option"]:hover {{
         background: #e9f4ff !important;
@@ -969,6 +969,7 @@ st.markdown(
     div[data-testid="stTextInput"] input::placeholder,
     div[data-testid="stTextArea"] textarea::placeholder {{
         color: rgba(35,52,95,.48) !important;
+        font-weight: 520 !important;
     }}
     div[data-testid="InputInstructions"] {{
         display: none !important;
