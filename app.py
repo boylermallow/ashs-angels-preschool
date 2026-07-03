@@ -1306,7 +1306,6 @@ def render_admin_children():
     st.markdown(
         f"""
         <div class="section-header">
-          <div class="section-title">Children</div>
           <a class="section-edit" href="{app_href("Children", add_child=1)}" target="_self">Add Child</a>
         </div>
         """,
