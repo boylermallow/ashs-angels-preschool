@@ -884,7 +884,7 @@ st.markdown(
     }}
     @media (max-width: 760px) {{
         .block-container {{
-            padding: .75rem .85rem 2rem;
+            padding: 0 .85rem 2rem;
         }}
         .side-menu {{
             display: none;
@@ -892,9 +892,11 @@ st.markdown(
         .mobile-menu {{
             display: block;
             position: sticky;
-            top: 46px;
-            z-index: 20;
-            margin: 34px 0 12px;
+            top: 0;
+            z-index: 50;
+            width: 100vw;
+            margin: 0 0 12px 50%;
+            transform: translateX(-50%);
         }}
         .mobile-menu-button {{
             display: grid;
@@ -903,10 +905,11 @@ st.markdown(
             gap: 10px;
             width: 100%;
             min-height: 54px;
-            padding: 6px 12px 6px 6px;
+            padding: 6px max(12px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
             background: rgba(255,255,255,.96);
-            border: 1px solid var(--line);
-            border-radius: 8px;
+            border: 0;
+            border-bottom: 1px solid var(--line);
+            border-radius: 0;
             box-shadow: 0 10px 24px rgba(35,52,95,.13);
             color: var(--brand-blue);
             cursor: pointer;
@@ -918,8 +921,11 @@ st.markdown(
             width: 42px;
             height: 42px;
             border-radius: 8px;
-            display: grid;
-            place-items: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
             background: var(--brand-blue);
         }}
         .mobile-menu-icon span,
@@ -931,9 +937,6 @@ st.markdown(
             height: 3px;
             border-radius: 999px;
             background: #ffffff;
-        }}
-        .mobile-menu-icon {{
-            gap: 4px;
         }}
         .mobile-menu-title {{
             color: var(--brand-blue);
@@ -953,15 +956,16 @@ st.markdown(
         }}
         .mobile-menu-panel {{
             position: absolute;
-            top: calc(100% + 8px);
+            top: 100%;
             left: 0;
             right: 0;
             display: none;
             gap: 8px;
-            padding: 10px;
+            padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
             background: rgba(255,255,255,.98);
-            border: 1px solid var(--line);
-            border-radius: 8px;
+            border: 0;
+            border-bottom: 1px solid var(--line);
+            border-radius: 0;
             box-shadow: 0 18px 34px rgba(35,52,95,.18);
         }}
         .mobile-menu:focus-within .mobile-menu-panel {{
