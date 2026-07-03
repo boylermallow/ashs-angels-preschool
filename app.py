@@ -583,7 +583,10 @@ st.markdown(
     }}
     .child-name {{
         color: var(--ink);
+        font-size: 1rem;
         font-weight: 900;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
     }}
     .child-details {{
         align-self: center;
@@ -616,6 +619,24 @@ st.markdown(
     @media (max-width: 760px) {{
         .session-columns {{
             grid-template-columns: 1fr;
+        }}
+    }}
+    @media (orientation: portrait) {{
+        .session-columns {{
+            grid-template-columns: 1fr;
+        }}
+        .session-group {{
+            width: 100%;
+        }}
+        .session-columns .child-row {{
+            grid-template-columns: 68px minmax(0, 1fr) auto;
+            min-height: 54px;
+            height: 54px;
+        }}
+        .session-columns .child-thumb {{
+            width: 68px;
+            height: 68px;
+            min-height: 68px;
         }}
     }}
     .status-pill {{
