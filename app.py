@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import html
 import json
 import os
@@ -134,6 +135,51 @@ def login_user(email, password, role):
     if not account or account.get("role") != role:
         return None
     return account if verify_password(password or "", account) else None
+
+
+def auth_signature(account):
+    message = f"{account.get('email', '').lower()}|{account.get('role', '')}"
+    secret = f"{account.get('salt', '')}|{account.get('hash', '')}"
+    return hmac.new(secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def make_auth_token(account):
+    email = account.get("email", "").lower()
+    role = account.get("role", "")
+    return f"{email}|{role}|{auth_signature(account)}"
+
+
+def restore_saved_login():
+    if st.session_state.get("logged_in"):
+        return
+    token = str(st.query_params.get("auth", "") or "")
+    try:
+        email, role, signature = token.split("|", 2)
+    except ValueError:
+        return
+
+    account = ensure_default_accounts().get(email.strip().lower())
+    if not account or account.get("role") != role:
+        return
+    if not hmac.compare_digest(signature, auth_signature(account)):
+        return
+
+    st.session_state["logged_in"] = True
+    st.session_state["role"] = account["role"]
+    st.session_state["email"] = account["email"]
+
+
+def sync_saved_login():
+    if not st.session_state.get("logged_in"):
+        return
+    email = str(st.session_state.get("email", "")).strip().lower()
+    role = st.session_state.get("role", "")
+    account = ensure_default_accounts().get(email)
+    if not account or account.get("role") != role:
+        return
+    token = make_auth_token(account)
+    if st.query_params.get("auth") != token:
+        st.query_params["auth"] = token
 
 
 def load_children():
@@ -884,19 +930,21 @@ st.markdown(
     }}
     @media (max-width: 760px) {{
         .block-container {{
-            padding: 0 .85rem 2rem;
+            padding: 66px .85rem 2rem;
         }}
         .side-menu {{
             display: none;
         }}
         .mobile-menu {{
             display: block;
-            position: sticky;
+            position: fixed;
             top: 0;
-            z-index: 50;
+            left: 0;
+            right: 0;
+            z-index: 999;
             width: 100vw;
-            margin: 0 0 12px 50%;
-            transform: translateX(-50%);
+            margin: 0;
+            transform: none;
         }}
         .mobile-menu-button {{
             display: grid;
@@ -1046,6 +1094,7 @@ def render_sign_in_dialog(selected_role):
             st.session_state["logged_in"] = True
             st.session_state["role"] = account["role"]
             st.session_state["email"] = account["email"]
+            st.query_params["auth"] = make_auth_token(account)
             st.session_state.pop("login_role", None)
             st.query_params.pop("login_role", None)
             st.rerun()
@@ -1432,10 +1481,14 @@ if st.query_params.get("sign_out"):
     st.query_params.clear()
     st.rerun()
 
+restore_saved_login()
+
 if BUILD_MODE:
     st.session_state["logged_in"] = True
     st.session_state["role"] = "Admin"
     st.session_state["email"] = DEFAULT_ADMIN_EMAIL
+
+sync_saved_login()
 
 if not st.session_state.get("logged_in"):
     for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu"):
