@@ -284,18 +284,6 @@ def format_dob(value):
     return parsed.strftime("%d %b %Y").lstrip("0")
 
 
-def child_name_class(name):
-    text = str(name or "").strip()
-    compact_length = len(text.replace(" ", ""))
-    if len(text) >= 24 or compact_length >= 21:
-        return "child-name fit-xs"
-    if len(text) >= 19 or compact_length >= 17:
-        return "child-name fit-sm"
-    if len(text) >= 15 or compact_length >= 14:
-        return "child-name fit-md"
-    return "child-name"
-
-
 st.markdown(
     f"""
     <style>
@@ -604,9 +592,9 @@ st.markdown(
     }}
     .child-name {{
         color: var(--ink);
-        font-size: 1rem;
+        font-size: .82rem;
         font-weight: 900;
-        line-height: 1.1;
+        line-height: 1.02;
         max-width: 100%;
         overflow: hidden;
         overflow-wrap: normal;
@@ -615,9 +603,6 @@ st.markdown(
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
     }}
-    .child-name.fit-md {{ font-size: .92rem; line-height: 1.04; }}
-    .child-name.fit-sm {{ font-size: .82rem; line-height: 1.02; }}
-    .child-name.fit-xs {{ font-size: .72rem; line-height: 1; }}
     .child-details {{
         align-self: center;
         grid-column: 2;
@@ -1226,7 +1211,7 @@ def render_admin_children():
                     '<div class="child-row">'
                     f'{child_thumb_html(child)}'
                     '<div class="child-details">'
-                    f'<div class="{child_name_class(child.get("Name", ""))}">{html.escape(child.get("Name", ""))}</div>'
+                    f'<div class="child-name">{html.escape(child.get("Name", ""))}</div>'
                     '</div>'
                     f'<div class="row-actions">{message_link}{edit_link}</div>'
                     '</div>'
