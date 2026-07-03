@@ -945,6 +945,7 @@ st.markdown(
             width: 100vw;
             margin: 0;
             transform: none;
+            overflow: visible;
         }}
         .mobile-menu-button {{
             display: grid;
@@ -963,6 +964,8 @@ st.markdown(
             list-style: none;
             font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
             text-decoration: none !important;
+            position: relative;
+            overflow: visible;
         }}
         .mobile-menu-icon {{
             width: 42px;
@@ -986,11 +989,16 @@ st.markdown(
             background: #ffffff;
         }}
         .mobile-menu-logo {{
-            justify-self: center;
-            width: 132px;
-            height: 44px;
+            position: absolute;
+            left: 50%;
+            top: 2px;
+            transform: translateX(-50%);
+            width: 158px;
+            height: 86px;
             object-fit: contain;
             display: block;
+            z-index: 2;
+            pointer-events: none;
         }}
         .mobile-menu-page {{
             color: var(--muted);
@@ -1004,6 +1012,7 @@ st.markdown(
             top: 100%;
             left: 0;
             right: 0;
+            z-index: 1;
             display: none;
             gap: 8px;
             padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
