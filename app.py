@@ -1378,7 +1378,7 @@ def render_admin_children():
 
             delete_href = app_href("Dashboard", delete_child=edit_child_id)
             st.markdown(
-                f'<a class="delete-link" href="{delete_href}">Delete Child</a>',
+                f'<a class="delete-link" href="{delete_href}" target="_self">Delete Child</a>',
                 unsafe_allow_html=True,
             )
 
@@ -1430,14 +1430,14 @@ def render_admin_children():
                     message_link = (
                         f'<a class="message-link" href="{app_href("Dashboard", message_child=child_id)}" '
                         f'aria-label="Message {html.escape(assigned_parent.get("FirstName", "parent"))}" '
-                        f'title="Message {html.escape(assigned_parent.get("FirstName", "parent"))}">{message_icon}</a>'
+                        f'title="Message {html.escape(assigned_parent.get("FirstName", "parent"))}" target="_self">{message_icon}</a>'
                     )
                 else:
                     message_link = (
                         f'<span class="message-link disabled" aria-label="No assigned parent" '
                         f'title="No approved parent assigned">{message_icon}</span>'
                     )
-                edit_link = f'<a class="edit-link" href="{app_href("Dashboard", children_edit=1, edit_child=child.get("ID", ""))}" aria-label="Edit child" title="Edit child">...</a>'
+                edit_link = f'<a class="edit-link" href="{app_href("Dashboard", children_edit=1, edit_child=child.get("ID", ""))}" aria-label="Edit child" title="Edit child" target="_self">...</a>'
                 sections_html.append(
                     '<div class="child-row">'
                     f'{child_thumb_html(child)}'
@@ -1497,7 +1497,7 @@ def render_parent_approvals():
                     format_func=lambda child_id: child_options.get(child_id, "No child assigned"),
                 )
                 saved = st.form_submit_button("Save Parent")
-            st.markdown(f'<a class="section-edit" href="{app_href("Parents")}">Cancel</a></div>', unsafe_allow_html=True)
+            st.markdown(f'<a class="section-edit" href="{app_href("Parents")}" target="_self">Cancel</a></div>', unsafe_allow_html=True)
             if saved:
                 parent_to_edit["FirstName"] = first_name.strip()
                 parent_to_edit["Email"] = email.strip()
@@ -1528,7 +1528,7 @@ def render_parent_approvals():
               <div class="child-meta">Emergency 2: {html.escape(parent.get("EmergencyContact2", ""))}</div>
               <div class="child-meta">Assigned child: {html.escape(child_name)}</div>
               <div class="status-pill">{html.escape(status)}</div>
-              <a class="edit-link" href="{edit_href}" aria-label="Edit parent" title="Edit parent">...</a>
+              <a class="edit-link" href="{edit_href}" aria-label="Edit parent" title="Edit parent" target="_self">...</a>
             </div>
             """,
             unsafe_allow_html=True,
