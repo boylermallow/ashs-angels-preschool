@@ -1353,8 +1353,8 @@ def render_admin_children():
             st.rerun()
 
         if submitted:
-            if not full_name or date_of_birth is None:
-                st.warning("Please add the child's full name and date of birth.")
+            if not full_name:
+                st.warning("Please add the child's full name.")
             else:
                 thumbnail_path = ""
                 if thumbnail is not None:
@@ -1364,7 +1364,7 @@ def render_admin_children():
                     {
                         "ID": uuid.uuid4().hex,
                         "Name": full_name.strip(),
-                        "DOB": date_of_birth.isoformat(),
+                        "DOB": date_of_birth.isoformat() if date_of_birth else "",
                         "Session": session,
                         "Thumbnail": thumbnail_path,
                     }
@@ -1408,8 +1408,8 @@ def render_admin_children():
                 )
 
             if update_submitted:
-                if not edited_name or edited_dob is None:
-                    st.warning("Please add the child's full name and date of birth.")
+                if not edited_name:
+                    st.warning("Please add the child's full name.")
                 else:
                     thumbnail_path = editing_child.get("Thumbnail", "")
                     if edited_thumbnail is not None:
@@ -1420,7 +1420,7 @@ def render_admin_children():
                             child.update(
                                 {
                                     "Name": edited_name.strip(),
-                                    "DOB": edited_dob.isoformat(),
+                                    "DOB": edited_dob.isoformat() if edited_dob else "",
                                     "Session": edited_session,
                                     "Thumbnail": thumbnail_path,
                                 }
