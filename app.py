@@ -182,6 +182,19 @@ def sync_saved_login():
         st.query_params["auth"] = token
 
 
+def app_href(page=None, **params):
+    query = []
+    if page:
+        query.append(f"app_page={quote(str(page))}")
+    auth_token = st.query_params.get("auth")
+    if auth_token:
+        query.append(f"auth={quote(str(auth_token))}")
+    for key, value in params.items():
+        if value not in (None, ""):
+            query.append(f"{quote(str(key))}={quote(str(value))}")
+    return "?" + "&".join(query) if query else "?"
+
+
 def load_children():
     children = read_json(CHILDREN_FILE, [])
     return children if isinstance(children, list) else []
@@ -1213,7 +1226,7 @@ def render_login():
 def render_side_menu(role, selected_page):
     nav_items = ["Dashboard", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
     items_html = "\n".join(
-        f'<a class="menu-item {"active" if item == selected_page else ""}" href="?app_page={quote(item)}" target="_self">{html.escape(item)}</a>'
+        f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
     )
     st.markdown(
@@ -1232,7 +1245,7 @@ def render_side_menu(role, selected_page):
           </div>
         </div>
         <div class="side-menu">
-          <a class="side-logo-link" href="?app_page=Dashboard" target="_self" aria-label="Go to dashboard">
+          <a class="side-logo-link" href="{app_href("Dashboard")}" target="_self" aria-label="Go to dashboard">
             <img class="side-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
           </a>
           <div class="menu-label">Navigation</div>
@@ -1345,7 +1358,7 @@ def render_admin_children():
                 st.query_params.pop("edit_child", None)
                 st.rerun()
 
-            delete_href = f"?app_page=Dashboard&delete_child={html.escape(edit_child_id)}"
+            delete_href = app_href("Dashboard", delete_child=edit_child_id)
             st.markdown(
                 f'<a class="delete-link" href="{delete_href}">Delete Child</a>',
                 unsafe_allow_html=True,
@@ -1397,7 +1410,7 @@ def render_admin_children():
                 )
                 if assigned_parent:
                     message_link = (
-                        f'<a class="message-link" href="?app_page=Dashboard&message_child={html.escape(child_id)}" '
+                        f'<a class="message-link" href="{app_href("Dashboard", message_child=child_id)}" '
                         f'aria-label="Message {html.escape(assigned_parent.get("FirstName", "parent"))}" '
                         f'title="Message {html.escape(assigned_parent.get("FirstName", "parent"))}">{message_icon}</a>'
                     )
@@ -1406,7 +1419,7 @@ def render_admin_children():
                         f'<span class="message-link disabled" aria-label="No assigned parent" '
                         f'title="No approved parent assigned">{message_icon}</span>'
                     )
-                edit_link = f'<a class="edit-link" href="?children_edit=1&edit_child={html.escape(child.get("ID", ""))}" aria-label="Edit child" title="Edit child">...</a>'
+                edit_link = f'<a class="edit-link" href="{app_href("Dashboard", children_edit=1, edit_child=child.get("ID", ""))}" aria-label="Edit child" title="Edit child">...</a>'
                 sections_html.append(
                     '<div class="child-row">'
                     f'{child_thumb_html(child)}'
@@ -1466,7 +1479,7 @@ def render_parent_approvals():
                     format_func=lambda child_id: child_options.get(child_id, "No child assigned"),
                 )
                 saved = st.form_submit_button("Save Parent")
-            st.markdown('<a class="section-edit" href="?app_page=Parents">Cancel</a></div>', unsafe_allow_html=True)
+            st.markdown(f'<a class="section-edit" href="{app_href("Parents")}">Cancel</a></div>', unsafe_allow_html=True)
             if saved:
                 parent_to_edit["FirstName"] = first_name.strip()
                 parent_to_edit["Email"] = email.strip()
@@ -1487,7 +1500,7 @@ def render_parent_approvals():
     for parent in parents:
         status = parent.get("Status", "Pending")
         child_name = parent.get("ChildName") or "No child assigned"
-        edit_href = f'?app_page=Parents&edit_parent={quote(parent.get("ID", ""))}'
+        edit_href = app_href("Parents", edit_parent=parent.get("ID", ""))
         st.markdown(
             f"""
             <div class="parent-row">
