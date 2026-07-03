@@ -357,6 +357,14 @@ st.markdown(
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
     }}
     [data-testid="stHeader"] {{ background: transparent; }}
+    #MainMenu,
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    [data-testid="stStatusWidget"],
+    [data-testid="stDeployButton"] {{
+        display: none !important;
+        visibility: hidden !important;
+    }}
     .block-container {{
         max-width: 100%;
         padding: 2rem 2.75rem 3rem;
@@ -947,6 +955,11 @@ st.markdown(
             transform: none;
             overflow: visible;
         }}
+        .mobile-menu-toggle {{
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }}
         .mobile-menu-button {{
             display: grid;
             grid-template-columns: 48px minmax(0, 1fr) 48px;
@@ -954,12 +967,12 @@ st.markdown(
             width: 100%;
             min-height: 54px;
             padding: 6px max(12px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
-            background: rgba(255,255,255,.96);
+            background: var(--brand-blue);
             border: 0;
-            border-bottom: 1px solid var(--line);
+            border-bottom: 1px solid rgba(255,255,255,.18);
             border-radius: 0;
             box-shadow: 0 10px 24px rgba(35,52,95,.13);
-            color: var(--brand-blue);
+            color: #ffffff;
             cursor: pointer;
             list-style: none;
             font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
@@ -976,7 +989,8 @@ st.markdown(
             align-items: center;
             justify-content: center;
             gap: 2px;
-            background: var(--brand-blue);
+            background: rgba(255,255,255,.16);
+            border: 1px solid rgba(255,255,255,.24);
         }}
         .mobile-menu-icon span,
         .mobile-menu-icon::before,
@@ -1000,12 +1014,9 @@ st.markdown(
             z-index: 2;
             pointer-events: none;
         }}
-        .mobile-menu-page {{
-            color: var(--muted);
-            font-size: .74rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            white-space: nowrap;
+        .mobile-menu-spacer {{
+            width: 48px;
+            height: 42px;
         }}
         .mobile-menu-panel {{
             position: absolute;
@@ -1022,7 +1033,7 @@ st.markdown(
             border-radius: 0;
             box-shadow: 0 18px 34px rgba(35,52,95,.18);
         }}
-        .mobile-menu.open .mobile-menu-panel {{
+        .mobile-menu-toggle:checked ~ .mobile-menu-panel {{
             display: grid;
         }}
         .mobile-menu .menu-item,
@@ -1189,22 +1200,19 @@ def render_login():
 
 def render_side_menu(role, selected_page):
     nav_items = ["Dashboard", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
-    mobile_menu_open = st.query_params.get("mobile_menu") == "1"
-    mobile_menu_href = f"?app_page={quote(selected_page)}"
-    if not mobile_menu_open:
-        mobile_menu_href += "&mobile_menu=1"
     items_html = "\n".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="?app_page={quote(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
     )
     st.markdown(
         f"""
-        <div class="mobile-menu {'open' if mobile_menu_open else ''}">
-          <a class="mobile-menu-button" href="{mobile_menu_href}" target="_self" aria-label="{'Close' if mobile_menu_open else 'Open'} navigation menu">
+        <div class="mobile-menu">
+          <input class="mobile-menu-toggle" id="mobile-menu-toggle" type="checkbox" aria-label="Open navigation menu">
+          <label class="mobile-menu-button" for="mobile-menu-toggle">
             <span class="mobile-menu-icon"><span></span></span>
             <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
-            <span class="mobile-menu-page">{html.escape(selected_page)}</span>
-          </a>
+            <span class="mobile-menu-spacer" aria-hidden="true"></span>
+          </label>
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
