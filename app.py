@@ -542,7 +542,27 @@ st.markdown(
         border: 1px solid var(--line) !important;
         border-radius: 8px !important;
         box-shadow: var(--shadow) !important;
-        padding: 18px !important;
+        padding: 22px 24px 30px !important;
+    }}
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 12px !important;
+        width: fit-content !important;
+        max-width: 100% !important;
+        margin-top: 18px !important;
+    }}
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div {{
+        flex: 0 0 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+    }}
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) div[data-testid="stFormSubmitButton"] button {{
+        width: auto !important;
+        min-width: 126px !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
     }}
     .panel-title {{ font-size: 1.15rem; font-weight: 900; color: var(--brand-blue); margin-bottom: 8px; }}
     .section-title {{
