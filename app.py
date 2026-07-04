@@ -1055,19 +1055,19 @@ st.markdown(
         outline: 3px solid rgba(49,84,165,.26) !important;
         outline-offset: 2px !important;
     }}
-    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:hover {{
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(4) div[data-testid="stFormSubmitButton"] button:hover {{
         background: #c82032 !important;
         border-color: #a81526 !important;
         color: #ffffff !important;
         box-shadow: 0 8px 18px rgba(200,32,50,.24) !important;
     }}
-    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button {{
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(4) div[data-testid="stFormSubmitButton"] button {{
         color: #ffffff !important;
         border-color: #a81526 !important;
         background: #c82032 !important;
     }}
-    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:hover,
-    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:active {{
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(4) div[data-testid="stFormSubmitButton"] button:hover,
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(4) div[data-testid="stFormSubmitButton"] button:active {{
         background: #c82032 !important;
         border-color: #a81526 !important;
         color: #ffffff !important;
@@ -1086,6 +1086,22 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] button:disabled * {{
         color: #ffffff !important;
         fill: #ffffff !important;
+    }}
+    @media (max-width: 760px) {{
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            width: 100% !important;
+        }}
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div {{
+            width: 100% !important;
+        }}
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) div[data-testid="stFormSubmitButton"] button {{
+            width: 100% !important;
+            min-width: 0 !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }}
     }}
     div[data-testid="stTextInput"] label,
     div[data-testid="stTextInput"] label span,
@@ -1730,8 +1746,9 @@ def render_admin_children():
                             f'<div class="current-thumb-preview">{child_thumb_html(preview_child)}<span>New thumbnail preview</span></div>',
                             unsafe_allow_html=True,
                         )
-                save_col, cancel_col, delete_col = st.columns([1, 1, 1], gap="small")
+                save_col, remove_thumb_col, cancel_col, delete_col = st.columns([1, 1, 1, 1], gap="small")
                 update_submitted = save_col.form_submit_button("Save Changes")
+                remove_thumbnail_submitted = remove_thumb_col.form_submit_button("Remove Thumbnail")
                 cancel_submitted = cancel_col.form_submit_button("Cancel Edit")
                 delete_submitted = delete_col.form_submit_button("Delete Child")
 
@@ -1746,6 +1763,26 @@ def render_admin_children():
 
             if st.session_state.get("confirm_delete_child_id") == edit_child_id:
                 render_delete_child_dialog(editing_child)
+
+            if remove_thumbnail_submitted:
+                st.session_state.pop("confirm_delete_child_id", None)
+                if not edited_name:
+                    st.warning("Please add the child's full name.")
+                else:
+                    for child in children:
+                        if child.get("ID") == edit_child_id:
+                            child.update(
+                                {
+                                    "Name": edited_name.strip(),
+                                    "DOB": edited_dob.isoformat() if edited_dob else "",
+                                    "Session": edited_session,
+                                    "Thumbnail": "",
+                                }
+                            )
+                            break
+                    save_children(children)
+                    st.success("Thumbnail removed.")
+                    st.rerun()
 
             if update_submitted:
                 st.session_state.pop("confirm_delete_child_id", None)
