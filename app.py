@@ -1229,7 +1229,7 @@ st.markdown(
             height: 54px;
             margin: 0;
             opacity: 0;
-            z-index: 30;
+            z-index: 70;
             pointer-events: auto;
             appearance: none;
             -webkit-appearance: none;
@@ -1303,7 +1303,7 @@ st.markdown(
             left: 50%;
             top: -8px;
             transform: translateX(-50%);
-            z-index: 10;
+            z-index: 30;
             display: block;
             pointer-events: auto;
         }}
@@ -1316,7 +1316,7 @@ st.markdown(
             top: 100%;
             left: 0;
             right: 0;
-            z-index: 40;
+            z-index: 80;
             display: none;
             gap: 8px;
             padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
