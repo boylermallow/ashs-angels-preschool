@@ -422,8 +422,7 @@ def child_thumb_html(child):
         path = APP_DIR / thumb
         if path.exists():
             return f'<img class="child-thumb" src="{asset_url(path)}" alt="{html.escape(child.get("Name", "Child"))}">'
-    initials = "".join(part[0] for part in str(child.get("Name", "Child")).split()[:2]).upper() or "AA"
-    return f'<div class="child-thumb placeholder">{initials}</div>'
+    return '<div class="child-thumb placeholder" aria-label="No child photo"></div>'
 
 
 def format_dob(value):
@@ -840,8 +839,26 @@ st.markdown(
         background: transparent; border: 0;
     }}
     .child-thumb.placeholder {{
-        display: grid; place-items: center; color: white; background: var(--brand-blue);
-        font-weight: 950;
+        display: grid;
+        place-items: center;
+        background: #eef5fb;
+        border: 1px solid rgba(47,79,159,.12);
+        border-radius: 8px;
+        overflow: hidden;
+    }}
+    .child-thumb.placeholder::before {{
+        content: "";
+        width: 34px;
+        height: 34px;
+        display: block;
+        opacity: .38;
+        background: var(--brand-blue);
+        -webkit-mask:
+            radial-gradient(circle at 50% 28%, #000 0 8px, transparent 8.5px),
+            radial-gradient(ellipse at 50% 82%, #000 0 19px, transparent 19.5px);
+        mask:
+            radial-gradient(circle at 50% 28%, #000 0 8px, transparent 8.5px),
+            radial-gradient(ellipse at 50% 82%, #000 0 19px, transparent 19.5px);
     }}
     .child-name {{
         color: var(--ink);
