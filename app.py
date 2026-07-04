@@ -854,6 +854,20 @@ st.markdown(
     .session-columns .child-row {{
         grid-template-columns: 58px minmax(0, 1fr) auto;
     }}
+    .profile-link {{
+        grid-column: 1 / 3;
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        min-height: 46px;
+        color: inherit !important;
+        text-decoration: none !important;
+        cursor: pointer;
+    }}
+    .profile-link:hover .child-name {{
+        color: var(--brand-blue);
+    }}
     .row-actions {{
         grid-column: 3;
         display: inline-flex;
@@ -913,7 +927,6 @@ st.markdown(
     }}
     .child-details {{
         align-self: center;
-        grid-column: 2;
         padding: 4px 0;
     }}
     .edit-link {{
@@ -1777,13 +1790,16 @@ def render_admin_children():
                         f'<span class="message-link disabled" aria-label="No assigned parent" '
                         f'title="No approved parent assigned">{message_icon}</span>'
                     )
-                edit_link = f'<a class="edit-link" href="{app_href("Children", children_edit=1, edit_child=child.get("ID", ""))}" aria-label="Edit child" title="Edit child" target="_self">...</a>'
+                profile_href = app_href("Children", children_edit=1, edit_child=child_id)
+                edit_link = f'<a class="edit-link" href="{profile_href}" aria-label="Edit child" title="Edit child" target="_self">...</a>'
                 sections_html.append(
                     '<div class="child-row">'
+                    f'<a class="profile-link" href="{profile_href}" target="_self" aria-label="Open {html.escape(child.get("Name", "child"))} profile">'
                     f'{child_thumb_html(child)}'
                     '<div class="child-details">'
                     f'<div class="child-name">{html.escape(child.get("Name", ""))}</div>'
                     '</div>'
+                    '</a>'
                     f'<div class="row-actions">{message_link}{edit_link}</div>'
                     '</div>'
                 )
