@@ -1214,7 +1214,7 @@ st.markdown(
     }}
     @media (max-width: 760px) {{
         .block-container {{
-            padding: 66px .85rem 2rem;
+            padding: 56px .85rem 2rem;
         }}
         .side-menu {{
             display: none;
@@ -1303,15 +1303,15 @@ st.markdown(
             transform: translateY(-3.5px) rotate(-45deg);
         }}
         .mobile-menu-logo {{
-            width: 200px;
-            height: 110px;
+            width: 210px;
+            height: 116px;
             object-fit: contain;
             display: block;
         }}
         .mobile-menu-logo-link {{
             position: absolute;
             left: 50%;
-            top: -1px;
+            top: 0;
             transform: translateX(-50%);
             z-index: 30;
             display: block;
