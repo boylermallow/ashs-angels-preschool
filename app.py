@@ -616,6 +616,27 @@ def child_birthday_text(dob_value):
     return dob_value.strftime("%d %b").lstrip("0")
 
 
+def next_birthday_date(dob_value):
+    if not dob_value:
+        return None
+    if isinstance(dob_value, str):
+        try:
+            dob_value = date.fromisoformat(dob_value)
+        except ValueError:
+            return None
+    today = date.today()
+    try:
+        upcoming = dob_value.replace(year=today.year)
+    except ValueError:
+        upcoming = date(today.year, 2, 28)
+    if upcoming < today:
+        try:
+            upcoming = dob_value.replace(year=today.year + 1)
+        except ValueError:
+            upcoming = date(today.year + 1, 2, 28)
+    return upcoming
+
+
 def cake_icon_html():
     return (
         '<svg class="cake-icon" viewBox="0 0 32 32" aria-hidden="true">'
@@ -1350,6 +1371,36 @@ st.markdown(
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
     }}
+    .birthday-card {{
+        display: grid;
+        grid-template-columns: 70px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+    }}
+    .birthday-card .child-thumb {{
+        position: static;
+        width: 70px;
+        height: 70px;
+        min-height: 70px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: transparent;
+    }}
+    .birthday-card .child-thumb.placeholder {{
+        object-fit: contain;
+        opacity: .72;
+    }}
+    .birthday-date {{
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--brand-blue);
+        background: #e9f4ff;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-weight: 950;
+        white-space: nowrap;
+    }}
     .parent-actions {{
         display: flex;
         align-items: center;
@@ -1869,6 +1920,18 @@ st.markdown(
             gap: 12px;
             padding: 14px;
         }}
+        .birthday-card {{
+            grid-template-columns: 64px minmax(0, 1fr);
+        }}
+        .birthday-card .child-thumb {{
+            width: 64px;
+            height: 64px;
+            min-height: 64px;
+        }}
+        .birthday-date {{
+            grid-column: 1 / -1;
+            width: fit-content;
+        }}
         .parent-details {{
             grid-template-columns: 1fr;
             gap: 7px;
@@ -2129,7 +2192,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Children", "Parents", "Messages", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    nav_items = ["Children", "Parents", "Messages", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
     items_html = "\n".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
@@ -2686,6 +2749,60 @@ def render_admin_messages():
     st.markdown("</div></div>", unsafe_allow_html=True)
 
 
+def render_admin_birthdays():
+    children = load_children()
+    dated_children = []
+    undated_children = []
+    for child in children:
+        upcoming = next_birthday_date(child.get("DOB", ""))
+        if upcoming:
+            dated_children.append((upcoming, child.get("Name", ""), child))
+        else:
+            undated_children.append(child)
+    dated_children.sort(key=lambda item: (item[0], item[1].lower()))
+    undated_children.sort(key=lambda child: child.get("Name", "").lower())
+
+    st.markdown('<div class="panel parents-panel"><div class="panel-title">Birthdays</div>', unsafe_allow_html=True)
+    if not children:
+        st.markdown('<div class="muted">No children have been added yet.</div></div>', unsafe_allow_html=True)
+        return
+
+    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
+    for upcoming, _child_name, child in dated_children:
+        birthday = child_birthday_text(child.get("DOB", ""))
+        age = child_age_text(child.get("DOB", ""))
+        next_text = upcoming.strftime("%d %b %Y").lstrip("0")
+        st.markdown(
+            f"""
+            <div class="parent-row birthday-card">
+              {child_thumb_html(child)}
+              <div>
+                <div class="parent-name">{html.escape(child.get("Name", "Unnamed child"))}</div>
+                <div class="parent-detail"><strong>Birthday:</strong> {html.escape(birthday)}</div>
+                <div class="parent-detail"><strong>Age:</strong> {html.escape(age or "Not available")}</div>
+              </div>
+              <div class="birthday-date">{cake_icon_html()}<span>{html.escape(next_text)}</span></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    for child in undated_children:
+        st.markdown(
+            f"""
+            <div class="parent-row birthday-card">
+              {child_thumb_html(child)}
+              <div>
+                <div class="parent-name">{html.escape(child.get("Name", "Unnamed child"))}</div>
+                <div class="parent-detail">No date of birth added.</div>
+              </div>
+              <div class="parent-status pending">Missing DOB</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+
 def render_parent_approvals():
     parents = load_parents()
     children = load_children()
@@ -2835,7 +2952,7 @@ current_role = st.session_state.get("role", "Parent")
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
-valid_pages = {"Children", "Parents", "Messages", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
+valid_pages = {"Children", "Parents", "Messages", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
@@ -2856,6 +2973,8 @@ with content_col:
             render_parent_approvals()
         elif selected_page == "Messages":
             render_admin_messages()
+        elif selected_page == "Birthdays":
+            render_admin_birthdays()
         elif selected_page == "Settings":
             render_admin_settings()
         else:
