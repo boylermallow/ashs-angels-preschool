@@ -1089,9 +1089,69 @@ st.markdown(
         max-width: 100%;
         background: transparent;
     }}
+    .parents-panel {{
+        min-height: auto;
+        padding: 18px 18px 20px;
+    }}
+    .parents-panel .section-title {{
+        margin-bottom: 14px;
+    }}
+    .parents-list {{
+        display: grid;
+        gap: 12px;
+    }}
     .parent-row {{
-        border: 1px solid var(--line); border-radius: 8px; background: #fffaf1;
-        padding: 12px; margin-bottom: 10px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: start;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffaf1;
+        padding: 16px;
+    }}
+    .parent-name {{
+        color: var(--ink);
+        font-size: 1.02rem;
+        font-weight: 900;
+        line-height: 1.15;
+        margin-bottom: 10px;
+    }}
+    .parent-details {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 16px;
+    }}
+    .parent-detail {{
+        color: var(--muted);
+        font-size: .94rem;
+        font-weight: 650;
+        line-height: 1.25;
+    }}
+    .parent-detail strong {{
+        color: var(--ink);
+        font-weight: 850;
+    }}
+    .parent-actions {{
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: flex-end;
+    }}
+    .parent-status {{
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        border-radius: 999px;
+        padding: 0 12px;
+        background: #e9f4ff;
+        color: var(--brand-blue);
+        font-size: .9rem;
+        font-weight: 900;
+    }}
+    .parent-status.pending {{
+        background: #fff1c7;
+        color: #8a5200;
     }}
     @media (max-width: 760px) {{
         .session-columns {{
@@ -1586,6 +1646,18 @@ st.markdown(
         .app-top {{ align-items: flex-start; }}
         .top-logo {{ width: 96px; height: 66px; }}
         .quick-grid {{ grid-template-columns: 1fr; }}
+        .parent-row {{
+            grid-template-columns: 1fr;
+            gap: 12px;
+            padding: 14px;
+        }}
+        .parent-details {{
+            grid-template-columns: 1fr;
+            gap: 7px;
+        }}
+        .parent-actions {{
+            justify-content: space-between;
+        }}
         .login-head {{ align-items: flex-start; }}
         .login-logo {{ width: 96px; height: 66px; }}
         .role-grid {{ grid-template-columns: 1fr; }}
@@ -2136,8 +2208,7 @@ def render_parent_approvals():
     if parents_changed:
         save_parents(parents)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="panel"><div class="section-title">Parents</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel parents-panel"><div class="panel-title">Parents</div>', unsafe_allow_html=True)
     if not parents:
         st.markdown('<div class="muted">No parent registrations yet.</div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -2185,26 +2256,34 @@ def render_parent_approvals():
         else:
             st.markdown('<div class="muted">That parent could not be found.</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
     for parent in parents:
         status = parent.get("Status", "Pending")
         child_name = parent.get("ChildName") or "No child assigned"
         edit_href = app_href("Parents", edit_parent=parent.get("ID", ""))
+        status_class = "approved" if status == "Approved" else "pending"
         st.markdown(
             f"""
             <div class="parent-row">
-              <div class="child-name">{html.escape(parent.get("FirstName", ""))}</div>
-              <div class="child-meta">{html.escape(parent.get("Email", ""))}</div>
-              <div class="child-meta">Emergency 1: {html.escape(parent.get("EmergencyContact1", ""))}</div>
-              <div class="child-meta">Emergency 2: {html.escape(parent.get("EmergencyContact2", ""))}</div>
-              <div class="child-meta">Assigned child: {html.escape(child_name)}</div>
-              <div class="status-pill">{html.escape(status)}</div>
-              <a class="edit-link" href="{edit_href}" aria-label="Edit parent" title="Edit parent" target="_self">...</a>
+              <div>
+                <div class="parent-name">{html.escape(parent.get("FirstName", ""))}</div>
+                <div class="parent-details">
+                  <div class="parent-detail"><strong>Email:</strong> {html.escape(parent.get("Email", ""))}</div>
+                  <div class="parent-detail"><strong>Assigned child:</strong> {html.escape(child_name)}</div>
+                  <div class="parent-detail"><strong>Emergency 1:</strong> {html.escape(parent.get("EmergencyContact1", "") or "Not added")}</div>
+                  <div class="parent-detail"><strong>Emergency 2:</strong> {html.escape(parent.get("EmergencyContact2", "") or "Not added")}</div>
+                </div>
+              </div>
+              <div class="parent-actions">
+                <div class="parent-status {status_class}">{html.escape(status)}</div>
+                <a class="edit-link" href="{edit_href}" aria-label="Edit parent" title="Edit parent" target="_self">...</a>
+              </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 if st.query_params.get("sign_out"):
