@@ -944,17 +944,17 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] button {{
         border-radius: 8px; min-height: 44px; font-weight: 900 !important;
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
-        background: #fffaf1 !important; color: var(--brand-blue) !important;
-        border: 1px solid var(--line) !important;
+        background: var(--brand-blue) !important; color: #ffffff !important;
+        border: 1px solid var(--brand-blue) !important;
         box-shadow: none !important;
         transition: transform .16s ease, background-color .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease !important;
     }}
     div[data-testid="stButton"] button:hover,
     div[data-testid="stFormSubmitButton"] button:hover {{
-        background: #e9f4ff !important;
+        background: #203d86 !important;
         border-color: var(--brand-blue) !important;
-        color: var(--brand-blue) !important;
-        box-shadow: 0 6px 14px rgba(35,52,95,.14) !important;
+        color: #ffffff !important;
+        box-shadow: 0 8px 18px rgba(35,52,95,.22) !important;
         transform: translateY(-1px) !important;
     }}
     div[data-testid="stButton"] button:active,
@@ -974,9 +974,9 @@ st.markdown(
         box-shadow: 0 8px 18px rgba(200,32,50,.24) !important;
     }}
     div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button {{
-        color: #c82032 !important;
-        border-color: rgba(200,32,50,.35) !important;
-        background: #fff7f8 !important;
+        color: #ffffff !important;
+        border-color: #a81526 !important;
+        background: #c82032 !important;
     }}
     div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:hover,
     div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:active {{
@@ -990,8 +990,8 @@ st.markdown(
     }}
     div[data-testid="stButton"] button:disabled,
     div[data-testid="stFormSubmitButton"] button:disabled {{
-        background: rgba(255,250,241,.62) !important;
-        color: rgba(47,79,159,.48) !important;
+        background: rgba(41,73,153,.36) !important;
+        color: rgba(255,255,255,.72) !important;
         opacity: 1 !important;
     }}
     div[data-testid="stTextInput"] label,
