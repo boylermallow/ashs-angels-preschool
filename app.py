@@ -416,6 +416,16 @@ def send_parent_notification(child, parent, message_body):
     save_messages(messages)
 
 
+def show_quick_notice(message):
+    if hasattr(st, "toast"):
+        st.toast(message)
+    else:
+        st.markdown(
+            f'<div class="quick-toast">{html.escape(message)}</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def child_thumb_html(child):
     thumb = child.get("Thumbnail") or ""
     if thumb:
@@ -759,6 +769,25 @@ st.markdown(
     }}
     div[data-testid="stAlert"][data-baseweb="notification"] {{
         background: #d9f2df !important;
+    }}
+    .quick-toast {{
+        position: fixed;
+        left: 50%;
+        top: 86px;
+        transform: translateX(-50%);
+        z-index: 2147483647;
+        background: #d9f2df;
+        color: var(--ink);
+        border: 1px solid rgba(31,111,68,.28);
+        border-radius: 8px;
+        padding: 14px 18px;
+        font-weight: 850;
+        box-shadow: 0 14px 30px rgba(35,52,95,.16);
+        animation: quickToastFade 2.6s ease forwards;
+    }}
+    @keyframes quickToastFade {{
+        0%, 72% {{ opacity: 1; }}
+        100% {{ opacity: 0; pointer-events: none; }}
     }}
     .danger-confirm {{
         background: #c82032;
@@ -1598,7 +1627,7 @@ def render_admin_children():
         st.success(notification_sent)
     child_added_message = st.session_state.pop("child_added_message", "")
     if child_added_message:
-        st.success(child_added_message)
+        show_quick_notice(child_added_message)
     data_save_warning = st.session_state.pop("data_save_warning", "")
     if data_save_warning:
         st.warning(data_save_warning)
@@ -1782,6 +1811,7 @@ def render_add_child_dialog():
             save_children(children)
             st.session_state["show_add_child"] = False
             st.session_state["child_added_message"] = "Child added."
+            st.query_params["app_page"] = "Children"
             st.rerun()
 
 
@@ -1796,7 +1826,7 @@ def render_admin_settings():
         st.warning(data_save_warning)
     child_added_message = st.session_state.pop("child_added_message", "")
     if child_added_message:
-        st.success(child_added_message)
+        show_quick_notice(child_added_message)
 
     if "show_add_child" not in st.session_state:
         st.session_state["show_add_child"] = False
