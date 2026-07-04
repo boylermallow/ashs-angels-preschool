@@ -670,6 +670,39 @@ st.markdown(
         padding: 0 16px;
         text-decoration: none !important;
     }}
+    .add-child-icon {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #fffaf1;
+        color: var(--brand-blue) !important;
+        font-size: 1.45rem;
+        font-weight: 950;
+        line-height: 1;
+        text-decoration: none !important;
+        transition: transform .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }}
+    .add-child-icon:hover {{
+        background: var(--brand-blue);
+        color: #ffffff !important;
+        border-color: var(--brand-blue);
+        box-shadow: 0 8px 18px rgba(35,52,95,.18);
+        transform: translateY(-1px);
+    }}
+    .session-heading {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }}
+    .session-heading .session-title {{
+        margin: 0;
+    }}
     .children-panel {{
         padding-top: 10px;
         padding-bottom: 10px;
@@ -1578,8 +1611,14 @@ def render_admin_children():
         sections_html = ['<div class="child-list session-columns">']
         for session_name in SESSIONS:
             session_children = [child for child in children if child.get("Session") == session_name]
+            add_child_href = app_href("Settings", add_child=1)
             sections_html.append(
-                f'<div class="session-group"><div class="session-title">{html.escape(session_name)}</div><div class="child-list">'
+                '<div class="session-group">'
+                '<div class="session-heading">'
+                f'<div class="session-title">{html.escape(session_name)}</div>'
+                f'<a class="add-child-icon" href="{add_child_href}" target="_self" aria-label="Add child" title="Add child">+</a>'
+                '</div>'
+                '<div class="child-list">'
             )
             if not session_children:
                 sections_html.append('<div class="muted">No children in this session yet.</div>')
@@ -1632,7 +1671,7 @@ def render_admin_settings():
         f"""
         <div class="section-header">
           <div class="panel-title">Settings</div>
-          <a class="section-edit" href="{app_href("Settings", add_child=1)}" target="_self">Add Child</a>
+          <a class="add-child-icon" href="{app_href("Settings", add_child=1)}" target="_self" aria-label="Add child" title="Add child">+</a>
         </div>
         """,
         unsafe_allow_html=True,
