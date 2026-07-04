@@ -2586,10 +2586,12 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
               <div>
                 <div class="message-child">
                   {child_thumb_html(child)}
-                  <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                  <div>
+                    <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                    <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
+                    <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                  </div>
                 </div>
-                <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
-                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
               </div>
               <div class="parent-status">{'Replied' if replies else 'Message'}</div>
