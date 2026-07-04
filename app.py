@@ -684,7 +684,11 @@ st.markdown(
         margin-top: 8px;
     }}
     .login-shell {{
-        display: grid; place-items: center; margin-top: 18px;
+        display: grid;
+        place-items: center;
+        min-height: calc(100vh - 120px);
+        margin-top: 0;
+        padding: 24px 0;
     }}
     .login-card {{
         width: min(760px, 100%); background: var(--panel); border: 1px solid var(--line);
