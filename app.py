@@ -212,6 +212,10 @@ def verify_password(password, account):
     return False
 
 
+def phone_digits(value):
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
 def load_users():
     users = read_json(USERS_FILE, {})
     return users if isinstance(users, dict) else {}
@@ -714,6 +718,12 @@ st.markdown(
     .role-card.active {{ box-shadow: 0 0 0 2px rgba(255,255,255,.82) inset, 0 10px 22px rgba(35,52,95,.2); }}
     .role-title {{ color: #ffffff; font-weight: 950; font-size: 1.05rem; }}
     .role-copy {{ color: rgba(255,255,255,.88); line-height: 1.4; margin-top: 4px; }}
+    .forgot-link {{
+        display: inline-flex;
+        color: var(--brand-blue) !important;
+        font-weight: 950;
+        margin: 8px 0 14px;
+    }}
     div[role="dialog"] {{
         background: var(--panel) !important;
         border-radius: 8px !important;
@@ -1853,6 +1863,43 @@ def render_sign_in_dialog(selected_role):
             st.rerun()
         return
 
+    if selected_role == "ParentForgot":
+        st.markdown('<div class="panel-title">Reset Parent Password</div>', unsafe_allow_html=True)
+        st.caption("Enter the parent email and emergency contact 1 phone number, then choose a new password.")
+        email = st.text_input("Email address")
+        emergency_contact = st.text_input("Emergency contact 1 phone")
+        password = st.text_input("New password")
+        confirm_password = st.text_input("Confirm new password")
+        if st.button("Reset Password", type="primary", width="stretch"):
+            clean_email = str(email or "").strip().lower()
+            clean_contact = phone_digits(emergency_contact)
+            clean_password = str(password or "").strip()
+            clean_confirm_password = str(confirm_password or "").strip()
+            parents = load_parents()
+            parent = next((item for item in parents if item.get("Email", "").strip().lower() == clean_email), None)
+            saved_contact = phone_digits(parent.get("EmergencyContact1", "")) if parent else ""
+            if not clean_email or not clean_contact or not clean_password:
+                st.warning("Please add the email address, emergency contact 1 phone, and a new password.")
+            elif clean_password != clean_confirm_password:
+                st.warning("The two passwords do not match.")
+            elif not parent or not saved_contact or clean_contact != saved_contact:
+                st.error("Those details do not match a parent account.")
+            else:
+                parent.update(hash_password(clean_password))
+                save_parents(parents)
+                st.success("Password reset. Please use Parent Login.")
+                st.session_state["login_role"] = "Parent"
+                st.query_params["login_role"] = "Parent"
+        if st.button("Back to Parent Login", width="stretch"):
+            st.session_state["login_role"] = "Parent"
+            st.query_params["login_role"] = "Parent"
+            st.rerun()
+        if st.button("Cancel", width="stretch"):
+            st.session_state.pop("login_role", None)
+            st.query_params.pop("login_role", None)
+            st.rerun()
+        return
+
     login_label = "Parent" if selected_role == "Parent" else selected_role
     st.markdown(f'<div class="panel-title">{login_label} Sign In</div>', unsafe_allow_html=True)
     email = st.text_input("Email address")
@@ -1869,6 +1916,11 @@ def render_sign_in_dialog(selected_role):
             st.rerun()
         else:
             st.error("Those login details do not match an account for this role.")
+    if selected_role == "Parent":
+        st.markdown(
+            '<a class="forgot-link" href="?login_role=ParentForgot">Forgot password?</a>',
+            unsafe_allow_html=True,
+        )
     if st.button("Cancel", width="stretch"):
         st.session_state.pop("login_role", None)
         st.query_params.pop("login_role", None)
@@ -1914,7 +1966,7 @@ if hasattr(st, "dialog"):
 
 def render_login():
     selected_role = st.query_params.get("login_role") or st.session_state.get("login_role")
-    if selected_role not in {"Parent", "ParentRegister", "Admin"}:
+    if selected_role not in {"Parent", "ParentRegister", "ParentForgot", "Admin"}:
         selected_role = None
     st.markdown(
         f"""
