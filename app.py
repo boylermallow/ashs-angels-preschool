@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 
 import numpy as np
 import streamlit as st
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 
 APP_DIR = Path(__file__).parent
@@ -72,6 +72,30 @@ def asset_url(path):
     mime = "image/svg+xml" if suffix == ".svg" else "image/png"
     data = base64.b64encode(path.read_bytes()).decode("ascii")
     return f"data:{mime};base64,{data}"
+
+
+@st.cache_data(show_spinner=False)
+def child_silhouette_url():
+    scale = 4
+    width = height = 256
+    img = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    s = scale
+    ink = (20, 24, 32, 255)
+    white = (255, 255, 255, 255)
+
+    draw.ellipse([64 * s, 22 * s, 192 * s, 150 * s], fill=white)
+    draw.rounded_rectangle([38 * s, 120 * s, 218 * s, 238 * s], radius=58 * s, fill=white)
+    draw.ellipse([76 * s, 34 * s, 180 * s, 138 * s], fill=ink)
+    draw.rounded_rectangle([104 * s, 126 * s, 152 * s, 168 * s], radius=14 * s, fill=ink)
+    draw.rounded_rectangle([46 * s, 142 * s, 210 * s, 244 * s], radius=56 * s, fill=ink)
+    draw.polygon([(112 * s, 154 * s), (128 * s, 174 * s), (144 * s, 154 * s)], fill=white)
+
+    img = img.resize((width, height), Image.Resampling.LANCZOS)
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    data = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{data}"
 
 
 def read_json(path, fallback):
@@ -432,7 +456,7 @@ def child_thumb_html(child):
         path = APP_DIR / thumb
         if path.exists():
             return f'<img class="child-thumb" src="{asset_url(path)}" alt="{html.escape(child.get("Name", "Child"))}">'
-    return '<div class="child-thumb placeholder" aria-label="No child photo"></div>'
+    return f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
 
 
 def format_dob(value):
@@ -868,26 +892,11 @@ st.markdown(
         background: transparent; border: 0;
     }}
     .child-thumb.placeholder {{
-        display: grid;
-        place-items: center;
-        background: #eef5fb;
-        border: 1px solid rgba(47,79,159,.12);
+        object-fit: contain;
+        background: transparent;
+        border: 0;
         border-radius: 8px;
-        overflow: hidden;
-    }}
-    .child-thumb.placeholder::before {{
-        content: "";
-        width: 34px;
-        height: 34px;
-        display: block;
-        opacity: .38;
-        background: var(--brand-blue);
-        -webkit-mask:
-            radial-gradient(circle at 50% 28%, #000 0 8px, transparent 8.5px),
-            radial-gradient(ellipse at 50% 82%, #000 0 19px, transparent 19.5px);
-        mask:
-            radial-gradient(circle at 50% 28%, #000 0 8px, transparent 8.5px),
-            radial-gradient(ellipse at 50% 82%, #000 0 19px, transparent 19.5px);
+        opacity: .48;
     }}
     .child-name {{
         color: var(--ink);
