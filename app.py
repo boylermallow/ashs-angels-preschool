@@ -1672,12 +1672,54 @@ def render_admin_children():
         st.markdown("".join(sections_html), unsafe_allow_html=True)
 
 
-def render_admin_settings():
+def render_add_child_dialog():
     children = load_children()
+    with st.form("add_child_form", clear_on_submit=True):
+        full_name = st.text_input("Child full name")
+        date_of_birth = st.date_input("Date of birth", value=None)
+        session = st.selectbox("Assign to session", SESSIONS)
+        thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
+        submitted = st.form_submit_button("Save Child")
+
+    if st.button("Cancel", key="cancel_add_child_dialog"):
+        st.session_state["show_add_child"] = False
+        st.rerun()
+
+    if submitted:
+        if not full_name:
+            st.warning("Please add the child's full name.")
+        else:
+            thumbnail_path = ""
+            if thumbnail is not None:
+                thumbnail_path = save_uploaded_thumbnail(thumbnail)
+
+            children.append(
+                {
+                    "ID": uuid.uuid4().hex,
+                    "Name": full_name.strip(),
+                    "DOB": date_of_birth.isoformat() if date_of_birth else "",
+                    "Session": session,
+                    "Thumbnail": thumbnail_path,
+                }
+            )
+            save_children(children)
+            st.session_state["show_add_child"] = False
+            st.session_state["child_added_message"] = "Child added."
+            st.rerun()
+
+
+if hasattr(st, "dialog"):
+    render_add_child_dialog = st.dialog("Add Child")(render_add_child_dialog)
+
+
+def render_admin_settings():
     st.markdown("<br>", unsafe_allow_html=True)
     data_save_warning = st.session_state.pop("data_save_warning", "")
     if data_save_warning:
         st.warning(data_save_warning)
+    child_added_message = st.session_state.pop("child_added_message", "")
+    if child_added_message:
+        st.success(child_added_message)
 
     if "show_add_child" not in st.session_state:
         st.session_state["show_add_child"] = False
@@ -1698,40 +1740,8 @@ def render_admin_settings():
         st.rerun()
 
     if st.session_state["show_add_child"]:
-        st.markdown('<div class="panel-title">Add Child</div>', unsafe_allow_html=True)
-        with st.form("add_child_form", clear_on_submit=True):
-            full_name = st.text_input("Child full name")
-            date_of_birth = st.date_input("Date of birth", value=None)
-            session = st.selectbox("Assign to session", SESSIONS)
-            thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
-            submitted = st.form_submit_button("Save Child")
-
-        if st.button("Cancel"):
-            st.session_state["show_add_child"] = False
-            st.rerun()
-
-        if submitted:
-            if not full_name:
-                st.warning("Please add the child's full name.")
-            else:
-                thumbnail_path = ""
-                if thumbnail is not None:
-                    thumbnail_path = save_uploaded_thumbnail(thumbnail)
-
-                children.append(
-                    {
-                        "ID": uuid.uuid4().hex,
-                        "Name": full_name.strip(),
-                        "DOB": date_of_birth.isoformat() if date_of_birth else "",
-                        "Session": session,
-                        "Thumbnail": thumbnail_path,
-                    }
-                )
-                save_children(children)
-                st.session_state["show_add_child"] = False
-                st.success("Child added.")
-                st.rerun()
-    else:
+        render_add_child_dialog()
+    if not st.session_state["show_add_child"]:
         st.markdown(
             '<div class="status"><span class="status-dot"></span><div>Use Add Child to create a new child profile.</div></div>',
             unsafe_allow_html=True,
