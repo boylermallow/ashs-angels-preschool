@@ -1261,15 +1261,15 @@ st.markdown(
             transform: translateY(-3.5px) rotate(-45deg);
         }}
         .mobile-menu-logo {{
-            width: 158px;
-            height: 86px;
+            width: 200px;
+            height: 110px;
             object-fit: contain;
             display: block;
         }}
         .mobile-menu-logo-link {{
             position: absolute;
             left: 50%;
-            top: 2px;
+            top: -8px;
             transform: translateX(-50%);
             z-index: 5;
             display: block;
