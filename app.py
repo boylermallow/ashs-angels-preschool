@@ -674,13 +674,13 @@ st.markdown(
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 38px;
-        height: 38px;
+        width: 42px;
+        height: 42px;
         border-radius: 8px;
         border: 1px solid var(--line);
         background: #fffaf1;
         color: var(--brand-blue) !important;
-        font-size: 1.45rem;
+        font-size: 1.6rem;
         font-weight: 950;
         line-height: 1;
         text-decoration: none !important;
