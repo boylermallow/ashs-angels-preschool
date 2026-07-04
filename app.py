@@ -1604,6 +1604,10 @@ st.markdown(
             width: 100% !important;
             min-width: 0 !important;
         }}
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) div[data-testid="stFormSubmitButton"] {{
+            width: 100% !important;
+            min-width: 0 !important;
+        }}
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) div[data-testid="stFormSubmitButton"] button {{
             width: 100% !important;
             min-width: 0 !important;
