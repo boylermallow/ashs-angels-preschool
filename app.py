@@ -1244,6 +1244,21 @@ st.markdown(
             height: 3.5px;
             border-radius: 999px;
             background: #ffffff;
+            transition: transform .16s ease, opacity .16s ease;
+            transform-origin: center;
+        }}
+        .mobile-menu-toggle:checked ~ .mobile-menu-button .mobile-menu-icon {{
+            gap: 0;
+        }}
+        .mobile-menu-toggle:checked ~ .mobile-menu-button .mobile-menu-icon span {{
+            opacity: 0;
+            transform: scaleX(.2);
+        }}
+        .mobile-menu-toggle:checked ~ .mobile-menu-button .mobile-menu-icon::before {{
+            transform: translateY(3.5px) rotate(45deg);
+        }}
+        .mobile-menu-toggle:checked ~ .mobile-menu-button .mobile-menu-icon::after {{
+            transform: translateY(-3.5px) rotate(-45deg);
         }}
         .mobile-menu-logo {{
             width: 158px;
