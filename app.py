@@ -234,9 +234,32 @@ def ensure_default_accounts():
     return users
 
 
+def parent_account(email):
+    clean_email = str(email or "").strip().lower()
+    if not clean_email:
+        return None
+    parent = next((item for item in load_parents() if item.get("Email", "").strip().lower() == clean_email), None)
+    if not parent or not parent.get("salt") or not parent.get("hash"):
+        return None
+    return {
+        "email": clean_email,
+        "role": "Parent",
+        "salt": parent.get("salt", ""),
+        "hash": parent.get("hash", ""),
+        "status": parent.get("Status", "Pending"),
+        "parent": parent,
+    }
+
+
+def get_login_account(email, role):
+    clean_email = str(email or "").strip().lower()
+    if role == "Parent":
+        return parent_account(clean_email)
+    return ensure_default_accounts().get(clean_email)
+
+
 def login_user(email, password, role):
-    users = ensure_default_accounts()
-    account = users.get(str(email or "").strip().lower())
+    account = get_login_account(email, role)
     if not account or account.get("role") != role:
         return None
     return account if verify_password(password or "", account) else None
@@ -263,7 +286,7 @@ def restore_saved_login():
     except ValueError:
         return
 
-    account = ensure_default_accounts().get(email.strip().lower())
+    account = get_login_account(email, role)
     if not account or account.get("role") != role:
         return
     if not hmac.compare_digest(signature, auth_signature(account)):
@@ -279,7 +302,7 @@ def sync_saved_login():
         return
     email = str(st.session_state.get("email", "")).strip().lower()
     role = st.session_state.get("role", "")
-    account = ensure_default_accounts().get(email)
+    account = get_login_account(email, role)
     if not account or account.get("role") != role:
         return
     token = make_auth_token(account)
@@ -672,7 +695,7 @@ st.markdown(
         border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 16px;
     }}
     .login-logo {{ width: 126px; height: 86px; object-fit: contain; flex: 0 0 auto; }}
-    .role-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 18px; }}
+    .role-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0 18px; }}
     .role-card {{
         border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         background: #fffaf1; display: block; text-decoration: none;
@@ -1751,24 +1774,38 @@ st.markdown(
 
 
 def render_sign_in_dialog(selected_role):
-    if selected_role == "Parent":
+    if selected_role == "ParentRegister":
         st.markdown('<div class="panel-title">Parent Registration</div>', unsafe_allow_html=True)
         first_name = st.text_input("Parent first name")
         email = st.text_input("Email address")
         emergency_contact_1 = st.text_input("Emergency contact 1 phone")
         emergency_contact_2 = st.text_input("Emergency contact 2 phone")
+        password = st.text_input("Create password")
+        confirm_password = st.text_input("Confirm password")
         if st.button("Register Parent", type="primary", width="stretch"):
             clean_name = str(first_name or "").strip()
             clean_email = str(email or "").strip().lower()
             clean_emergency_1 = str(emergency_contact_1 or "").strip()
             clean_emergency_2 = str(emergency_contact_2 or "").strip()
-            if not clean_name or not clean_email or not clean_emergency_1 or not clean_emergency_2:
-                st.warning("Please add the parent's first name, email address, and both emergency contact phone numbers.")
+            clean_password = str(password or "").strip()
+            clean_confirm_password = str(confirm_password or "").strip()
+            if not clean_name or not clean_email or not clean_emergency_1 or not clean_emergency_2 or not clean_password:
+                st.warning("Please add the parent's first name, email address, both emergency contacts, and a password.")
+            elif clean_password != clean_confirm_password:
+                st.warning("The two passwords do not match.")
             else:
                 parents = load_parents()
                 existing = next((parent for parent in parents if parent.get("Email", "").lower() == clean_email), None)
                 if existing:
-                    st.info("This parent is already registered and waiting in the admin area.")
+                    if existing.get("salt") and existing.get("hash"):
+                        st.info("This parent is already registered. Please use Parent Login.")
+                    else:
+                        existing["FirstName"] = clean_name
+                        existing["EmergencyContact1"] = clean_emergency_1
+                        existing["EmergencyContact2"] = clean_emergency_2
+                        existing.update(hash_password(clean_password))
+                        save_parents(parents)
+                        st.success("Parent login has been added. Please use Parent Login after approval.")
                 else:
                     parents.append(
                         {
@@ -1780,6 +1817,7 @@ def render_sign_in_dialog(selected_role):
                             "Status": "Pending",
                             "ChildID": "",
                             "ChildName": "",
+                            **hash_password(clean_password),
                         }
                     )
                     save_parents(parents)
@@ -1790,10 +1828,11 @@ def render_sign_in_dialog(selected_role):
             st.rerun()
         return
 
-    st.markdown(f'<div class="panel-title">{selected_role} Sign In</div>', unsafe_allow_html=True)
+    login_label = "Parent" if selected_role == "Parent" else selected_role
+    st.markdown(f'<div class="panel-title">{login_label} Sign In</div>', unsafe_allow_html=True)
     email = st.text_input("Email address")
     password = st.text_input("Password")
-    if st.button(f"Sign In As {selected_role}", type="primary", width="stretch"):
+    if st.button(f"Sign In As {login_label}", type="primary", width="stretch"):
         account = login_user(email, password, selected_role)
         if account:
             st.session_state["logged_in"] = True
@@ -1850,7 +1889,7 @@ if hasattr(st, "dialog"):
 
 def render_login():
     selected_role = st.query_params.get("login_role") or st.session_state.get("login_role")
-    if selected_role not in {"Parent", "Admin"}:
+    if selected_role not in {"Parent", "ParentRegister", "Admin"}:
         selected_role = None
     st.markdown(
         f"""
@@ -1867,6 +1906,10 @@ def render_login():
               <a class="role-card {'active' if selected_role == 'Parent' else ''}" href="?login_role=Parent">
                 <div class="role-title">Parent Login</div>
                 <div class="role-copy">View child updates, forms, messages, and preschool notices.</div>
+              </a>
+              <a class="role-card {'active' if selected_role == 'ParentRegister' else ''}" href="?login_role=ParentRegister">
+                <div class="role-title">Parent Register</div>
+                <div class="role-copy">Create a parent account for approval and child assignment.</div>
               </a>
               <a class="role-card {'active' if selected_role == 'Admin' else ''}" href="?login_role=Admin">
                 <div class="role-title">Admin Login</div>
@@ -2232,6 +2275,98 @@ def render_admin_settings():
         render_add_child_dialog()
 
 
+def current_parent_record():
+    email = str(st.session_state.get("email", "")).strip().lower()
+    return next((parent for parent in load_parents() if parent.get("Email", "").strip().lower() == email), None)
+
+
+def render_parent_dashboard():
+    parent = current_parent_record()
+    children = load_children()
+    children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
+    st.markdown('<div class="panel parents-panel"><div class="panel-title">Parent Dashboard</div>', unsafe_allow_html=True)
+    if not parent:
+        st.markdown('<div class="muted">We could not find your parent registration yet.</div></div>', unsafe_allow_html=True)
+        return
+
+    status = parent.get("Status", "Pending")
+    child = children_by_id.get(parent.get("ChildID", ""))
+    if status != "Approved":
+        st.markdown(
+            '<div class="parent-row"><div><div class="parent-name">Registration pending</div>'
+            '<div class="parent-detail">Your registration has been received. The preschool will approve it and assign your child.</div>'
+            '</div><div class="parent-status pending">Pending</div></div></div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    if child:
+        st.markdown(
+            f"""
+            <div class="parent-row">
+              <div>
+                <div class="parent-name">Your child</div>
+                <div class="parent-child-card">
+                  {child_thumb_html(child)}
+                  <div class="parent-child-name">{html.escape(child.get("Name", "Your child"))}</div>
+                </div>
+              </div>
+              <div class="parent-status">Approved</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="parent-row"><div><div class="parent-name">Approved</div>'
+            '<div class="parent-detail">Your account is approved. A child has not been assigned yet.</div>'
+            '</div><div class="parent-status">Approved</div></div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_parent_messages():
+    parent = current_parent_record()
+    email = str(st.session_state.get("email", "")).strip().lower()
+    messages = [
+        message
+        for message in load_messages()
+        if message.get("ParentEmail", "").strip().lower() == email
+    ]
+    st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
+    if not parent:
+        st.markdown('<div class="muted">We could not find your parent registration yet.</div></div>', unsafe_allow_html=True)
+        return
+    if not messages:
+        st.markdown('<div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
+        return
+    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
+    for message in sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True):
+        st.markdown(
+            f"""
+            <div class="parent-row">
+              <div>
+                <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+              </div>
+              <div class="parent-status">Message</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+
+def render_parent_forms():
+    st.markdown(
+        '<div class="panel parents-panel"><div class="panel-title">Forms</div>'
+        '<div class="parent-row"><div><div class="parent-name">Forms and notices</div>'
+        '<div class="parent-detail">There are no forms to complete right now.</div></div></div></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_parent_approvals():
     parents = load_parents()
     children = load_children()
@@ -2389,3 +2524,10 @@ with content_col:
             render_admin_settings()
         else:
             render_admin_children()
+    else:
+        if selected_page == "Messages":
+            render_parent_messages()
+        elif selected_page == "Forms":
+            render_parent_forms()
+        else:
+            render_parent_dashboard()
