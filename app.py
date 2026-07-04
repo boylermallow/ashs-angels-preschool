@@ -1214,7 +1214,7 @@ st.markdown(
     }}
     @media (max-width: 760px) {{
         .block-container {{
-            padding: 66px .85rem 2rem;
+            padding: 58px .85rem 2rem;
         }}
         .side-menu {{
             display: none;
