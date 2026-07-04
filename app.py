@@ -1132,6 +1132,44 @@ st.markdown(
         color: var(--ink);
         font-weight: 850;
     }}
+    .parent-child-card {{
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        min-height: 46px;
+        margin-top: 12px;
+        padding: 0 14px 0 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        overflow: visible;
+    }}
+    .parent-child-card .child-thumb {{
+        position: static;
+        width: 58px;
+        height: 58px;
+        min-height: 58px;
+        margin: -7px 0 -5px 5px;
+        object-fit: cover;
+        border-radius: 0;
+    }}
+    .parent-child-card .child-thumb.placeholder {{
+        object-fit: contain;
+        border-radius: 8px;
+    }}
+    .parent-child-name {{
+        color: var(--ink);
+        font-size: .9rem;
+        font-weight: 900;
+        line-height: 1.08;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }}
     .parent-actions {{
         display: flex;
         align-items: center;
@@ -2198,6 +2236,7 @@ def render_parent_approvals():
     parents = load_parents()
     children = load_children()
     child_options = {child.get("ID", ""): child.get("Name", "Unnamed child") for child in children if child.get("ID")}
+    children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
     edit_parent_id = st.query_params.get("edit_parent")
 
     parents_changed = False
@@ -2260,8 +2299,24 @@ def render_parent_approvals():
     for parent in parents:
         status = parent.get("Status", "Pending")
         child_name = parent.get("ChildName") or "No child assigned"
+        assigned_child = children_by_id.get(parent.get("ChildID", ""))
         edit_href = app_href("Parents", edit_parent=parent.get("ID", ""))
         status_class = "approved" if status == "Approved" else "pending"
+        child_profile_html = ""
+        if status == "Approved" and assigned_child:
+            child_profile_html = (
+                '<div class="parent-child-card">'
+                f'{child_thumb_html(assigned_child)}'
+                f'<div class="parent-child-name">{html.escape(assigned_child.get("Name", child_name))}</div>'
+                '</div>'
+            )
+        elif status == "Approved" and child_name != "No child assigned":
+            child_profile_html = (
+                '<div class="parent-child-card">'
+                f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
+                f'<div class="parent-child-name">{html.escape(child_name)}</div>'
+                '</div>'
+            )
         st.markdown(
             f"""
             <div class="parent-row">
@@ -2269,10 +2324,10 @@ def render_parent_approvals():
                 <div class="parent-name">{html.escape(parent.get("FirstName", ""))}</div>
                 <div class="parent-details">
                   <div class="parent-detail"><strong>Email:</strong> {html.escape(parent.get("Email", ""))}</div>
-                  <div class="parent-detail"><strong>Assigned child:</strong> {html.escape(child_name)}</div>
                   <div class="parent-detail"><strong>Emergency 1:</strong> {html.escape(parent.get("EmergencyContact1", "") or "Not added")}</div>
                   <div class="parent-detail"><strong>Emergency 2:</strong> {html.escape(parent.get("EmergencyContact2", "") or "Not added")}</div>
                 </div>
+                {child_profile_html or f'<div class="parent-detail"><strong>Assigned child:</strong> {html.escape(child_name)}</div>'}
               </div>
               <div class="parent-actions">
                 <div class="parent-status {status_class}">{html.escape(status)}</div>
