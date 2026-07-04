@@ -2417,6 +2417,71 @@ def current_parent_record():
     return next((parent for parent in load_parents() if parent.get("Email", "").strip().lower() == email), None)
 
 
+def current_parent_messages():
+    email = str(st.session_state.get("email", "")).strip().lower()
+    return [
+        message
+        for message in load_messages()
+        if message.get("ParentEmail", "").strip().lower() == email
+    ]
+
+
+def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None):
+    sorted_messages = sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    if limit:
+        sorted_messages = sorted_messages[:limit]
+    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
+    for message in sorted_messages:
+        message_id = message.get("ID", "")
+        reply_key = f"{key_prefix}_reply_body_{message_id}"
+        reply_open_key = f"{key_prefix}_reply_open_{message_id}"
+        replies = message.get("Replies", [])
+        replies_html = ""
+        if replies:
+            replies_html = '<div class="reply-list">'
+            for reply in replies:
+                reply_date = str(reply.get("CreatedAt", "")).replace("T", " ")
+                replies_html += (
+                    '<div class="reply-bubble">'
+                    f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
+                    f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
+                    f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    '</div>'
+                )
+            replies_html += "</div>"
+        st.markdown(
+            f"""
+            <div class="parent-row">
+              <div>
+                <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                {replies_html}
+              </div>
+              <div class="parent-status">{'Replied' if replies else 'Message'}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Reply", key=f"{key_prefix}_open_reply_{message_id}", width="stretch"):
+            st.session_state[reply_open_key] = True
+        if st.session_state.get(reply_open_key):
+            reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
+            send_col, cancel_col = st.columns(2)
+            if send_col.button("Send Reply", key=f"{key_prefix}_send_reply_{message_id}", type="primary", width="stretch"):
+                if add_parent_reply(message_id, parent, reply_body):
+                    st.session_state.pop(reply_key, None)
+                    st.session_state.pop(reply_open_key, None)
+                    st.success("Reply sent.")
+                    st.rerun()
+                else:
+                    st.warning("Please write a reply first.")
+            if cancel_col.button("Cancel Reply", key=f"{key_prefix}_cancel_reply_{message_id}", width="stretch"):
+                st.session_state.pop(reply_key, None)
+                st.session_state.pop(reply_open_key, None)
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_parent_dashboard():
     parent = current_parent_record()
     children = load_children()
@@ -2460,17 +2525,20 @@ def render_parent_dashboard():
             '</div><div class="parent-status">Approved</div></div>',
             unsafe_allow_html=True,
         )
+    messages = current_parent_messages()
+    if messages:
+        st.markdown('<div class="section-title">Latest messages</div>', unsafe_allow_html=True)
+        render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3)
+        if len(messages) > 3:
+            st.markdown(f'<a class="menu-item" href="{app_href("Messages")}" target="_self">View all messages</a>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="parent-row"><div><div class="parent-name">Messages</div><div class="parent-detail">No messages yet.</div></div></div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_parent_messages():
     parent = current_parent_record()
-    email = str(st.session_state.get("email", "")).strip().lower()
-    messages = [
-        message
-        for message in load_messages()
-        if message.get("ParentEmail", "").strip().lower() == email
-    ]
+    messages = current_parent_messages()
     st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
     if not parent:
         st.markdown('<div class="muted">We could not find your parent registration yet.</div></div>', unsafe_allow_html=True)
@@ -2478,56 +2546,8 @@ def render_parent_messages():
     if not messages:
         st.markdown('<div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
         return
-    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
-    for message in sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True):
-        message_id = message.get("ID", "")
-        reply_key = f"reply_body_{message_id}"
-        reply_open_key = f"reply_open_{message_id}"
-        replies = message.get("Replies", [])
-        replies_html = ""
-        if replies:
-            replies_html = '<div class="reply-list">'
-            for reply in replies:
-                reply_date = str(reply.get("CreatedAt", "")).replace("T", " ")
-                replies_html += (
-                    '<div class="reply-bubble">'
-                    f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
-                    f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
-                    '</div>'
-                )
-            replies_html += "</div>"
-        st.markdown(
-            f"""
-            <div class="parent-row">
-              <div>
-                <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
-                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
-                {replies_html}
-              </div>
-              <div class="parent-status">{'Replied' if replies else 'Message'}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        if st.button("Reply", key=f"open_reply_{message_id}", width="stretch"):
-            st.session_state[reply_open_key] = True
-        if st.session_state.get(reply_open_key):
-            reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
-            send_col, cancel_col = st.columns(2)
-            if send_col.button("Send Reply", key=f"send_reply_{message_id}", type="primary", width="stretch"):
-                if add_parent_reply(message_id, parent, reply_body):
-                    st.session_state.pop(reply_key, None)
-                    st.session_state.pop(reply_open_key, None)
-                    st.success("Reply sent.")
-                    st.rerun()
-                else:
-                    st.warning("Please write a reply first.")
-            if cancel_col.button("Cancel Reply", key=f"cancel_reply_{message_id}", width="stretch"):
-                st.session_state.pop(reply_key, None)
-                st.session_state.pop(reply_open_key, None)
-                st.rerun()
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    render_parent_message_items(parent, messages)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_parent_forms():
