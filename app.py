@@ -966,6 +966,11 @@ st.markdown(
         box-shadow: none !important;
         transition: transform .16s ease, background-color .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease !important;
     }}
+    div[data-testid="stButton"] button *,
+    div[data-testid="stFormSubmitButton"] button * {{
+        color: #ffffff !important;
+        fill: #ffffff !important;
+    }}
     div[data-testid="stButton"] button:hover,
     div[data-testid="stFormSubmitButton"] button:hover {{
         background: #203d86 !important;
@@ -1008,8 +1013,13 @@ st.markdown(
     div[data-testid="stButton"] button:disabled,
     div[data-testid="stFormSubmitButton"] button:disabled {{
         background: rgba(41,73,153,.36) !important;
-        color: rgba(255,255,255,.72) !important;
+        color: #ffffff !important;
         opacity: 1 !important;
+    }}
+    div[data-testid="stButton"] button:disabled *,
+    div[data-testid="stFormSubmitButton"] button:disabled * {{
+        color: #ffffff !important;
+        fill: #ffffff !important;
     }}
     div[data-testid="stTextInput"] label,
     div[data-testid="stTextInput"] label span,
