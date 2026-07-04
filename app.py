@@ -474,6 +474,30 @@ def format_dob(value):
     return parsed.strftime("%d %b %Y").lstrip("0")
 
 
+def child_age_text(dob_value):
+    if not dob_value:
+        return ""
+    if isinstance(dob_value, str):
+        try:
+            dob_value = date.fromisoformat(dob_value)
+        except ValueError:
+            return ""
+    today = date.today()
+    if dob_value > today:
+        return ""
+    months = (today.year - dob_value.year) * 12 + today.month - dob_value.month
+    if today.day < dob_value.day:
+        months -= 1
+    months = max(months, 0)
+    years, remaining_months = divmod(months, 12)
+    parts = []
+    if years:
+        parts.append(f"{years} {'year' if years == 1 else 'years'}")
+    if remaining_months:
+        parts.append(f"{remaining_months} {'month' if remaining_months == 1 else 'months'}")
+    return " & ".join(parts) if parts else "Less than 1 month"
+
+
 st.markdown(
     f"""
     <style>
@@ -949,6 +973,19 @@ st.markdown(
         font-style: italic;
         font-weight: 500;
         line-height: 1.25;
+    }}
+    .child-age-note {{
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        margin: 8px 0 18px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: #e9f4ff;
+        color: var(--ink);
+        font-size: .96rem;
+        font-weight: 760;
+        line-height: 1.2;
     }}
     .current-thumb-preview {{
         display: grid; justify-items: center; gap: 10px; color: var(--muted);
@@ -1756,6 +1793,12 @@ def render_admin_children():
                 with details_col:
                     edited_name = st.text_input("Child full name", value=editing_child.get("Name", ""))
                     edited_dob = st.date_input("Date of birth", value=dob_value)
+                    edited_age = child_age_text(edited_dob)
+                    if edited_age:
+                        st.markdown(
+                            f'<div class="child-age-note">Age: {html.escape(edited_age)}</div>',
+                            unsafe_allow_html=True,
+                        )
                     edited_session = st.selectbox("Assign to session", SESSIONS, index=session_index)
                 with thumbnail_col:
                     st.markdown(
@@ -1895,6 +1938,12 @@ def render_add_child_dialog():
     with st.form("add_child_form", clear_on_submit=True):
         full_name = st.text_input("Child full name")
         date_of_birth = st.date_input("Date of birth", value=None)
+        child_age = child_age_text(date_of_birth)
+        if child_age:
+            st.markdown(
+                f'<div class="child-age-note">Age: {html.escape(child_age)}</div>',
+                unsafe_allow_html=True,
+            )
         session = st.selectbox("Assign to session", SESSIONS)
         thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
         if thumbnail is not None:
