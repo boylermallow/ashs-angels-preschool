@@ -1757,11 +1757,6 @@ def render_admin_settings():
 
     if st.session_state["show_add_child"]:
         render_add_child_dialog()
-    if not st.session_state["show_add_child"]:
-        st.markdown(
-            '<div class="status"><span class="status-dot"></span><div>Use Add Child to create a new child profile.</div></div>',
-            unsafe_allow_html=True,
-        )
 
 
 def render_parent_approvals():
