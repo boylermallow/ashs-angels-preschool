@@ -1230,6 +1230,32 @@ st.markdown(
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
         font-weight: 620 !important;
     }}
+    div[data-testid="stFileUploader"] section [data-testid="stFileUploaderFile"],
+    div[data-testid="stFileUploader"] section div:has(> div > svg):has(button) {{
+        background: #fffaf1 !important;
+        color: var(--ink) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+    }}
+    div[data-testid="stFileUploader"] section [data-testid="stFileUploaderFile"] *,
+    div[data-testid="stFileUploader"] section div:has(> div > svg):has(button) * {{
+        color: var(--ink) !important;
+        fill: var(--brand-blue) !important;
+        stroke: var(--brand-blue) !important;
+    }}
+    div[data-testid="stFileUploader"] section [data-testid="stFileUploaderFile"] button,
+    div[data-testid="stFileUploader"] section div:has(> div > svg):has(button) button {{
+        background: var(--brand-blue) !important;
+        color: #ffffff !important;
+        border-color: var(--brand-blue) !important;
+    }}
+    div[data-testid="stFileUploader"] section [data-testid="stFileUploaderFile"] button *,
+    div[data-testid="stFileUploader"] section div:has(> div > svg):has(button) button * {{
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }}
     div[data-testid="stFileUploader"] section small,
     div[data-testid="stFileUploader"] section [data-testid="stMarkdownContainer"] p {{
         color: var(--muted) !important;
