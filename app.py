@@ -1237,16 +1237,19 @@ st.markdown(
             background: #ffffff;
         }}
         .mobile-menu-logo {{
-            position: absolute;
-            left: 50%;
-            top: 2px;
-            transform: translateX(-50%);
             width: 158px;
             height: 86px;
             object-fit: contain;
             display: block;
-            z-index: 2;
-            pointer-events: none;
+        }}
+        .mobile-menu-logo-link {{
+            position: absolute;
+            left: 50%;
+            top: 2px;
+            transform: translateX(-50%);
+            z-index: 5;
+            display: block;
+            pointer-events: auto;
         }}
         .mobile-menu-spacer {{
             width: 48px;
@@ -1466,9 +1469,11 @@ def render_side_menu(role, selected_page):
           <input class="mobile-menu-toggle" id="mobile-menu-toggle" type="checkbox" aria-label="Open navigation menu">
           <label class="mobile-menu-button" for="mobile-menu-toggle">
             <span class="mobile-menu-icon"><span></span></span>
-            <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
             <span class="mobile-menu-spacer" aria-hidden="true"></span>
           </label>
+          <a class="mobile-menu-logo-link" href="{app_href("Children")}" target="_self" aria-label="Go to children">
+            <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
+          </a>
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
