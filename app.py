@@ -1596,9 +1596,20 @@ def render_admin_children():
     notification_sent = st.session_state.pop("notification_sent", "")
     if notification_sent:
         st.success(notification_sent)
+    child_added_message = st.session_state.pop("child_added_message", "")
+    if child_added_message:
+        st.success(child_added_message)
     data_save_warning = st.session_state.pop("data_save_warning", "")
     if data_save_warning:
         st.warning(data_save_warning)
+    if "show_add_child" not in st.session_state:
+        st.session_state["show_add_child"] = False
+    if st.query_params.get("add_child"):
+        st.session_state["show_add_child"] = True
+        st.query_params.pop("add_child", None)
+        st.rerun()
+    if st.session_state["show_add_child"]:
+        render_add_child_dialog()
     edit_child_id = st.query_params.get("edit_child")
     delete_child_id = st.query_params.get("delete_child")
     message_child_id = st.query_params.get("message_child")
@@ -1692,7 +1703,7 @@ def render_admin_children():
         sections_html = ['<div class="child-list session-columns">']
         for session_name in SESSIONS:
             session_children = [child for child in children if clean_session_name(child.get("Session")) == session_name]
-            add_child_href = app_href("Settings", add_child=1)
+            add_child_href = app_href("Children", add_child=1)
             sections_html.append(
                 '<div class="session-group">'
                 '<div class="session-heading">'
@@ -1923,7 +1934,7 @@ valid_pages = {"Children", "Parents", "Settings"} if current_role == "Admin" els
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
-    selected_page = "Settings"
+    selected_page = "Children"
 if st.query_params.get("edit_child"):
     selected_page = "Children"
 if st.query_params.get("edit_parent"):
