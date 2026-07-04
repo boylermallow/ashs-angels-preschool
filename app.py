@@ -496,6 +496,43 @@ def add_parent_reply(message_id, parent, reply_body):
     return False
 
 
+def mark_messages_read(message_ids, parent_email):
+    clean_email = str(parent_email or "").strip().lower()
+    ids = {message_id for message_id in message_ids if message_id}
+    if not clean_email or not ids:
+        return
+    messages = load_messages()
+    changed = False
+    read_at = datetime.now().isoformat(timespec="seconds")
+    for message in messages:
+        if message.get("ID") in ids and message.get("ParentEmail", "").strip().lower() == clean_email and not message.get("Read"):
+            message["Read"] = True
+            message["ReadAt"] = read_at
+            changed = True
+    if changed:
+        save_messages(messages)
+
+
+def delete_message(message_id):
+    messages = load_messages()
+    kept_messages = [message for message in messages if message.get("ID") != message_id]
+    if len(kept_messages) == len(messages):
+        return False
+    save_messages(kept_messages)
+    return True
+
+
+def message_datetime(value):
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return "Not recorded"
+    try:
+        parsed = datetime.fromisoformat(raw_value)
+        return parsed.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return raw_value.replace("T", " ")
+
+
 def replies_for_parent(parent_email):
     clean_email = str(parent_email or "").strip().lower()
     replies = []
@@ -1217,6 +1254,12 @@ st.markdown(
         font-size: .86rem;
         font-weight: 800;
         margin-bottom: 4px;
+    }}
+    .parents-list div[data-testid="stButton"] button {{
+        width: auto !important;
+        min-height: 40px !important;
+        padding: 8px 16px !important;
+        margin: 0 0 4px 16px !important;
     }}
     .parent-row {{
         display: grid;
@@ -2430,6 +2473,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
     sorted_messages = sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
     if limit:
         sorted_messages = sorted_messages[:limit]
+    mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
     st.markdown('<div class="parents-list">', unsafe_allow_html=True)
     for message in sorted_messages:
         message_id = message.get("ID", "")
@@ -2440,7 +2484,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         if replies:
             replies_html = '<div class="reply-list">'
             for reply in replies:
-                reply_date = str(reply.get("CreatedAt", "")).replace("T", " ")
+                reply_date = message_datetime(reply.get("CreatedAt", ""))
                 replies_html += (
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
@@ -2454,6 +2498,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
             <div class="parent-row">
               <div>
                 <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
                 <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
               </div>
@@ -2462,7 +2507,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Reply", key=f"{key_prefix}_open_reply_{message_id}", width="stretch"):
+        if st.button("Reply", key=f"{key_prefix}_open_reply_{message_id}"):
             st.session_state[reply_open_key] = True
         if st.session_state.get(reply_open_key):
             reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
@@ -2562,13 +2607,19 @@ def render_parent_forms():
 def render_admin_messages():
     messages = sorted(load_messages(), key=lambda item: item.get("CreatedAt", ""), reverse=True)
     st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
+    deleted_message = st.session_state.pop("message_deleted_notice", "")
+    if deleted_message:
+        st.success(deleted_message)
     if not messages:
         st.markdown('<div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
         return
 
     st.markdown('<div class="parents-list">', unsafe_allow_html=True)
     for message in messages:
-        sent_date = str(message.get("CreatedAt", "")).replace("T", " ")
+        message_id = message.get("ID", "")
+        sent_date = message_datetime(message.get("CreatedAt", ""))
+        read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
+        read_status = f"Read {read_at}" if message.get("Read") else "Unread"
         parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
         child_name = message.get("ChildName", "Preschool message")
         replies = message.get("Replies", [])
@@ -2576,7 +2627,7 @@ def render_admin_messages():
         if replies:
             replies_html = '<div class="reply-list">'
             for reply in replies:
-                reply_date = str(reply.get("CreatedAt", "")).replace("T", " ")
+                reply_date = message_datetime(reply.get("CreatedAt", ""))
                 replies_html += (
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
@@ -2592,6 +2643,7 @@ def render_admin_messages():
                 <div class="parent-name">{html.escape(child_name)}</div>
                 <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
+                <div class="parent-detail"><strong>Read:</strong> {html.escape(read_status)}</div>
                 <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
               </div>
@@ -2600,6 +2652,10 @@ def render_admin_messages():
             """,
             unsafe_allow_html=True,
         )
+        if st.button("Delete Message", key=f"delete_message_{message_id}"):
+            if delete_message(message_id):
+                st.session_state["message_deleted_notice"] = "Message deleted."
+                st.rerun()
     st.markdown("</div></div>", unsafe_allow_html=True)
 
 
