@@ -27,7 +27,11 @@ CHILDREN_FILE = APP_DIR / "children.json"
 PARENTS_FILE = APP_DIR / "parents.json"
 MESSAGES_FILE = APP_DIR / "messages.json"
 CHILDREN_DIR = APP_DIR / "assets" / "children"
-SESSIONS = ["Morning Session - 8:30am to 11:30am", "Afternoon Session - 12:00pm to 3:00pm"]
+SESSIONS = ["Morning Session", "Afternoon Session"]
+SESSION_ALIASES = {
+    "Morning Session - 8:30am to 11:30am": "Morning Session",
+    "Afternoon Session - 12:00pm to 3:00pm": "Afternoon Session",
+}
 PASSWORD_ROUNDS = 120_000
 BUILD_MODE = False
 DATA_REPOSITORY = "boylermallow/ashs-angels-preschool"
@@ -272,6 +276,11 @@ def app_href(page=None, **params):
         if value not in (None, ""):
             query.append(f"{quote(str(key))}={quote(str(value))}")
     return "?" + "&".join(query) if query else "?"
+
+
+def clean_session_name(session_name):
+    session_name = str(session_name or "").strip()
+    return SESSION_ALIASES.get(session_name, session_name)
 
 
 def load_children():
@@ -1540,7 +1549,8 @@ def render_admin_children():
                 dob_value = date.fromisoformat(editing_child.get("DOB", ""))
             except ValueError:
                 dob_value = None
-            session_index = SESSIONS.index(editing_child.get("Session")) if editing_child.get("Session") in SESSIONS else 0
+            current_session = clean_session_name(editing_child.get("Session"))
+            session_index = SESSIONS.index(current_session) if current_session in SESSIONS else 0
             with st.form(f"edit_child_form_{edit_child_id}"):
                 details_col, thumbnail_col = st.columns([0.62, 0.38], gap="large")
                 with details_col:
@@ -1615,7 +1625,7 @@ def render_admin_children():
     else:
         sections_html = ['<div class="child-list session-columns">']
         for session_name in SESSIONS:
-            session_children = [child for child in children if child.get("Session") == session_name]
+            session_children = [child for child in children if clean_session_name(child.get("Session")) == session_name]
             add_child_href = app_href("Settings", add_child=1)
             sections_html.append(
                 '<div class="session-group">'
