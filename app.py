@@ -2067,7 +2067,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Children", "Parents", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    nav_items = ["Children", "Parents", "Messages", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
     items_html = "\n".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
@@ -2559,6 +2559,50 @@ def render_parent_forms():
     )
 
 
+def render_admin_messages():
+    messages = sorted(load_messages(), key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
+    if not messages:
+        st.markdown('<div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
+        return
+
+    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
+    for message in messages:
+        sent_date = str(message.get("CreatedAt", "")).replace("T", " ")
+        parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
+        child_name = message.get("ChildName", "Preschool message")
+        replies = message.get("Replies", [])
+        replies_html = ""
+        if replies:
+            replies_html = '<div class="reply-list">'
+            for reply in replies:
+                reply_date = str(reply.get("CreatedAt", "")).replace("T", " ")
+                replies_html += (
+                    '<div class="reply-bubble">'
+                    f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
+                    f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
+                    f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    '</div>'
+                )
+            replies_html += "</div>"
+        st.markdown(
+            f"""
+            <div class="parent-row">
+              <div>
+                <div class="parent-name">{html.escape(child_name)}</div>
+                <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
+                <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
+                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                {replies_html}
+              </div>
+              <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+
 def render_parent_approvals():
     parents = load_parents()
     children = load_children()
@@ -2708,7 +2752,7 @@ current_role = st.session_state.get("role", "Parent")
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
-valid_pages = {"Children", "Parents", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
+valid_pages = {"Children", "Parents", "Messages", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
@@ -2727,6 +2771,8 @@ with content_col:
     if current_role == "Admin":
         if selected_page == "Parents":
             render_parent_approvals()
+        elif selected_page == "Messages":
+            render_admin_messages()
         elif selected_page == "Settings":
             render_admin_settings()
         else:
