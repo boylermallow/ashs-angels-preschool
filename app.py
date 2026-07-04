@@ -433,7 +433,7 @@ st.markdown(
         --muted: #66778a;
         --bg: #9FC9EB;
         --panel: #ffffff;
-        --brand-blue: #3154a5;
+        --brand-blue: #294999;
         --rose: #df4d9b;
         --red: #f43d2e;
         --orange: #ff9f1c;
