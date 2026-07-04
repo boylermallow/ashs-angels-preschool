@@ -999,6 +999,8 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] button {{
         border-radius: 8px; min-height: 44px; font-weight: 900 !important;
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
+        font-size: 1.04rem !important;
+        line-height: 1 !important;
         background: var(--brand-blue) !important; color: #ffffff !important;
         border: 1px solid var(--brand-blue) !important;
         box-shadow: none !important;
@@ -1008,6 +1010,9 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] button * {{
         color: #ffffff !important;
         fill: #ffffff !important;
+        font-size: 1.04rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
     }}
     div[data-testid="stButton"] button:hover,
     div[data-testid="stFormSubmitButton"] button:hover {{
