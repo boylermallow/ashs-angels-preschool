@@ -747,6 +747,20 @@ st.markdown(
         border: 1px solid rgba(190,129,15,.25); border-radius: 8px; padding: 14px;
         font-weight: 800; line-height: 1.4;
     }}
+    div[data-testid="stAlert"] {{
+        border-radius: 8px !important;
+        border: 1px solid rgba(31,111,68,.28) !important;
+        box-shadow: none !important;
+    }}
+    div[data-testid="stAlert"] div,
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] span {{
+        color: var(--ink) !important;
+        font-weight: 760 !important;
+    }}
+    div[data-testid="stAlert"][data-baseweb="notification"] {{
+        background: #d9f2df !important;
+    }}
     .danger-confirm {{
         background: #c82032;
         color: #ffffff;
