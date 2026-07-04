@@ -917,6 +917,18 @@ st.markdown(
         color: #ffffff !important;
         box-shadow: 0 8px 18px rgba(200,32,50,.24) !important;
     }}
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button {{
+        color: #c82032 !important;
+        border-color: rgba(200,32,50,.35) !important;
+        background: #fff7f8 !important;
+    }}
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:hover,
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:active {{
+        background: #c82032 !important;
+        border-color: #a81526 !important;
+        color: #ffffff !important;
+        box-shadow: 0 8px 18px rgba(200,32,50,.24) !important;
+    }}
     div[data-testid="stFormSubmitButton"] button {{
         width: 100% !important;
     }}
