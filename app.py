@@ -1311,7 +1311,7 @@ st.markdown(
         .mobile-menu-logo-link {{
             position: absolute;
             left: 50%;
-            top: -8px;
+            top: -1px;
             transform: translateX(-50%);
             z-index: 30;
             display: block;
