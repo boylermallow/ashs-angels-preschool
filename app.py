@@ -705,6 +705,17 @@ st.markdown(
         border: 1px solid rgba(190,129,15,.25); border-radius: 8px; padding: 14px;
         font-weight: 800; line-height: 1.4;
     }}
+    .danger-confirm {{
+        background: #c82032;
+        color: #ffffff;
+        border: 2px solid #a81526;
+        border-radius: 8px;
+        padding: 16px 18px;
+        margin: 14px 0 12px;
+        font-weight: 760;
+        line-height: 1.35;
+        box-shadow: none;
+    }}
     .status-dot {{ width: 12px; height: 12px; border-radius: 999px; background: var(--orange); margin-top: 5px; flex: 0 0 auto; }}
     .quick-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }}
     .quick-card {{
@@ -1535,7 +1546,10 @@ def render_admin_children():
 
             if st.session_state.get("confirm_delete_child_id") == edit_child_id:
                 child_name = editing_child.get("Name", "this child")
-                st.warning(f"Are you sure you want to delete {child_name}? This cannot be undone.")
+                st.markdown(
+                    f'<div class="danger-confirm">Are you sure you want to delete {html.escape(child_name)}? This cannot be undone.</div>',
+                    unsafe_allow_html=True,
+                )
                 confirm_col, keep_col = st.columns([1, 1], gap="small")
                 if confirm_col.button("Yes, delete child", type="primary", key=f"confirm_delete_{edit_child_id}"):
                     delete_child_and_clear_parent_links(edit_child_id)
