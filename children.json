@@ -61,5 +61,12 @@
     "DOB": "2023-01-12",
     "Session": "Afternoon Session - 12:00pm to 3:00pm",
     "Thumbnail": "assets/children/ecb432b9d82c409db17cf6a7e7a5a030-safe-transparent.png"
+  },
+  {
+    "ID": "ac87e008f8754b9587b6ed3ea070b287",
+    "Name": "Nathan Hartnett",
+    "DOB": "2023-06-30",
+    "Session": "Afternoon Session - 12:00pm to 3:00pm",
+    "Thumbnail": ""
   }
 ]
