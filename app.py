@@ -868,6 +868,9 @@ st.markdown(
     .profile-link:hover .child-name {{
         color: var(--brand-blue);
     }}
+    .profile-link .child-details {{
+        grid-column: 2;
+    }}
     .row-actions {{
         grid-column: 3;
         display: inline-flex;
