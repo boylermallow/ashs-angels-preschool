@@ -1503,17 +1503,31 @@ def render_admin_children():
                 delete_submitted = delete_col.form_submit_button("Delete Child")
 
             if cancel_submitted:
+                st.session_state.pop("confirm_delete_child_id", None)
                 st.query_params.pop("edit_child", None)
                 st.rerun()
 
             if delete_submitted:
-                delete_child_and_clear_parent_links(edit_child_id)
-                for param in ("delete_child", "edit_child", "children_edit"):
-                    st.query_params.pop(param, None)
-                st.success("Child deleted.")
+                st.session_state["confirm_delete_child_id"] = edit_child_id
                 st.rerun()
 
+            if st.session_state.get("confirm_delete_child_id") == edit_child_id:
+                child_name = editing_child.get("Name", "this child")
+                st.warning(f"Are you sure you want to delete {child_name}? This cannot be undone.")
+                confirm_col, keep_col = st.columns([1, 1], gap="small")
+                if confirm_col.button("Yes, delete child", type="primary", key=f"confirm_delete_{edit_child_id}"):
+                    delete_child_and_clear_parent_links(edit_child_id)
+                    st.session_state.pop("confirm_delete_child_id", None)
+                    for param in ("delete_child", "edit_child", "children_edit"):
+                        st.query_params.pop(param, None)
+                    st.success("Child deleted.")
+                    st.rerun()
+                if keep_col.button("No, keep child", key=f"cancel_delete_{edit_child_id}"):
+                    st.session_state.pop("confirm_delete_child_id", None)
+                    st.rerun()
+
             if update_submitted:
+                st.session_state.pop("confirm_delete_child_id", None)
                 if not edited_name:
                     st.warning("Please add the child's full name.")
                 else:
