@@ -697,12 +697,19 @@ st.markdown(
     .login-logo {{ width: 126px; height: 86px; object-fit: contain; flex: 0 0 auto; }}
     .role-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0 18px; }}
     .role-card {{
-        border: 1px solid var(--line); border-radius: 8px; padding: 14px;
-        background: #fffaf1; display: block; text-decoration: none;
+        border: 1px solid var(--brand-blue); border-radius: 8px; padding: 14px;
+        background: var(--brand-blue); display: block; text-decoration: none;
+        box-shadow: 0 8px 18px rgba(35,52,95,.16);
+        transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
     }}
-    .role-card.active {{ border-color: var(--brand-blue); box-shadow: 0 0 0 2px rgba(47,79,159,.12) inset; }}
-    .role-title {{ color: var(--brand-blue); font-weight: 950; font-size: 1.05rem; }}
-    .role-copy {{ color: var(--muted); line-height: 1.4; margin-top: 4px; }}
+    .role-card:hover {{
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(35,52,95,.2);
+    }}
+    .role-card.active {{ box-shadow: 0 0 0 2px rgba(255,255,255,.82) inset, 0 10px 22px rgba(35,52,95,.2); }}
+    .role-title {{ color: #ffffff; font-weight: 950; font-size: 1.05rem; }}
+    .role-copy {{ color: rgba(255,255,255,.88); line-height: 1.4; margin-top: 4px; }}
     div[role="dialog"] {{
         background: var(--panel) !important;
         border-radius: 8px !important;
