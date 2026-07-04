@@ -1214,7 +1214,7 @@ st.markdown(
     }}
     @media (max-width: 760px) {{
         .block-container {{
-            padding: 56px .85rem 2rem;
+            padding: 66px .85rem 2rem;
         }}
         .side-menu {{
             display: none;
@@ -1236,7 +1236,7 @@ st.markdown(
             top: 0;
             left: 0;
             width: 58px;
-            height: 54px;
+            height: 64px;
             margin: 0;
             opacity: 0;
             z-index: 70;
@@ -1249,7 +1249,7 @@ st.markdown(
             grid-template-columns: 48px minmax(0, 1fr) 48px;
             align-items: center;
             width: 100%;
-            min-height: 54px;
+            min-height: 64px;
             padding: 6px max(12px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
             background: var(--brand-blue);
             border: 0;
