@@ -1422,7 +1422,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Children", "Parents"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    nav_items = ["Children", "Parents", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
     items_html = "\n".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{html.escape(item)}</a>'
         for item in nav_items
@@ -1482,23 +1482,6 @@ def render_admin_children():
         st.success("Child deleted.")
         st.rerun()
 
-    if "show_add_child" not in st.session_state:
-        st.session_state["show_add_child"] = False
-
-    st.markdown(
-        f"""
-        <div class="section-header">
-          <a class="section-edit" href="{app_href("Children", add_child=1)}" target="_self">Add Child</a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if st.query_params.get("add_child"):
-        st.session_state["show_add_child"] = True
-        st.query_params.pop("add_child", None)
-        st.rerun()
-
     if message_child_id:
         child_to_message = next((child for child in children if child.get("ID") == message_child_id), None)
         parent_to_message = approved_parent_by_child.get(message_child_id)
@@ -1509,41 +1492,6 @@ def render_admin_children():
                 '<div class="status"><span class="status-dot"></span><div>No approved parent is assigned to this child yet.</div></div>',
                 unsafe_allow_html=True,
             )
-
-    if st.session_state["show_add_child"]:
-        st.markdown('<div class="panel-title">Add Child</div>', unsafe_allow_html=True)
-        with st.form("add_child_form", clear_on_submit=True):
-            full_name = st.text_input("Child full name")
-            date_of_birth = st.date_input("Date of birth", value=None)
-            session = st.selectbox("Assign to session", SESSIONS)
-            thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
-            submitted = st.form_submit_button("Save Child")
-
-        if st.button("Cancel"):
-            st.session_state["show_add_child"] = False
-            st.rerun()
-
-        if submitted:
-            if not full_name:
-                st.warning("Please add the child's full name.")
-            else:
-                thumbnail_path = ""
-                if thumbnail is not None:
-                    thumbnail_path = save_uploaded_thumbnail(thumbnail)
-
-                children.append(
-                    {
-                        "ID": uuid.uuid4().hex,
-                        "Name": full_name.strip(),
-                        "DOB": date_of_birth.isoformat() if date_of_birth else "",
-                        "Session": session,
-                        "Thumbnail": thumbnail_path,
-                    }
-                )
-                save_children(children)
-                st.session_state["show_add_child"] = False
-                st.success("Child added.")
-                st.rerun()
 
     if edit_child_id:
         editing_child = next((child for child in children if child.get("ID") == edit_child_id), None)
@@ -1670,6 +1618,72 @@ def render_admin_children():
         st.markdown("".join(sections_html), unsafe_allow_html=True)
 
 
+def render_admin_settings():
+    children = load_children()
+    st.markdown("<br>", unsafe_allow_html=True)
+    data_save_warning = st.session_state.pop("data_save_warning", "")
+    if data_save_warning:
+        st.warning(data_save_warning)
+
+    if "show_add_child" not in st.session_state:
+        st.session_state["show_add_child"] = False
+
+    st.markdown(
+        f"""
+        <div class="section-header">
+          <div class="panel-title">Settings</div>
+          <a class="section-edit" href="{app_href("Settings", add_child=1)}" target="_self">Add Child</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.query_params.get("add_child"):
+        st.session_state["show_add_child"] = True
+        st.query_params.pop("add_child", None)
+        st.rerun()
+
+    if st.session_state["show_add_child"]:
+        st.markdown('<div class="panel-title">Add Child</div>', unsafe_allow_html=True)
+        with st.form("add_child_form", clear_on_submit=True):
+            full_name = st.text_input("Child full name")
+            date_of_birth = st.date_input("Date of birth", value=None)
+            session = st.selectbox("Assign to session", SESSIONS)
+            thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
+            submitted = st.form_submit_button("Save Child")
+
+        if st.button("Cancel"):
+            st.session_state["show_add_child"] = False
+            st.rerun()
+
+        if submitted:
+            if not full_name:
+                st.warning("Please add the child's full name.")
+            else:
+                thumbnail_path = ""
+                if thumbnail is not None:
+                    thumbnail_path = save_uploaded_thumbnail(thumbnail)
+
+                children.append(
+                    {
+                        "ID": uuid.uuid4().hex,
+                        "Name": full_name.strip(),
+                        "DOB": date_of_birth.isoformat() if date_of_birth else "",
+                        "Session": session,
+                        "Thumbnail": thumbnail_path,
+                    }
+                )
+                save_children(children)
+                st.session_state["show_add_child"] = False
+                st.success("Child added.")
+                st.rerun()
+    else:
+        st.markdown(
+            '<div class="status"><span class="status-dot"></span><div>Use Add Child to create a new child profile.</div></div>',
+            unsafe_allow_html=True,
+        )
+
+
 def render_parent_approvals():
     parents = load_parents()
     children = load_children()
@@ -1780,9 +1794,11 @@ current_role = st.session_state.get("role", "Parent")
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
-valid_pages = {"Children", "Parents"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
+valid_pages = {"Children", "Parents", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
+if current_role == "Admin" and st.query_params.get("add_child"):
+    selected_page = "Settings"
 if st.query_params.get("edit_child"):
     selected_page = "Children"
 if st.query_params.get("edit_parent"):
@@ -1797,5 +1813,7 @@ with content_col:
     if current_role == "Admin":
         if selected_page == "Parents":
             render_parent_approvals()
+        elif selected_page == "Settings":
+            render_admin_settings()
         else:
             render_admin_children()
