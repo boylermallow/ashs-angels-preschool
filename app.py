@@ -1222,7 +1222,7 @@ st.markdown(
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
+            gap: 3px;
             background: transparent;
             border: 0;
         }}
@@ -1231,8 +1231,8 @@ st.markdown(
         .mobile-menu-icon::after {{
             content: "";
             display: block;
-            width: 21px;
-            height: 3px;
+            width: 24px;
+            height: 3.5px;
             border-radius: 999px;
             background: #ffffff;
         }}
