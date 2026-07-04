@@ -1533,6 +1533,30 @@ def render_side_menu(role, selected_page):
     )
 
 
+def render_delete_child_dialog(child):
+    child_id = child.get("ID", "")
+    child_name = child.get("Name", "this child")
+    st.markdown(
+        f'<div class="danger-confirm">Are you sure you want to delete {html.escape(child_name)}? This cannot be undone.</div>',
+        unsafe_allow_html=True,
+    )
+    confirm_col, keep_col = st.columns([1, 1], gap="small")
+    if confirm_col.button("Yes, delete child", type="primary", key=f"confirm_delete_dialog_{child_id}"):
+        delete_child_and_clear_parent_links(child_id)
+        st.session_state.pop("confirm_delete_child_id", None)
+        st.session_state["notification_sent"] = "Child deleted."
+        for param in ("delete_child", "edit_child", "children_edit"):
+            st.query_params.pop(param, None)
+        st.rerun()
+    if keep_col.button("No, keep child", key=f"cancel_delete_dialog_{child_id}"):
+        st.session_state.pop("confirm_delete_child_id", None)
+        st.rerun()
+
+
+if hasattr(st, "dialog"):
+    render_delete_child_dialog = st.dialog("Delete child")(render_delete_child_dialog)
+
+
 def render_admin_children():
     children = load_children()
     parents = load_parents()
@@ -1608,22 +1632,7 @@ def render_admin_children():
                 st.rerun()
 
             if st.session_state.get("confirm_delete_child_id") == edit_child_id:
-                child_name = editing_child.get("Name", "this child")
-                st.markdown(
-                    f'<div class="danger-confirm">Are you sure you want to delete {html.escape(child_name)}? This cannot be undone.</div>',
-                    unsafe_allow_html=True,
-                )
-                confirm_col, keep_col = st.columns([1, 1], gap="small")
-                if confirm_col.button("Yes, delete child", type="primary", key=f"confirm_delete_{edit_child_id}"):
-                    delete_child_and_clear_parent_links(edit_child_id)
-                    st.session_state.pop("confirm_delete_child_id", None)
-                    for param in ("delete_child", "edit_child", "children_edit"):
-                        st.query_params.pop(param, None)
-                    st.success("Child deleted.")
-                    st.rerun()
-                if keep_col.button("No, keep child", key=f"cancel_delete_{edit_child_id}"):
-                    st.session_state.pop("confirm_delete_child_id", None)
-                    st.rerun()
+                render_delete_child_dialog(editing_child)
 
             if update_submitted:
                 st.session_state.pop("confirm_delete_child_id", None)
