@@ -10,7 +10,8 @@
     "Message": "tesdfddf",
     "CreatedAt": "2026-06-07T15:48:39",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-04T20:49:42"
   },
   {
     "ID": "10cf3b511df945a889d31925d55c2782",
@@ -23,7 +24,8 @@
     "Message": "Testing Message",
     "CreatedAt": "2026-07-04T19:35:36",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-04T20:49:42"
   },
   {
     "ID": "73ca5c919ea1406eb796a6e46418e6cd",
@@ -36,7 +38,8 @@
     "Message": "testing",
     "CreatedAt": "2026-07-04T20:12:08",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-04T20:49:42"
   },
   {
     "ID": "b2c321aba7024b328ef84093d262f739",
@@ -49,6 +52,7 @@
     "Message": "TESTING LENA",
     "CreatedAt": "2026-07-04T20:17:19",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-04T20:49:42"
   }
 ]
