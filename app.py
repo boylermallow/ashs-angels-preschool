@@ -730,7 +730,21 @@ st.markdown(
         color: var(--brand-blue) !important;
         font-weight: 950 !important;
     }}
-    div[role="dialog"] button[aria-label="Close"],
+    div[role="dialog"] button[aria-label="Close"] {{
+        background: #e9f4ff !important;
+        border: 1px solid #d9e5ef !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }}
+    div[role="dialog"] button[aria-label="Close"]:hover {{
+        background: var(--brand-blue) !important;
+        border-color: var(--brand-blue) !important;
+    }}
+    div[role="dialog"] button[aria-label="Close"]:hover svg {{
+        color: #ffffff !important;
+        fill: #ffffff !important;
+    }}
     div[role="dialog"] button[aria-label="Close"] svg {{
         color: var(--brand-blue) !important;
         fill: var(--brand-blue) !important;
