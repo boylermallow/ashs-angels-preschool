@@ -1255,6 +1255,25 @@ st.markdown(
         font-weight: 800;
         margin-bottom: 4px;
     }}
+    .message-child {{
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+    }}
+    .message-child .child-thumb {{
+        position: static;
+        width: 58px;
+        height: 58px;
+        min-height: 58px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: transparent;
+    }}
+    .message-child .child-thumb.placeholder {{
+        object-fit: contain;
+        opacity: .72;
+    }}
     .parents-list div[data-testid="stButton"] button {{
         width: auto !important;
         min-height: 40px !important;
@@ -2469,7 +2488,8 @@ def current_parent_messages():
     ]
 
 
-def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None):
+def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None, children_by_id=None):
+    children_by_id = children_by_id or {child.get("ID", ""): child for child in load_children() if child.get("ID")}
     sorted_messages = sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
     if limit:
         sorted_messages = sorted_messages[:limit]
@@ -2479,6 +2499,10 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         message_id = message.get("ID", "")
         reply_key = f"{key_prefix}_reply_body_{message_id}"
         reply_open_key = f"{key_prefix}_reply_open_{message_id}"
+        child = children_by_id.get(message.get("ChildID", "")) or {
+            "Name": message.get("ChildName", "Preschool message"),
+            "Thumbnail": "",
+        }
         replies = message.get("Replies", [])
         replies_html = ""
         if replies:
@@ -2497,7 +2521,10 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
             f"""
             <div class="parent-row">
               <div>
-                <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                <div class="message-child">
+                  {child_thumb_html(child)}
+                  <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                </div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
                 <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
@@ -2573,7 +2600,7 @@ def render_parent_dashboard():
     messages = current_parent_messages()
     if messages:
         st.markdown('<div class="section-title">Latest messages</div>', unsafe_allow_html=True)
-        render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3)
+        render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3, children_by_id=children_by_id)
         if len(messages) > 3:
             st.markdown(f'<a class="menu-item" href="{app_href("Messages")}" target="_self">View all messages</a>', unsafe_allow_html=True)
     else:
