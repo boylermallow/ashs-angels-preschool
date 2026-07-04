@@ -389,17 +389,16 @@ def remove_photo_background(image_bytes):
 
 
 def save_uploaded_thumbnail(uploaded_file):
-    CHILDREN_DIR.mkdir(parents=True, exist_ok=True)
-    image_name = f"{uuid.uuid4().hex}-safe-transparent.png"
-    image_path = CHILDREN_DIR / image_name
     try:
         processed = remove_photo_background(uploaded_file.getvalue())
-        processed.save(image_path)
     except Exception:
         fallback = Image.open(uploaded_file).convert("RGBA")
-        fallback.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
-        fallback.save(image_path)
-    return f"assets/children/{image_name}"
+        processed = fallback
+    processed.thumbnail((520, 520), Image.Resampling.LANCZOS)
+    buffer = BytesIO()
+    processed.save(buffer, format="PNG", optimize=True)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def load_parents():
@@ -453,9 +452,12 @@ def show_quick_notice(message):
 def child_thumb_html(child):
     thumb = child.get("Thumbnail") or ""
     if thumb:
-        path = APP_DIR / thumb
+        child_name = html.escape(child.get("Name", "Child"))
+        if str(thumb).startswith("data:image"):
+            return f'<img class="child-thumb" src="{thumb}" alt="{child_name}">'
+        path = APP_DIR / str(thumb)
         if path.exists():
-            return f'<img class="child-thumb" src="{asset_url(path)}" alt="{html.escape(child.get("Name", "Child"))}">'
+            return f'<img class="child-thumb" src="{asset_url(path)}" alt="{child_name}">'
     return f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
 
 
