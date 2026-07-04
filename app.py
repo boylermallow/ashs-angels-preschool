@@ -1208,6 +1208,28 @@ st.markdown(
         .login-logo {{ width: 96px; height: 66px; }}
         .role-grid {{ grid-template-columns: 1fr; }}
         .child-row {{ grid-template-columns: 68px 1fr; }}
+        div[data-testid="stForm"] {{
+            padding: 18px 14px 24px !important;
+        }}
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
+            width: 100% !important;
+            gap: 8px !important;
+        }}
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div {{
+            flex: 1 1 0 !important;
+            width: 33.333% !important;
+        }}
+        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) div[data-testid="stFormSubmitButton"] button {{
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 46px !important;
+            padding: 8px 6px !important;
+            font-size: clamp(.72rem, 3.45vw, .94rem) !important;
+            line-height: 1.08 !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            text-align: center !important;
+        }}
     }}
     </style>
     """,
