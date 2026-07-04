@@ -498,6 +498,46 @@ def child_age_text(dob_value):
     return " & ".join(parts) if parts else "Less than 1 month"
 
 
+def child_birthday_text(dob_value):
+    if not dob_value:
+        return ""
+    if isinstance(dob_value, str):
+        try:
+            dob_value = date.fromisoformat(dob_value)
+        except ValueError:
+            return ""
+    return dob_value.strftime("%d %b").lstrip("0")
+
+
+def cake_icon_html():
+    return (
+        '<svg class="cake-icon" viewBox="0 0 32 32" aria-hidden="true">'
+        '<path class="cake-candle" d="M11 4v5M16 3v6M21 4v5"/>'
+        '<path class="cake-flame" d="M11 2.5c1.6 1.4 1.6 2.7 0 4-1.6-1.3-1.6-2.6 0-4ZM16 1.5c1.7 1.5 1.7 2.9 0 4.2-1.7-1.3-1.7-2.7 0-4.2ZM21 2.5c1.6 1.4 1.6 2.7 0 4-1.6-1.3-1.6-2.6 0-4Z"/>'
+        '<path class="cake-icing" d="M8 13h16c1.7 0 3 1.3 3 3v2H5v-2c0-1.7 1.3-3 3-3Z"/>'
+        '<path class="cake-base" d="M6 18h20v8H6z"/>'
+        '<path class="cake-sprinkle" d="M10 21h2M15 23h2M20 21h2"/>'
+        '</svg>'
+    )
+
+
+def child_info_badges_html(dob_value):
+    age = child_age_text(dob_value)
+    birthday = child_birthday_text(dob_value)
+    if not age and not birthday:
+        return ""
+    badges = []
+    if age:
+        badges.append(f'<div class="child-age-note">Age: {html.escape(age)}</div>')
+    if birthday:
+        badges.append(
+            '<div class="child-birthday-note">'
+            f'{cake_icon_html()}<span>Birthday: {html.escape(birthday)}</span>'
+            '</div>'
+        )
+    return f'<div class="child-info-badges">{"".join(badges)}</div>'
+
+
 st.markdown(
     f"""
     <style>
@@ -974,18 +1014,65 @@ st.markdown(
         font-weight: 500;
         line-height: 1.25;
     }}
-    .child-age-note {{
+    .child-info-badges {{
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 8px 0 18px;
+    }}
+    .child-age-note,
+    .child-birthday-note {{
         display: inline-flex;
         align-items: center;
         width: fit-content;
-        margin: 8px 0 18px;
+        min-height: 38px;
+        margin: 0;
         padding: 8px 12px;
         border-radius: 8px;
-        background: #e9f4ff;
         color: var(--ink);
         font-size: .96rem;
         font-weight: 760;
         line-height: 1.2;
+    }}
+    .child-age-note {{
+        background: #e9f4ff;
+    }}
+    .child-birthday-note {{
+        gap: 8px;
+        background: #fff1c7;
+        border: 1px solid rgba(255,159,28,.24);
+    }}
+    .cake-icon {{
+        width: 24px;
+        height: 24px;
+        flex: 0 0 auto;
+    }}
+    .cake-icon .cake-candle {{
+        stroke: var(--brand-blue);
+        stroke-width: 2;
+        stroke-linecap: round;
+        fill: none;
+    }}
+    .cake-icon .cake-flame {{
+        fill: var(--orange);
+    }}
+    .cake-icon .cake-icing {{
+        fill: #ffffff;
+        stroke: var(--brand-blue);
+        stroke-width: 1.8;
+        stroke-linejoin: round;
+    }}
+    .cake-icon .cake-base {{
+        fill: var(--rose);
+        stroke: var(--brand-blue);
+        stroke-width: 1.8;
+        stroke-linejoin: round;
+    }}
+    .cake-icon .cake-sprinkle {{
+        stroke: var(--sun);
+        stroke-width: 1.8;
+        stroke-linecap: round;
     }}
     .current-thumb-preview {{
         display: grid; justify-items: center; gap: 10px; color: var(--muted);
@@ -1793,12 +1880,9 @@ def render_admin_children():
                 with details_col:
                     edited_name = st.text_input("Child full name", value=editing_child.get("Name", ""))
                     edited_dob = st.date_input("Date of birth", value=dob_value)
-                    edited_age = child_age_text(edited_dob)
-                    if edited_age:
-                        st.markdown(
-                            f'<div class="child-age-note">Age: {html.escape(edited_age)}</div>',
-                            unsafe_allow_html=True,
-                        )
+                    child_badges = child_info_badges_html(edited_dob)
+                    if child_badges:
+                        st.markdown(child_badges, unsafe_allow_html=True)
                     edited_session = st.selectbox("Assign to session", SESSIONS, index=session_index)
                 with thumbnail_col:
                     st.markdown(
@@ -1938,12 +2022,9 @@ def render_add_child_dialog():
     with st.form("add_child_form", clear_on_submit=True):
         full_name = st.text_input("Child full name")
         date_of_birth = st.date_input("Date of birth", value=None)
-        child_age = child_age_text(date_of_birth)
-        if child_age:
-            st.markdown(
-                f'<div class="child-age-note">Age: {html.escape(child_age)}</div>',
-                unsafe_allow_html=True,
-            )
+        child_badges = child_info_badges_html(date_of_birth)
+        if child_badges:
+            st.markdown(child_badges, unsafe_allow_html=True)
         session = st.selectbox("Assign to session", SESSIONS)
         thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
         if thumbnail is not None:
