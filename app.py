@@ -891,6 +891,31 @@ st.markdown(
         background: #fffaf1 !important; color: var(--brand-blue) !important;
         border: 1px solid var(--line) !important;
         box-shadow: none !important;
+        transition: transform .16s ease, background-color .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease !important;
+    }}
+    div[data-testid="stButton"] button:hover,
+    div[data-testid="stFormSubmitButton"] button:hover {{
+        background: #e9f4ff !important;
+        border-color: var(--brand-blue) !important;
+        color: var(--brand-blue) !important;
+        box-shadow: 0 6px 14px rgba(35,52,95,.14) !important;
+        transform: translateY(-1px) !important;
+    }}
+    div[data-testid="stButton"] button:active,
+    div[data-testid="stFormSubmitButton"] button:active {{
+        transform: translateY(0) scale(.98) !important;
+        box-shadow: 0 2px 8px rgba(35,52,95,.12) !important;
+    }}
+    div[data-testid="stButton"] button:focus-visible,
+    div[data-testid="stFormSubmitButton"] button:focus-visible {{
+        outline: 3px solid rgba(49,84,165,.26) !important;
+        outline-offset: 2px !important;
+    }}
+    div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div:nth-child(3) div[data-testid="stFormSubmitButton"] button:hover {{
+        background: #c82032 !important;
+        border-color: #a81526 !important;
+        color: #ffffff !important;
+        box-shadow: 0 8px 18px rgba(200,32,50,.24) !important;
     }}
     div[data-testid="stFormSubmitButton"] button {{
         width: 100% !important;
