@@ -1589,7 +1589,8 @@ st.markdown(
         .login-head {{ align-items: flex-start; }}
         .login-logo {{ width: 96px; height: 66px; }}
         .role-grid {{ grid-template-columns: 1fr; }}
-        .child-row {{ grid-template-columns: 68px 1fr; }}
+        .child-row {{ grid-template-columns: 68px minmax(0, 1fr) auto; }}
+        .profile-link {{ grid-template-columns: 68px minmax(0, 1fr); }}
         div[data-testid="stForm"] {{
             padding: 18px 14px 24px !important;
         }}
