@@ -388,17 +388,22 @@ def remove_photo_background(image_bytes):
     return Image.fromarray(pixels, "RGBA")
 
 
-def save_uploaded_thumbnail(uploaded_file):
+@st.cache_data(show_spinner=False)
+def uploaded_thumbnail_data_uri(image_bytes):
     try:
-        processed = remove_photo_background(uploaded_file.getvalue())
+        processed = remove_photo_background(image_bytes)
     except Exception:
-        fallback = Image.open(uploaded_file).convert("RGBA")
+        fallback = Image.open(BytesIO(image_bytes)).convert("RGBA")
         processed = fallback
     processed.thumbnail((520, 520), Image.Resampling.LANCZOS)
     buffer = BytesIO()
     processed.save(buffer, format="PNG", optimize=True)
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+def save_uploaded_thumbnail(uploaded_file):
+    return uploaded_thumbnail_data_uri(uploaded_file.getvalue())
 
 
 def load_parents():
@@ -1716,6 +1721,15 @@ def render_admin_children():
                         unsafe_allow_html=True,
                     )
                     edited_thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"], key=f"edit_thumb_{edit_child_id}")
+                    if edited_thumbnail is not None:
+                        preview_child = {
+                            "Name": editing_child.get("Name", "Child"),
+                            "Thumbnail": uploaded_thumbnail_data_uri(edited_thumbnail.getvalue()),
+                        }
+                        st.markdown(
+                            f'<div class="current-thumb-preview">{child_thumb_html(preview_child)}<span>New thumbnail preview</span></div>',
+                            unsafe_allow_html=True,
+                        )
                 save_col, cancel_col, delete_col = st.columns([1, 1, 1], gap="small")
                 update_submitted = save_col.form_submit_button("Save Changes")
                 cancel_submitted = cancel_col.form_submit_button("Cancel Edit")
@@ -1820,6 +1834,15 @@ def render_add_child_dialog():
         date_of_birth = st.date_input("Date of birth", value=None)
         session = st.selectbox("Assign to session", SESSIONS)
         thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
+        if thumbnail is not None:
+            preview_child = {
+                "Name": full_name or "Child",
+                "Thumbnail": uploaded_thumbnail_data_uri(thumbnail.getvalue()),
+            }
+            st.markdown(
+                f'<div class="current-thumb-preview">{child_thumb_html(preview_child)}<span>New thumbnail preview</span></div>',
+                unsafe_allow_html=True,
+            )
         submitted = st.form_submit_button("Save Child")
 
     if st.button("Cancel", key="cancel_add_child_dialog"):
