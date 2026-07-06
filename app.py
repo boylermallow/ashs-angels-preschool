@@ -459,6 +459,7 @@ def send_parent_notification(child, parent, message_body):
             "Type": "Notification",
             "ChildID": child.get("ID", ""),
             "ChildName": child.get("Name", ""),
+            "ChildThumbnail": child.get("Thumbnail", ""),
             "ParentID": parent.get("ID", ""),
             "ParentName": parent.get("FirstName", ""),
             "ParentEmail": parent.get("Email", ""),
@@ -571,6 +572,39 @@ def child_thumb_html(child):
         if path.exists():
             return f'<img class="child-thumb" src="{asset_url(path)}" alt="{child_name}">'
     return f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
+
+
+def lookup_key(value):
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def message_child_record(message, children_by_id, children_by_name, parents_by_id, parents_by_email):
+    child_id = str(message.get("ChildID", "") or "")
+    child_name = str(message.get("ChildName", "") or "")
+    parent_id = str(message.get("ParentID", "") or "")
+    parent_email = lookup_key(message.get("ParentEmail", ""))
+
+    child = children_by_id.get(child_id)
+    if child:
+        return child
+
+    child = children_by_name.get(lookup_key(child_name))
+    if child:
+        return child
+
+    parent = parents_by_id.get(parent_id) or parents_by_email.get(parent_email)
+    if parent:
+        child = children_by_id.get(parent.get("ChildID", ""))
+        if child:
+            return child
+        child = children_by_name.get(lookup_key(parent.get("ChildName", "")))
+        if child:
+            return child
+
+    return {
+        "Name": child_name or "Preschool message",
+        "Thumbnail": message.get("ChildThumbnail", ""),
+    }
 
 
 def format_dob(value):
@@ -1328,6 +1362,16 @@ st.markdown(
     .message-child .child-thumb.placeholder {{
         object-fit: contain;
         opacity: .72;
+    }}
+    .admin-message-child {{
+        grid-template-columns: 76px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+    }}
+    .admin-message-child .child-thumb {{
+        width: 76px;
+        height: 76px;
+        min-height: 76px;
     }}
     .parents-list div[data-testid="stButton"] button {{
         width: auto !important;
@@ -2754,7 +2798,12 @@ def render_parent_forms():
 
 def render_admin_messages():
     messages = sorted(load_messages(), key=lambda item: item.get("CreatedAt", ""), reverse=True)
-    children_by_id = {child.get("ID", ""): child for child in load_children() if child.get("ID")}
+    children = load_children()
+    parents = load_parents()
+    children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
+    children_by_name = {lookup_key(child.get("Name", "")): child for child in children if child.get("Name")}
+    parents_by_id = {parent.get("ID", ""): parent for parent in parents if parent.get("ID")}
+    parents_by_email = {lookup_key(parent.get("Email", "")): parent for parent in parents if parent.get("Email")}
     st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
     deleted_message = st.session_state.pop("message_deleted_notice", "")
     if deleted_message:
@@ -2771,10 +2820,8 @@ def render_admin_messages():
         read_status = f"Read {read_at}" if message.get("Read") else "Unread"
         parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
         child_name = message.get("ChildName", "Preschool message")
-        child = children_by_id.get(message.get("ChildID", "")) or {
-            "Name": child_name,
-            "Thumbnail": "",
-        }
+        child = message_child_record(message, children_by_id, children_by_name, parents_by_id, parents_by_email)
+        child_name = child.get("Name") or child_name
         replies = message.get("Replies", [])
         replies_html = ""
         if replies:
@@ -2793,7 +2840,7 @@ def render_admin_messages():
             f"""
             <div class="parent-row">
               <div>
-                <div class="message-child">
+                <div class="message-child admin-message-child">
                   {child_thumb_html(child)}
                   <div>
                     <div class="parent-name">{html.escape(child_name)}</div>
