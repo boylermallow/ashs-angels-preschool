@@ -864,25 +864,53 @@ st.markdown(
         font-weight: 950;
         margin: 8px 0 14px;
     }}
-    div[data-testid="stDialog"] div[role="dialog"],
+    [data-testid="stDialog"],
+    [data-testid="stDialog"] > div,
+    [data-testid="stDialog"] [data-baseweb="modal"],
+    [data-testid="stDialog"] [role="dialog"],
+    [data-baseweb="modal"],
+    [data-baseweb="modal"] > div,
+    [data-baseweb="modal"] > div > div,
+    [data-baseweb="modal"] [role="dialog"],
     div[role="dialog"] {{
         background: #fffaf1 !important;
+        background-color: #fffaf1 !important;
         border-radius: 8px !important;
         border: 1px solid var(--line) !important;
         box-shadow: 0 24px 70px rgba(35,52,95,.24) !important;
     }}
-    div[data-testid="stDialog"] div[role="dialog"] > div,
-    div[data-testid="stDialog"] div[role="dialog"] section,
-    div[data-testid="stDialog"] div[role="dialog"] [data-testid="stVerticalBlock"],
-    div[data-testid="stDialog"] div[role="dialog"] [data-testid="stElementContainer"],
-    div[data-testid="stDialog"] div[role="dialog"] [data-testid="stMarkdownContainer"],
+    [data-testid="stDialog"] [class*="st-emotion-cache"],
+    [data-testid="stDialog"] [data-testid="stVerticalBlock"],
+    [data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"],
+    [data-testid="stDialog"] [data-testid="stElementContainer"],
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"],
+    [data-baseweb="modal"] [class*="st-emotion-cache"],
+    [data-baseweb="modal"] [data-testid="stVerticalBlock"],
+    [data-baseweb="modal"] [data-testid="stVerticalBlockBorderWrapper"],
+    [data-baseweb="modal"] [data-testid="stElementContainer"],
+    [data-baseweb="modal"] [data-testid="stMarkdownContainer"],
     div[role="dialog"] > div,
     div[role="dialog"] section,
     div[role="dialog"] [data-testid="stVerticalBlock"],
     div[role="dialog"] [data-testid="stElementContainer"],
     div[role="dialog"] [data-testid="stMarkdownContainer"] {{
         background: #fffaf1 !important;
+        background-color: #fffaf1 !important;
     }}
+    [data-testid="stDialog"],
+    [data-testid="stDialog"] h1,
+    [data-testid="stDialog"] h2,
+    [data-testid="stDialog"] h3,
+    [data-testid="stDialog"] p,
+    [data-testid="stDialog"] label,
+    [data-testid="stDialog"] span,
+    [data-baseweb="modal"],
+    [data-baseweb="modal"] h1,
+    [data-baseweb="modal"] h2,
+    [data-baseweb="modal"] h3,
+    [data-baseweb="modal"] p,
+    [data-baseweb="modal"] label,
+    [data-baseweb="modal"] span,
     div[role="dialog"],
     div[role="dialog"] h1,
     div[role="dialog"] h2,
@@ -892,11 +920,17 @@ st.markdown(
     div[role="dialog"] span {{
         color: var(--ink) !important;
     }}
+    [data-testid="stDialog"] h2,
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] .panel-title,
+    [data-baseweb="modal"] h2,
+    [data-baseweb="modal"] [data-testid="stMarkdownContainer"] .panel-title,
     div[role="dialog"] h2,
     div[role="dialog"] [data-testid="stMarkdownContainer"] .panel-title {{
         color: var(--brand-blue) !important;
         font-weight: 950 !important;
     }}
+    [data-testid="stDialog"] button[aria-label="Close"],
+    [data-baseweb="modal"] button[aria-label="Close"],
     div[role="dialog"] button[aria-label="Close"] {{
         background: #e9f4ff !important;
         border: 1px solid #d9e5ef !important;
@@ -904,36 +938,55 @@ st.markdown(
         box-shadow: none !important;
         outline: none !important;
     }}
+    [data-testid="stDialog"] button[aria-label="Close"]:hover,
+    [data-baseweb="modal"] button[aria-label="Close"]:hover,
     div[role="dialog"] button[aria-label="Close"]:hover {{
         background: var(--brand-blue) !important;
         border-color: var(--brand-blue) !important;
     }}
+    [data-testid="stDialog"] button[aria-label="Close"]:hover svg,
+    [data-baseweb="modal"] button[aria-label="Close"]:hover svg,
     div[role="dialog"] button[aria-label="Close"]:hover svg {{
         color: #ffffff !important;
         fill: #ffffff !important;
     }}
+    [data-testid="stDialog"] button[aria-label="Close"] svg,
+    [data-baseweb="modal"] button[aria-label="Close"] svg,
     div[role="dialog"] button[aria-label="Close"] svg {{
         color: var(--brand-blue) !important;
         fill: var(--brand-blue) !important;
         opacity: 1 !important;
     }}
+    [data-testid="stDialog"] input,
+    [data-testid="stDialog"] textarea,
+    [data-baseweb="modal"] input,
+    [data-baseweb="modal"] textarea,
     div[role="dialog"] input,
     div[role="dialog"] textarea {{
         background: #ffffff !important;
+        background-color: #ffffff !important;
         color: var(--ink) !important;
         border-color: #d9e5ef !important;
     }}
+    [data-testid="stDialog"] button:not([aria-label="Close"]),
+    [data-baseweb="modal"] button:not([aria-label="Close"]),
     div[role="dialog"] button:not([aria-label="Close"]) {{
         background: var(--brand-blue) !important;
+        background-color: var(--brand-blue) !important;
         border-color: var(--brand-blue) !important;
         color: #ffffff !important;
         box-shadow: none !important;
     }}
+    [data-testid="stDialog"] button:not([aria-label="Close"]) *,
+    [data-baseweb="modal"] button:not([aria-label="Close"]) *,
     div[role="dialog"] button:not([aria-label="Close"]) * {{
         color: #ffffff !important;
     }}
+    [data-testid="stDialog"] button:not([aria-label="Close"]):hover,
+    [data-baseweb="modal"] button:not([aria-label="Close"]):hover,
     div[role="dialog"] button:not([aria-label="Close"]):hover {{
         background: #23345f !important;
+        background-color: #23345f !important;
         border-color: #23345f !important;
     }}
     .app-title {{ font-size: 1.55rem; font-weight: 900; color: var(--brand-blue); line-height: 1.1; }}
