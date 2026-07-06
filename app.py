@@ -112,7 +112,19 @@ def write_json(path, value):
 
 
 def github_data_token():
-    return setting("GITHUB_DATA_TOKEN")
+    for name in ("GITHUB_DATA_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "GITHUB_PAT", "GITHUB_PERSONAL_ACCESS_TOKEN"):
+        value = setting(name)
+        if value:
+            return value
+    try:
+        github_settings = st.secrets.get("github", {})
+        for name in ("data_token", "token", "pat"):
+            value = str(github_settings.get(name, "")).strip()
+            if value:
+                return value
+    except Exception:
+        pass
+    return ""
 
 
 def github_api_request(method, path, payload=None):
@@ -160,14 +172,17 @@ def load_persistent_json(path, fallback):
 
 
 def save_persistent_json(path, value, message):
-    write_json(APP_DIR / path, value)
     if not github_data_token():
+        write_json(APP_DIR / path, value)
         st.session_state["data_save_warning"] = (
             "This change was saved for now, but permanent saving is not switched on yet."
         )
         return False
     remote = github_api_request("GET", path)
     if not remote or not remote.get("sha"):
+        st.session_state["data_save_warning"] = (
+            "This change was not saved permanently. The GitHub data key needs checking."
+        )
         return False
     payload = {
         "message": message,
@@ -177,6 +192,7 @@ def save_persistent_json(path, value, message):
     }
     result = github_api_request("PUT", path, payload)
     if result:
+        write_json(APP_DIR / path, value)
         st.session_state.pop("data_save_warning", None)
         st.session_state.pop("data_save_error", None)
         st.session_state[f"{path}_sha"] = result.get("content", {}).get("sha", "")
@@ -340,12 +356,12 @@ def load_children():
 
 
 def save_children(children):
-    save_persistent_json("children.json", children, "Update children")
+    return save_persistent_json("children.json", children, "Update children")
 
 
 def delete_child_and_clear_parent_links(child_id):
     children = [child for child in load_children() if child.get("ID") != child_id]
-    save_children(children)
+    children_saved = save_children(children)
     parents = load_parents()
     parents_changed = False
     for parent in parents:
@@ -353,8 +369,10 @@ def delete_child_and_clear_parent_links(child_id):
             parent["ChildID"] = ""
             parent["ChildName"] = ""
             parents_changed = True
+    parents_saved = True
     if parents_changed:
-        save_parents(parents)
+        parents_saved = save_parents(parents)
+    return children_saved and parents_saved
 
 
 def remove_photo_background(image_bytes):
@@ -439,7 +457,7 @@ def load_parents():
 
 
 def save_parents(parents):
-    save_persistent_json("parents.json", parents, "Update parents")
+    return save_persistent_json("parents.json", parents, "Update parents")
 
 
 def load_messages():
@@ -448,7 +466,7 @@ def load_messages():
 
 
 def save_messages(messages):
-    save_persistent_json("messages.json", messages, "Update messages")
+    return save_persistent_json("messages.json", messages, "Update messages")
 
 
 def send_parent_notification(child, parent, message_body):
@@ -2451,12 +2469,14 @@ def render_delete_child_dialog(child):
     )
     confirm_col, keep_col = st.columns([1, 1], gap="small")
     if confirm_col.button("Yes, delete child", type="primary", key=f"confirm_delete_dialog_{child_id}"):
-        delete_child_and_clear_parent_links(child_id)
-        st.session_state.pop("confirm_delete_child_id", None)
-        st.session_state["notification_sent"] = "Child deleted."
-        for param in ("delete_child", "edit_child", "children_edit"):
-            st.query_params.pop(param, None)
-        st.rerun()
+        if delete_child_and_clear_parent_links(child_id):
+            st.session_state.pop("confirm_delete_child_id", None)
+            st.session_state["notification_sent"] = "Child deleted."
+            for param in ("delete_child", "edit_child", "children_edit"):
+                st.query_params.pop(param, None)
+            st.rerun()
+        else:
+            st.error("The child was not deleted permanently. Please check the GitHub data key and try again.")
     if keep_col.button("No, keep child", key=f"cancel_delete_dialog_{child_id}"):
         st.session_state.pop("confirm_delete_child_id", None)
         st.rerun()
@@ -2516,11 +2536,15 @@ def render_admin_children():
     message_child_id = st.query_params.get("message_child")
 
     if delete_child_id:
-        delete_child_and_clear_parent_links(delete_child_id)
-        for param in ("delete_child", "edit_child", "children_edit"):
-            st.query_params.pop(param, None)
-        st.success("Child deleted.")
-        st.rerun()
+        if delete_child_and_clear_parent_links(delete_child_id):
+            for param in ("delete_child", "edit_child", "children_edit"):
+                st.query_params.pop(param, None)
+            st.success("Child deleted.")
+            st.rerun()
+        else:
+            for param in ("delete_child", "edit_child", "children_edit"):
+                st.query_params.pop(param, None)
+            st.error("The child was not deleted permanently. Please check the GitHub data key and try again.")
 
     if message_child_id:
         child_to_message = next((child for child in children if child.get("ID") == message_child_id), None)
@@ -2602,9 +2626,11 @@ def render_admin_children():
                                 }
                             )
                             break
-                    save_children(children)
-                    st.success("Thumbnail removed.")
-                    st.rerun()
+                    if save_children(children):
+                        st.success("Thumbnail removed.")
+                        st.rerun()
+                    else:
+                        st.error("The thumbnail was not removed permanently. Please check the GitHub data key and try again.")
 
             if update_submitted:
                 st.session_state.pop("confirm_delete_child_id", None)
@@ -2626,10 +2652,12 @@ def render_admin_children():
                                 }
                             )
                             break
-                    save_children(children)
-                    st.query_params.pop("edit_child", None)
-                    st.success("Child updated.")
-                    st.rerun()
+                    if save_children(children):
+                        st.query_params.pop("edit_child", None)
+                        st.success("Child updated.")
+                        st.rerun()
+                    else:
+                        st.error("The child was not updated permanently. Please check the GitHub data key and try again.")
 
     if not children:
         st.markdown('<div class="muted">No children added yet.</div>', unsafe_allow_html=True)
@@ -2728,11 +2756,13 @@ def render_add_child_dialog():
                     "Thumbnail": thumbnail_path,
                 }
             )
-            save_children(children)
-            st.session_state["show_add_child"] = False
-            st.session_state["child_added_message"] = "Child added."
-            st.query_params["app_page"] = "Children"
-            st.rerun()
+            if save_children(children):
+                st.session_state["show_add_child"] = False
+                st.session_state["child_added_message"] = "Child added."
+                st.query_params["app_page"] = "Children"
+                st.rerun()
+            else:
+                st.error("The child was not saved permanently. Please check the GitHub data key and try again.")
 
 
 if hasattr(st, "dialog"):
