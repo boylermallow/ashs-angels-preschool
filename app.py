@@ -958,8 +958,25 @@ st.markdown(
         border-color: var(--brand-blue);
         box-shadow: 0 0 0 2px rgba(49,84,165,.22), 0 8px 18px rgba(35,52,95,.12);
     }}
-    .role-title {{ color: var(--brand-blue); font-weight: 950; font-size: 1.05rem; }}
-    .role-copy {{ color: var(--muted); line-height: 1.4; margin-top: 4px; }}
+    .role-card,
+    .role-card *,
+    .role-card:hover,
+    .role-card:hover * {{
+        text-decoration: none !important;
+    }}
+    .role-title {{
+        color: var(--brand-blue);
+        font-weight: 850;
+        font-size: .98rem;
+        line-height: 1.12;
+    }}
+    .role-copy {{
+        color: var(--muted);
+        font-size: .9rem;
+        font-weight: 500;
+        line-height: 1.25;
+        margin-top: 7px;
+    }}
     .forgot-link {{
         display: inline-flex;
         color: var(--brand-blue) !important;
