@@ -2954,7 +2954,7 @@ def render_message_dialog(child, parent):
     media_key = f"message_media_{child_id}"
     st.markdown(
         f'<div class="panel-title">Message {html.escape(parent_name)}</div>'
-        f'<div class="muted">This will send a notification about {html.escape(child_name)}.</div>',
+        f'<div class="muted">This will send a message about {html.escape(child_name)}.</div>',
         unsafe_allow_html=True,
     )
     message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
@@ -2976,7 +2976,7 @@ def render_message_dialog(child, parent):
         )
     send_col, cancel_col = st.columns(2)
 
-    if send_col.button("Send notification", key=f"send_message_{child_id}", width="stretch"):
+    if send_col.button("Send message", key=f"send_message_{child_id}", width="stretch"):
         if not message_body.strip() and not media_files:
             st.warning("Please add a message, photo, or video first.")
         else:
@@ -2984,7 +2984,7 @@ def render_message_dialog(child, parent):
             if attachment_error:
                 st.warning(attachment_error)
             elif send_parent_notification(child, parent, message_body, attachments):
-                st.session_state["notification_sent"] = f"Notification sent to {parent_name}."
+                st.session_state["notification_sent"] = f"Message sent to {parent_name}."
                 st.session_state.pop(message_key, None)
                 st.session_state.pop(media_key, None)
                 st.query_params.pop("message_child", None)
@@ -3000,7 +3000,7 @@ def render_message_dialog(child, parent):
 
 
 if hasattr(st, "dialog"):
-    render_message_dialog = st.dialog("Send parent notification")(render_message_dialog)
+    render_message_dialog = st.dialog("Send parent message")(render_message_dialog)
 
 
 def render_login():
