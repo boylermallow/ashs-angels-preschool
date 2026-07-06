@@ -2020,6 +2020,17 @@ st.markdown(
         color: var(--ink);
         font-weight: 850;
     }}
+    .message-body {{
+        color: var(--muted);
+        font-size: .96rem;
+        font-weight: 430;
+        line-height: 1.36;
+        overflow-wrap: anywhere;
+    }}
+    .reply-bubble .message-body {{
+        font-size: .92rem;
+        line-height: 1.34;
+    }}
     .parent-child-card {{
         display: grid;
         grid-template-columns: 58px minmax(0, 1fr);
@@ -3510,7 +3521,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    f'<div class="message-body">{html.escape(reply.get("Message", ""))}</div>'
                     f'{reply_attachments}'
                     '</div>'
                 )
@@ -3522,7 +3533,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
               <div>
                 <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
-                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                <div class="message-body">{html.escape(message.get("Message", ""))}</div>
                 {message_attachments}
                 {replies_html}
               </div>
@@ -3682,7 +3693,7 @@ def render_admin_messages():
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    f'<div class="message-body">{html.escape(reply.get("Message", ""))}</div>'
                     f'{reply_attachments}'
                     '</div>'
                 )
@@ -3698,7 +3709,7 @@ def render_admin_messages():
                 </div>
                 <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                <div class="message-body">{html.escape(message.get("Message", ""))}</div>
                 {message_attachments}
                 {replies_html}
               </div>
@@ -3877,7 +3888,7 @@ def render_parent_approvals():
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">Reply about {html.escape(reply.get("ChildName", "child"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    f'<div class="message-body">{html.escape(reply.get("Message", ""))}</div>'
                     '</div>'
                 )
             replies_html += "</div>"
