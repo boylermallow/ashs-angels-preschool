@@ -718,6 +718,90 @@ def child_info_badges_html(dob_value):
     return f'<div class="child-info-badges">{"".join(badges)}</div>'
 
 
+def normalize_guardian(guardian):
+    if not isinstance(guardian, dict):
+        return {}
+    return {
+        "Name": str(guardian.get("Name", "")).strip(),
+        "Relationship": str(guardian.get("Relationship", "")).strip(),
+        "Email": str(guardian.get("Email", "")).strip(),
+        "Phone": str(guardian.get("Phone", "")).strip(),
+        "Address": str(guardian.get("Address", "")).strip(),
+        "Invited": bool(guardian.get("Invited")),
+    }
+
+
+def child_guardians(child):
+    raw_guardians = child.get("Guardians", [])
+    if isinstance(raw_guardians, dict):
+        raw_guardians = [raw_guardians]
+    if not isinstance(raw_guardians, list):
+        return []
+    guardians = []
+    for guardian in raw_guardians:
+        clean_guardian = normalize_guardian(guardian)
+        if any(clean_guardian.get(field) for field in ("Name", "Relationship", "Email", "Phone", "Address")):
+            guardians.append(clean_guardian)
+    return guardians
+
+
+def guardian_from_fields(name, relationship, email, phone, address, invited):
+    guardian = {
+        "Name": str(name or "").strip(),
+        "Relationship": str(relationship or "").strip(),
+        "Email": str(email or "").strip(),
+        "Phone": str(phone or "").strip(),
+        "Address": str(address or "").strip(),
+        "Invited": bool(invited),
+    }
+    if not any(guardian.get(field) for field in ("Name", "Relationship", "Email", "Phone", "Address")):
+        return []
+    return [guardian]
+
+
+def guardian_summary_html(child):
+    guardians = child_guardians(child)
+    if not guardians:
+        return ""
+    rows = []
+    for guardian in guardians:
+        name = guardian.get("Name") or "Parent/guardian"
+        relationship = guardian.get("Relationship", "")
+        name_line = html.escape(name)
+        if relationship:
+            name_line += f" ({html.escape(relationship)})"
+        contact_bits = [guardian.get("Email", ""), guardian.get("Phone", "")]
+        contact_line = " &bull; ".join(html.escape(bit) for bit in contact_bits if bit)
+        address_line = html.escape(guardian.get("Address", ""))
+        invited = guardian.get("Invited")
+        initial = html.escape((name[:1] or "P").upper())
+        invited_line = (
+            '<div class="guardian-invited"><span class="guardian-check">&#10003;</span> Invited to use the app</div>'
+            if invited
+            else '<div class="guardian-not-invited">Not invited to use the app yet</div>'
+        )
+        contact_html = f'<div class="guardian-contact">{contact_line}</div>' if contact_line else ""
+        address_html = f'<div class="guardian-address">{address_line}</div>' if address_line else ""
+        details = (
+            f'<div class="guardian-name">{name_line}</div>'
+            f"{contact_html}"
+            f"{address_html}"
+            f"{invited_line}"
+        )
+        rows.append(
+            '<div class="guardian-card">'
+            f'<div class="guardian-avatar">{initial}</div>'
+            f'<div>{details}</div>'
+            '</div>'
+        )
+    return (
+        '<div class="guardian-section">'
+        '<div class="guardian-section-title">Parents/guardians</div>'
+        f'{"".join(rows)}'
+        '</div>'
+    )
+
+
 st.markdown(
     f"""
     <style>
@@ -1341,6 +1425,89 @@ st.markdown(
         background: #fff1c7;
         border: 1px solid rgba(255,159,28,.24);
     }}
+    .guardian-form-title {{
+        color: var(--brand-blue);
+        font-size: 1.05rem;
+        font-weight: 900;
+        margin: 18px 0 6px;
+    }}
+    .guardian-section {{
+        display: grid;
+        gap: 10px;
+        margin: 12px 0 16px;
+    }}
+    .guardian-section-title {{
+        color: var(--ink);
+        font-size: 1.08rem;
+        font-weight: 900;
+        line-height: 1.15;
+    }}
+    .guardian-card {{
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffaf1;
+        padding: 14px 16px;
+    }}
+    .guardian-avatar {{
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        border-radius: 999px;
+        background: #10a461;
+        color: #ffffff;
+        font-size: 1.45rem;
+        font-weight: 900;
+        line-height: 1;
+    }}
+    .guardian-name {{
+        color: #10a461;
+        font-size: 1.02rem;
+        font-weight: 900;
+        line-height: 1.18;
+    }}
+    .guardian-contact,
+    .guardian-address {{
+        color: #4d4f54;
+        font-size: .96rem;
+        font-weight: 620;
+        line-height: 1.28;
+        margin-top: 3px;
+    }}
+    .guardian-invited,
+    .guardian-not-invited {{
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 5px;
+        font-size: .94rem;
+        font-weight: 760;
+        line-height: 1.25;
+    }}
+    .guardian-invited {{
+        color: #10a461;
+    }}
+    .guardian-not-invited {{
+        color: var(--muted);
+    }}
+    .guardian-check {{
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #10a461;
+        color: #ffffff;
+        font-size: .72rem;
+        font-weight: 950;
+        line-height: 1;
+    }}
     .cake-icon {{
         width: 24px;
         height: 24px;
@@ -1687,6 +1854,8 @@ st.markdown(
     div[data-testid="stDateInput"] *,
     div[data-testid="stSelectbox"],
     div[data-testid="stSelectbox"] *,
+    div[data-testid="stCheckbox"],
+    div[data-testid="stCheckbox"] *,
     div[data-testid="stFileUploader"],
     div[data-testid="stFileUploader"] * {{
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif !important;
@@ -1785,6 +1954,8 @@ st.markdown(
     div[data-testid="stSelectbox"] label span,
     div[data-testid="stDateInput"] label,
     div[data-testid="stDateInput"] label span,
+    div[data-testid="stCheckbox"] label,
+    div[data-testid="stCheckbox"] label span,
     div[data-testid="stFileUploader"] label,
     div[data-testid="stFileUploader"] label span,
     div[data-testid="stWidgetLabel"],
@@ -1799,6 +1970,7 @@ st.markdown(
     div[data-testid="stTextArea"] label p,
     div[data-testid="stSelectbox"] label p,
     div[data-testid="stDateInput"] label p,
+    div[data-testid="stCheckbox"] label p,
     div[data-testid="stFileUploader"] label p {{
         color: var(--brand-blue) !important;
         font-size: 1.02rem !important;
@@ -2562,12 +2734,16 @@ def render_admin_children():
         if editing_child:
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown('<div class="panel-title">Edit Child</div>', unsafe_allow_html=True)
+            guardian_preview = guardian_summary_html(editing_child)
+            if guardian_preview:
+                st.markdown(guardian_preview, unsafe_allow_html=True)
             try:
                 dob_value = date.fromisoformat(editing_child.get("DOB", ""))
             except ValueError:
                 dob_value = None
             current_session = clean_session_name(editing_child.get("Session"))
             session_index = SESSIONS.index(current_session) if current_session in SESSIONS else 0
+            current_guardian = (child_guardians(editing_child) or [{}])[0]
             with st.form(f"edit_child_form_{edit_child_id}"):
                 details_col, thumbnail_col = st.columns([0.62, 0.38], gap="large")
                 with details_col:
@@ -2577,6 +2753,19 @@ def render_admin_children():
                     if child_badges:
                         st.markdown(child_badges, unsafe_allow_html=True)
                     edited_session = st.selectbox("Assign to session", SESSIONS, index=session_index)
+                    st.markdown('<div class="guardian-form-title">Parents/guardians</div>', unsafe_allow_html=True)
+                    guardian_cols = st.columns([1, 1], gap="small")
+                    with guardian_cols[0]:
+                        guardian_name = st.text_input("Parent/guardian name", value=current_guardian.get("Name", ""))
+                    with guardian_cols[1]:
+                        guardian_relationship = st.text_input("Relationship", value=current_guardian.get("Relationship", ""))
+                    guardian_contact_cols = st.columns([1, 1], gap="small")
+                    with guardian_contact_cols[0]:
+                        guardian_email = st.text_input("Guardian email", value=current_guardian.get("Email", ""))
+                    with guardian_contact_cols[1]:
+                        guardian_phone = st.text_input("Guardian phone", value=current_guardian.get("Phone", ""))
+                    guardian_address = st.text_area("Guardian address", value=current_guardian.get("Address", ""), height=88)
+                    guardian_invited = st.checkbox("Invited to use the app", value=current_guardian.get("Invited", False))
                 with thumbnail_col:
                     st.markdown(
                         f'<div class="current-thumb-preview">{child_thumb_html(editing_child)}<span>Current thumbnail</span></div>',
@@ -2597,6 +2786,14 @@ def render_admin_children():
                 remove_thumbnail_submitted = remove_thumb_col.form_submit_button("Remove Thumbnail")
                 cancel_submitted = cancel_col.form_submit_button("Cancel Edit")
                 delete_submitted = delete_col.form_submit_button("Delete Child")
+            edited_guardians = guardian_from_fields(
+                guardian_name,
+                guardian_relationship,
+                guardian_email,
+                guardian_phone,
+                guardian_address,
+                guardian_invited,
+            )
 
             if cancel_submitted:
                 st.session_state.pop("confirm_delete_child_id", None)
@@ -2623,6 +2820,7 @@ def render_admin_children():
                                     "DOB": edited_dob.isoformat() if edited_dob else "",
                                     "Session": edited_session,
                                     "Thumbnail": "",
+                                    "Guardians": edited_guardians,
                                 }
                             )
                             break
@@ -2649,6 +2847,7 @@ def render_admin_children():
                                     "DOB": edited_dob.isoformat() if edited_dob else "",
                                     "Session": edited_session,
                                     "Thumbnail": thumbnail_path,
+                                    "Guardians": edited_guardians,
                                 }
                             )
                             break
@@ -2723,6 +2922,19 @@ def render_add_child_dialog():
         if child_badges:
             st.markdown(child_badges, unsafe_allow_html=True)
         session = st.selectbox("Assign to session", SESSIONS)
+        st.markdown('<div class="guardian-form-title">Parents/guardians</div>', unsafe_allow_html=True)
+        guardian_cols = st.columns([1, 1], gap="small")
+        with guardian_cols[0]:
+            guardian_name = st.text_input("Parent/guardian name")
+        with guardian_cols[1]:
+            guardian_relationship = st.text_input("Relationship")
+        guardian_contact_cols = st.columns([1, 1], gap="small")
+        with guardian_contact_cols[0]:
+            guardian_email = st.text_input("Guardian email")
+        with guardian_contact_cols[1]:
+            guardian_phone = st.text_input("Guardian phone")
+        guardian_address = st.text_area("Guardian address", height=88)
+        guardian_invited = st.checkbox("Invited to use the app")
         thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
         if thumbnail is not None:
             preview_child = {
@@ -2747,6 +2959,14 @@ def render_add_child_dialog():
             if thumbnail is not None:
                 thumbnail_path = save_uploaded_thumbnail(thumbnail)
 
+            guardians = guardian_from_fields(
+                guardian_name,
+                guardian_relationship,
+                guardian_email,
+                guardian_phone,
+                guardian_address,
+                guardian_invited,
+            )
             children.append(
                 {
                     "ID": uuid.uuid4().hex,
@@ -2754,6 +2974,7 @@ def render_add_child_dialog():
                     "DOB": date_of_birth.isoformat() if date_of_birth else "",
                     "Session": session,
                     "Thumbnail": thumbnail_path,
+                    "Guardians": guardians,
                 }
             )
             if save_children(children):
