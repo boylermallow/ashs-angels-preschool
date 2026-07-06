@@ -806,30 +806,48 @@ st.markdown(
     .login-logo {{ width: 126px; height: 86px; object-fit: contain; flex: 0 0 auto; }}
     .role-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0 18px; }}
     .role-card {{
-        border: 1px solid var(--brand-blue); border-radius: 8px; padding: 14px;
-        background: var(--brand-blue); display: block; text-decoration: none;
-        box-shadow: 0 8px 18px rgba(35,52,95,.16);
-        transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+        border: 1px solid var(--line); border-radius: 8px; padding: 14px;
+        background: #fffaf1; display: block; text-decoration: none;
+        box-shadow: 0 4px 12px rgba(35,52,95,.08);
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }}
     .role-card:hover {{
-        filter: brightness(1.08);
+        background: #ffffff;
+        border-color: #d9e5ef;
         transform: translateY(-1px);
-        box-shadow: 0 10px 22px rgba(35,52,95,.2);
+        box-shadow: 0 8px 18px rgba(35,52,95,.12);
     }}
-    .role-card.active {{ box-shadow: 0 0 0 2px rgba(255,255,255,.82) inset, 0 10px 22px rgba(35,52,95,.2); }}
-    .role-title {{ color: #ffffff; font-weight: 950; font-size: 1.05rem; }}
-    .role-copy {{ color: rgba(255,255,255,.88); line-height: 1.4; margin-top: 4px; }}
+    .role-card.active {{
+        background: #fffaf1;
+        border-color: var(--brand-blue);
+        box-shadow: 0 0 0 2px rgba(49,84,165,.22), 0 8px 18px rgba(35,52,95,.12);
+    }}
+    .role-title {{ color: var(--brand-blue); font-weight: 950; font-size: 1.05rem; }}
+    .role-copy {{ color: var(--muted); line-height: 1.4; margin-top: 4px; }}
     .forgot-link {{
         display: inline-flex;
         color: var(--brand-blue) !important;
         font-weight: 950;
         margin: 8px 0 14px;
     }}
+    div[data-testid="stDialog"] div[role="dialog"],
     div[role="dialog"] {{
-        background: var(--panel) !important;
+        background: #fffaf1 !important;
         border-radius: 8px !important;
         border: 1px solid var(--line) !important;
         box-shadow: 0 24px 70px rgba(35,52,95,.24) !important;
+    }}
+    div[data-testid="stDialog"] div[role="dialog"] > div,
+    div[data-testid="stDialog"] div[role="dialog"] section,
+    div[data-testid="stDialog"] div[role="dialog"] [data-testid="stVerticalBlock"],
+    div[data-testid="stDialog"] div[role="dialog"] [data-testid="stElementContainer"],
+    div[data-testid="stDialog"] div[role="dialog"] [data-testid="stMarkdownContainer"],
+    div[role="dialog"] > div,
+    div[role="dialog"] section,
+    div[role="dialog"] [data-testid="stVerticalBlock"],
+    div[role="dialog"] [data-testid="stElementContainer"],
+    div[role="dialog"] [data-testid="stMarkdownContainer"] {{
+        background: #fffaf1 !important;
     }}
     div[role="dialog"],
     div[role="dialog"] h1,
@@ -865,8 +883,24 @@ st.markdown(
         fill: var(--brand-blue) !important;
         opacity: 1 !important;
     }}
-    div[role="dialog"] [data-testid="stVerticalBlock"] {{
-        background: var(--panel) !important;
+    div[role="dialog"] input,
+    div[role="dialog"] textarea {{
+        background: #ffffff !important;
+        color: var(--ink) !important;
+        border-color: #d9e5ef !important;
+    }}
+    div[role="dialog"] button:not([aria-label="Close"]) {{
+        background: var(--brand-blue) !important;
+        border-color: var(--brand-blue) !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+    }}
+    div[role="dialog"] button:not([aria-label="Close"]) * {{
+        color: #ffffff !important;
+    }}
+    div[role="dialog"] button:not([aria-label="Close"]):hover {{
+        background: #23345f !important;
+        border-color: #23345f !important;
     }}
     .app-title {{ font-size: 1.55rem; font-weight: 900; color: var(--brand-blue); line-height: 1.1; }}
     .app-subtitle {{ color: var(--muted); margin-top: 4px; font-weight: 650; }}
@@ -1300,6 +1334,9 @@ st.markdown(
         min-height: 40px !important;
         padding: 8px 16px !important;
         margin: 0 0 4px 16px !important;
+    }}
+    .admin-messages-list div[data-testid="stButton"] button {{
+        margin: 14px 0 18px 16px !important;
     }}
     .parent-row {{
         display: grid;
@@ -2248,8 +2285,27 @@ def render_delete_child_dialog(child):
         st.rerun()
 
 
+def render_delete_message_dialog(message):
+    message_id = message.get("ID", "")
+    child_name = message.get("ChildName", "this message")
+    st.markdown(
+        f'<div class="danger-confirm">Are you sure you want to delete this message for {html.escape(child_name)}? This cannot be undone.</div>',
+        unsafe_allow_html=True,
+    )
+    confirm_col, keep_col = st.columns([1, 1], gap="small")
+    if confirm_col.button("Yes, delete message", type="primary", key=f"confirm_delete_message_dialog_{message_id}"):
+        if delete_message(message_id):
+            st.session_state["message_deleted_notice"] = "Message deleted."
+        st.session_state.pop("confirm_delete_message_id", None)
+        st.rerun()
+    if keep_col.button("No, keep message", key=f"cancel_delete_message_dialog_{message_id}"):
+        st.session_state.pop("confirm_delete_message_id", None)
+        st.rerun()
+
+
 if hasattr(st, "dialog"):
     render_delete_child_dialog = st.dialog("Delete child")(render_delete_child_dialog)
+    render_delete_message_dialog = st.dialog("Delete message")(render_delete_message_dialog)
 
 
 def render_admin_children():
@@ -2698,6 +2754,7 @@ def render_parent_forms():
 
 def render_admin_messages():
     messages = sorted(load_messages(), key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    children_by_id = {child.get("ID", ""): child for child in load_children() if child.get("ID")}
     st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
     deleted_message = st.session_state.pop("message_deleted_notice", "")
     if deleted_message:
@@ -2706,7 +2763,7 @@ def render_admin_messages():
         st.markdown('<div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
         return
 
-    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
+    st.markdown('<div class="parents-list admin-messages-list">', unsafe_allow_html=True)
     for message in messages:
         message_id = message.get("ID", "")
         sent_date = message_datetime(message.get("CreatedAt", ""))
@@ -2714,6 +2771,10 @@ def render_admin_messages():
         read_status = f"Read {read_at}" if message.get("Read") else "Unread"
         parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
         child_name = message.get("ChildName", "Preschool message")
+        child = children_by_id.get(message.get("ChildID", "")) or {
+            "Name": child_name,
+            "Thumbnail": "",
+        }
         replies = message.get("Replies", [])
         replies_html = ""
         if replies:
@@ -2732,11 +2793,16 @@ def render_admin_messages():
             f"""
             <div class="parent-row">
               <div>
-                <div class="parent-name">{html.escape(child_name)}</div>
-                <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
-                <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-                <div class="parent-detail"><strong>Read:</strong> {html.escape(read_status)}</div>
-                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                <div class="message-child">
+                  {child_thumb_html(child)}
+                  <div>
+                    <div class="parent-name">{html.escape(child_name)}</div>
+                    <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
+                    <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
+                    <div class="parent-detail"><strong>Read:</strong> {html.escape(read_status)}</div>
+                    <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                  </div>
+                </div>
                 {replies_html}
               </div>
               <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
@@ -2745,9 +2811,10 @@ def render_admin_messages():
             unsafe_allow_html=True,
         )
         if st.button("Delete Message", key=f"delete_message_{message_id}"):
-            if delete_message(message_id):
-                st.session_state["message_deleted_notice"] = "Message deleted."
-                st.rerun()
+            st.session_state["confirm_delete_message_id"] = message_id
+            st.rerun()
+        if st.session_state.get("confirm_delete_message_id") == message_id:
+            render_delete_message_dialog(message)
     st.markdown("</div></div>", unsafe_allow_html=True)
 
 
