@@ -1070,23 +1070,33 @@ st.markdown(
         color: var(--ink) !important;
         border-color: #d9e5ef !important;
     }}
-    [data-testid="stDialog"] button:not([aria-label="Close"]),
-    [data-baseweb="modal"] button:not([aria-label="Close"]),
-    div[role="dialog"] button:not([aria-label="Close"]) {{
+    [data-testid="stDialog"] div[data-testid="stButton"] button,
+    [data-testid="stDialog"] div[data-testid="stFormSubmitButton"] button,
+    [data-baseweb="modal"] div[data-testid="stButton"] button,
+    [data-baseweb="modal"] div[data-testid="stFormSubmitButton"] button,
+    div[role="dialog"] div[data-testid="stButton"] button,
+    div[role="dialog"] div[data-testid="stFormSubmitButton"] button {{
         background: var(--brand-blue) !important;
         background-color: var(--brand-blue) !important;
         border-color: var(--brand-blue) !important;
         color: #ffffff !important;
         box-shadow: none !important;
     }}
-    [data-testid="stDialog"] button:not([aria-label="Close"]) *,
-    [data-baseweb="modal"] button:not([aria-label="Close"]) *,
-    div[role="dialog"] button:not([aria-label="Close"]) * {{
+    [data-testid="stDialog"] div[data-testid="stButton"] button *,
+    [data-testid="stDialog"] div[data-testid="stFormSubmitButton"] button *,
+    [data-baseweb="modal"] div[data-testid="stButton"] button *,
+    [data-baseweb="modal"] div[data-testid="stFormSubmitButton"] button *,
+    div[role="dialog"] div[data-testid="stButton"] button *,
+    div[role="dialog"] div[data-testid="stFormSubmitButton"] button * {{
         color: #ffffff !important;
+        background: transparent !important;
     }}
-    [data-testid="stDialog"] button:not([aria-label="Close"]):hover,
-    [data-baseweb="modal"] button:not([aria-label="Close"]):hover,
-    div[role="dialog"] button:not([aria-label="Close"]):hover {{
+    [data-testid="stDialog"] div[data-testid="stButton"] button:hover,
+    [data-testid="stDialog"] div[data-testid="stFormSubmitButton"] button:hover,
+    [data-baseweb="modal"] div[data-testid="stButton"] button:hover,
+    [data-baseweb="modal"] div[data-testid="stFormSubmitButton"] button:hover,
+    div[role="dialog"] div[data-testid="stButton"] button:hover,
+    div[role="dialog"] div[data-testid="stFormSubmitButton"] button:hover {{
         background: #23345f !important;
         background-color: #23345f !important;
         border-color: #23345f !important;
@@ -1877,6 +1887,7 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] button * {{
         color: #ffffff !important;
         fill: #ffffff !important;
+        background: transparent !important;
         font-size: 1.04rem !important;
         font-weight: 900 !important;
         line-height: 1 !important;
@@ -2156,6 +2167,121 @@ st.markdown(
     }}
     div[data-testid="InputInstructions"] {{
         display: none !important;
+    }}
+    [data-testid="stDialog"] h2,
+    [data-baseweb="modal"] h2,
+    div[role="dialog"] h2 {{
+        font-size: clamp(1.45rem, 2.4vw, 2rem) !important;
+        font-weight: 800 !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+        margin: 0 0 14px !important;
+    }}
+    [data-testid="stDialog"] div[data-testid="stForm"],
+    [data-baseweb="modal"] div[data-testid="stForm"],
+    div[role="dialog"] div[data-testid="stForm"] {{
+        padding: 24px 28px 28px !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--line) !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stDialog"] div[data-testid="stTextInput"] label,
+    [data-testid="stDialog"] div[data-testid="stTextInput"] label span,
+    [data-testid="stDialog"] div[data-testid="stDateInput"] label,
+    [data-testid="stDialog"] div[data-testid="stDateInput"] label span,
+    [data-testid="stDialog"] div[data-testid="stSelectbox"] label,
+    [data-testid="stDialog"] div[data-testid="stSelectbox"] label span,
+    [data-testid="stDialog"] div[data-testid="stFileUploader"] label,
+    [data-testid="stDialog"] div[data-testid="stFileUploader"] label span,
+    [data-testid="stDialog"] div[data-testid="stTextArea"] label,
+    [data-testid="stDialog"] div[data-testid="stTextArea"] label span,
+    [data-baseweb="modal"] div[data-testid="stTextInput"] label,
+    [data-baseweb="modal"] div[data-testid="stTextInput"] label span,
+    [data-baseweb="modal"] div[data-testid="stDateInput"] label,
+    [data-baseweb="modal"] div[data-testid="stDateInput"] label span,
+    [data-baseweb="modal"] div[data-testid="stSelectbox"] label,
+    [data-baseweb="modal"] div[data-testid="stSelectbox"] label span,
+    [data-baseweb="modal"] div[data-testid="stFileUploader"] label,
+    [data-baseweb="modal"] div[data-testid="stFileUploader"] label span,
+    [data-baseweb="modal"] div[data-testid="stTextArea"] label,
+    [data-baseweb="modal"] div[data-testid="stTextArea"] label span,
+    div[role="dialog"] div[data-testid="stTextInput"] label,
+    div[role="dialog"] div[data-testid="stTextInput"] label span,
+    div[role="dialog"] div[data-testid="stDateInput"] label,
+    div[role="dialog"] div[data-testid="stDateInput"] label span,
+    div[role="dialog"] div[data-testid="stSelectbox"] label,
+    div[role="dialog"] div[data-testid="stSelectbox"] label span,
+    div[role="dialog"] div[data-testid="stFileUploader"] label,
+    div[role="dialog"] div[data-testid="stFileUploader"] label span,
+    div[role="dialog"] div[data-testid="stTextArea"] label,
+    div[role="dialog"] div[data-testid="stTextArea"] label span {{
+        font-size: .92rem !important;
+        font-weight: 720 !important;
+        line-height: 1.18 !important;
+        color: var(--brand-blue) !important;
+    }}
+    [data-testid="stDialog"] label p,
+    [data-baseweb="modal"] label p,
+    div[role="dialog"] label p {{
+        font-size: .92rem !important;
+        font-weight: 720 !important;
+        line-height: 1.18 !important;
+        color: var(--brand-blue) !important;
+    }}
+    [data-testid="stDialog"] div[data-testid="stTextInput"] input,
+    [data-testid="stDialog"] div[data-testid="stTextArea"] textarea,
+    [data-testid="stDialog"] div[data-testid="stDateInput"] input,
+    [data-testid="stDialog"] div[data-baseweb="select"] > div,
+    [data-testid="stDialog"] div[data-baseweb="select"] *,
+    [data-baseweb="modal"] div[data-testid="stTextInput"] input,
+    [data-baseweb="modal"] div[data-testid="stTextArea"] textarea,
+    [data-baseweb="modal"] div[data-testid="stDateInput"] input,
+    [data-baseweb="modal"] div[data-baseweb="select"] > div,
+    [data-baseweb="modal"] div[data-baseweb="select"] *,
+    div[role="dialog"] div[data-testid="stTextInput"] input,
+    div[role="dialog"] div[data-testid="stTextArea"] textarea,
+    div[role="dialog"] div[data-testid="stDateInput"] input,
+    div[role="dialog"] div[data-baseweb="select"] > div,
+    div[role="dialog"] div[data-baseweb="select"] * {{
+        font-size: .98rem !important;
+        font-weight: 520 !important;
+        min-height: 46px !important;
+        line-height: 1.25 !important;
+    }}
+    [data-testid="stDialog"] div[data-testid="stButton"] button,
+    [data-testid="stDialog"] div[data-testid="stFormSubmitButton"] button,
+    [data-baseweb="modal"] div[data-testid="stButton"] button,
+    [data-baseweb="modal"] div[data-testid="stFormSubmitButton"] button,
+    div[role="dialog"] div[data-testid="stButton"] button,
+    div[role="dialog"] div[data-testid="stFormSubmitButton"] button {{
+        min-height: 48px !important;
+        min-width: 142px !important;
+        padding: 11px 22px !important;
+        border-radius: 8px !important;
+        font-size: .98rem !important;
+        font-weight: 780 !important;
+        line-height: 1.12 !important;
+        white-space: nowrap !important;
+    }}
+    [data-testid="stDialog"] div[data-testid="stButton"] button *,
+    [data-testid="stDialog"] div[data-testid="stFormSubmitButton"] button *,
+    [data-baseweb="modal"] div[data-testid="stButton"] button *,
+    [data-baseweb="modal"] div[data-testid="stFormSubmitButton"] button *,
+    div[role="dialog"] div[data-testid="stButton"] button *,
+    div[role="dialog"] div[data-testid="stFormSubmitButton"] button * {{
+        font-size: .98rem !important;
+        font-weight: 780 !important;
+        line-height: 1.12 !important;
+        white-space: nowrap !important;
+        color: #ffffff !important;
+        background: transparent !important;
+        text-shadow: none !important;
+    }}
+    [data-testid="stDialog"] div[data-testid="stFileUploader"] section button::after,
+    [data-baseweb="modal"] div[data-testid="stFileUploader"] section button::after,
+    div[role="dialog"] div[data-testid="stFileUploader"] section button::after {{
+        font-size: .98rem !important;
+        font-weight: 780 !important;
     }}
     div[data-testid="stSegmentedControl"] {{
         width: fit-content;
