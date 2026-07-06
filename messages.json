@@ -60,7 +60,9 @@
         "ParentName": "Liam O' Boyle",
         "Message": "brilliant",
         "Attachments": [],
-        "CreatedAt": "2026-07-06T20:24:13"
+        "CreatedAt": "2026-07-06T20:24:13",
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-06T20:53:16"
       }
     ],
     "LastReplyAt": "2026-07-06T20:24:13"
