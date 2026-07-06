@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import html
 import json
+import mimetypes
 import os
 import secrets
 import uuid
@@ -27,6 +28,7 @@ CHILDREN_FILE = APP_DIR / "children.json"
 PARENTS_FILE = APP_DIR / "parents.json"
 MESSAGES_FILE = APP_DIR / "messages.json"
 CHILDREN_DIR = APP_DIR / "assets" / "children"
+MESSAGES_DIR = APP_DIR / "assets" / "messages"
 SESSIONS = ["Morning Session", "Afternoon Session"]
 SESSION_ALIASES = {
     "Morning Session - 8:30am to 11:30am": "Morning Session",
@@ -36,6 +38,9 @@ PASSWORD_ROUNDS = 120_000
 BUILD_MODE = False
 DATA_REPOSITORY = "boylermallow/ashs-angels-preschool"
 DATA_BRANCH = "main"
+MESSAGE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
+MESSAGE_ATTACHMENT_MAX_COUNT = 4
+MESSAGE_ATTACHMENT_TYPES = ["png", "jpg", "jpeg", "webp", "mp4", "mov", "m4v", "webm"]
 
 
 def setting(name, fallback=""):
@@ -198,6 +203,23 @@ def save_persistent_json(path, value, message):
         st.session_state[f"{path}_sha"] = result.get("content", {}).get("sha", "")
         return True
     return False
+
+
+def save_persistent_binary(path, file_bytes, message):
+    local_path = APP_DIR / path
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    local_path.write_bytes(file_bytes)
+    if not github_data_token():
+        st.session_state["data_save_warning"] = (
+            "This file was saved for now, but permanent saving is not switched on yet."
+        )
+        return False
+    payload = {
+        "message": message,
+        "content": base64.b64encode(file_bytes).decode("ascii"),
+        "branch": DATA_BRANCH,
+    }
+    return bool(github_api_request("PUT", path, payload))
 
 
 def hash_password(password, salt=None):
@@ -451,6 +473,122 @@ def save_uploaded_thumbnail(uploaded_file):
     return uploaded_thumbnail_data_uri(uploaded_file.getvalue())
 
 
+def file_size_label(size_bytes):
+    try:
+        size_bytes = int(size_bytes)
+    except (TypeError, ValueError):
+        return ""
+    if size_bytes >= 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f}MB"
+    if size_bytes >= 1024:
+        return f"{size_bytes / 1024:.1f}KB"
+    return f"{size_bytes}B"
+
+
+def safe_attachment_extension(uploaded_file):
+    original_name = Path(str(getattr(uploaded_file, "name", "") or "upload")).name
+    suffix = Path(original_name).suffix.lower().lstrip(".")
+    if suffix in MESSAGE_ATTACHMENT_TYPES:
+        return suffix
+    guessed_extension = mimetypes.guess_extension(str(getattr(uploaded_file, "type", "") or ""))
+    suffix = str(guessed_extension or "").lower().lstrip(".")
+    if suffix == "jpe":
+        suffix = "jpg"
+    return suffix if suffix in MESSAGE_ATTACHMENT_TYPES else "bin"
+
+
+def save_message_attachment(uploaded_file):
+    file_bytes = uploaded_file.getvalue()
+    size = len(file_bytes)
+    if size > MESSAGE_ATTACHMENT_MAX_BYTES:
+        return None, (
+            f"{uploaded_file.name} is too large. Please keep each photo or video under "
+            f"{file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}."
+        )
+
+    mime_type = str(getattr(uploaded_file, "type", "") or "").strip()
+    if not mime_type:
+        mime_type = mimetypes.guess_type(uploaded_file.name)[0] or "application/octet-stream"
+    extension = safe_attachment_extension(uploaded_file)
+    if extension == "bin":
+        return None, "Please use PNG, JPG, WEBP, MP4, MOV, M4V, or WEBM files."
+
+    kind = "video" if mime_type.startswith("video/") else "image"
+    today_folder = datetime.now().strftime("%Y/%m")
+    file_name = f"{uuid.uuid4().hex}.{extension}"
+    file_path = f"assets/messages/{today_folder}/{file_name}"
+    if not save_persistent_binary(file_path, file_bytes, "Add message media"):
+        return None, "The photo or video could not be saved permanently. Please check the GitHub data key and try again."
+
+    return {
+        "ID": uuid.uuid4().hex,
+        "Kind": kind,
+        "FileName": Path(str(uploaded_file.name or file_name)).name,
+        "MimeType": mime_type,
+        "Size": size,
+        "Path": file_path,
+        "Url": f"https://raw.githubusercontent.com/{DATA_REPOSITORY}/{DATA_BRANCH}/{quote(file_path)}",
+    }, ""
+
+
+def prepare_message_attachments(uploaded_files):
+    files = [file for file in (uploaded_files or []) if file is not None]
+    if len(files) > MESSAGE_ATTACHMENT_MAX_COUNT:
+        return [], f"Please add no more than {MESSAGE_ATTACHMENT_MAX_COUNT} photos or videos to one message."
+
+    attachments = []
+    for uploaded_file in files:
+        attachment, error = save_message_attachment(uploaded_file)
+        if error:
+            return [], error
+        if attachment:
+            attachments.append(attachment)
+    return attachments, ""
+
+
+def attachment_source(attachment):
+    url = str(attachment.get("Url", "") or "")
+    if url:
+        return url
+    data_uri = str(attachment.get("Data", "") or "")
+    if data_uri.startswith("data:"):
+        return data_uri
+    path = str(attachment.get("Path", "") or "")
+    if path:
+        local_path = APP_DIR / path
+        if local_path.exists():
+            return asset_url(local_path)
+        return f"https://raw.githubusercontent.com/{DATA_REPOSITORY}/{DATA_BRANCH}/{quote(path)}"
+    return ""
+
+
+def message_attachments_html(attachments):
+    clean_attachments = [attachment for attachment in (attachments or []) if attachment_source(attachment)]
+    if not clean_attachments:
+        return ""
+
+    items = []
+    for attachment in clean_attachments:
+        src = html.escape(attachment_source(attachment), quote=True)
+        name = html.escape(str(attachment.get("FileName", "Attachment") or "Attachment"))
+        mime_type = html.escape(str(attachment.get("MimeType", "") or ""), quote=True)
+        size = file_size_label(attachment.get("Size", ""))
+        meta = f'<div class="message-media-name">{name}{(" - " + html.escape(size)) if size else ""}</div>'
+        if str(attachment.get("Kind", "")).lower() == "video" or str(attachment.get("MimeType", "")).startswith("video/"):
+            items.append(
+                '<div class="message-media-item">'
+                f'<video class="message-media-video" controls preload="metadata"><source src="{src}" type="{mime_type}"></video>'
+                f'{meta}</div>'
+            )
+        else:
+            items.append(
+                '<div class="message-media-item">'
+                f'<img class="message-media-image" src="{src}" alt="{name}">'
+                f'{meta}</div>'
+            )
+    return f'<div class="message-media-grid">{"".join(items)}</div>'
+
+
 def load_parents():
     parents = load_persistent_json("parents.json", [])
     return parents if isinstance(parents, list) else []
@@ -469,7 +607,7 @@ def save_messages(messages):
     return save_persistent_json("messages.json", messages, "Update messages")
 
 
-def send_parent_notification(child, parent, message_body):
+def send_parent_notification(child, parent, message_body, attachments=None):
     messages = load_messages()
     messages.append(
         {
@@ -482,17 +620,19 @@ def send_parent_notification(child, parent, message_body):
             "ParentName": parent.get("FirstName", ""),
             "ParentEmail": parent.get("Email", ""),
             "Message": message_body.strip(),
+            "Attachments": attachments or [],
             "CreatedAt": datetime.now().isoformat(timespec="seconds"),
             "Status": "Sent",
             "Read": False,
         }
     )
-    save_messages(messages)
+    return save_messages(messages)
 
 
-def add_parent_reply(message_id, parent, reply_body):
+def add_parent_reply(message_id, parent, reply_body, attachments=None):
     clean_reply = str(reply_body or "").strip()
-    if not clean_reply:
+    attachments = attachments or []
+    if not clean_reply and not attachments:
         return False
     messages = load_messages()
     for message in messages:
@@ -505,13 +645,13 @@ def add_parent_reply(message_id, parent, reply_body):
                     "ParentID": parent.get("ID", ""),
                     "ParentName": parent.get("FirstName", "Parent"),
                     "Message": clean_reply,
+                    "Attachments": attachments,
                     "CreatedAt": datetime.now().isoformat(timespec="seconds"),
                 }
             )
             message["Status"] = "Replied"
             message["LastReplyAt"] = replies[-1]["CreatedAt"]
-            save_messages(messages)
-            return True
+            return save_messages(messages)
     return False
 
 
@@ -1610,6 +1750,52 @@ st.markdown(
         font-weight: 800;
         margin-bottom: 4px;
     }}
+    .media-note {{
+        display: inline-flex;
+        width: fit-content;
+        max-width: 100%;
+        margin: 2px 0 12px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #e9f4ff;
+        color: var(--brand-blue);
+        font-size: .9rem;
+        font-weight: 760;
+        line-height: 1.2;
+    }}
+    .message-media-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 260px));
+        gap: 10px;
+        margin-top: 12px;
+    }}
+    .message-media-item {{
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 6px 14px rgba(35,52,95,.08);
+    }}
+    .message-media-image,
+    .message-media-video {{
+        display: block;
+        width: 100%;
+        max-height: 240px;
+        object-fit: contain;
+        background: #ffffff;
+    }}
+    .message-media-video {{
+        aspect-ratio: 16 / 9;
+        background: #23345f;
+    }}
+    .message-media-name {{
+        padding: 8px 10px 9px;
+        color: var(--muted);
+        font-size: .78rem;
+        font-weight: 700;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+    }}
     .message-child {{
         display: grid;
         grid-template-columns: 58px minmax(0, 1fr);
@@ -2669,26 +2855,50 @@ def render_message_dialog(child, parent):
     child_name = child.get("Name", "this child") or "this child"
     child_id = child.get("ID", "")
     message_key = f"message_body_{child_id}"
+    media_key = f"message_media_{child_id}"
     st.markdown(
         f'<div class="panel-title">Message {html.escape(parent_name)}</div>'
         f'<div class="muted">This will send a notification about {html.escape(child_name)}.</div>',
         unsafe_allow_html=True,
     )
     message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+    media_files = st.file_uploader(
+        "Photos or videos",
+        type=MESSAGE_ATTACHMENT_TYPES,
+        accept_multiple_files=True,
+        key=media_key,
+        help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
+    )
+    if media_files:
+        st.markdown(
+            '<div class="media-note">'
+            + html.escape(
+                f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
+            )
+            + "</div>",
+            unsafe_allow_html=True,
+        )
     send_col, cancel_col = st.columns(2)
 
     if send_col.button("Send notification", key=f"send_message_{child_id}", width="stretch"):
-        if not message_body.strip():
-            st.warning("Please add a message first.")
+        if not message_body.strip() and not media_files:
+            st.warning("Please add a message, photo, or video first.")
         else:
-            send_parent_notification(child, parent, message_body)
-            st.session_state["notification_sent"] = f"Notification sent to {parent_name}."
-            st.session_state.pop(message_key, None)
-            st.query_params.pop("message_child", None)
-            st.rerun()
+            attachments, attachment_error = prepare_message_attachments(media_files)
+            if attachment_error:
+                st.warning(attachment_error)
+            elif send_parent_notification(child, parent, message_body, attachments):
+                st.session_state["notification_sent"] = f"Notification sent to {parent_name}."
+                st.session_state.pop(message_key, None)
+                st.session_state.pop(media_key, None)
+                st.query_params.pop("message_child", None)
+                st.rerun()
+            else:
+                st.error("The message was not saved permanently. Please check the GitHub data key and try again.")
 
     if cancel_col.button("Cancel", key=f"cancel_message_{child_id}", width="stretch"):
         st.session_state.pop(message_key, None)
+        st.session_state.pop(media_key, None)
         st.query_params.pop("message_child", None)
         st.rerun()
 
@@ -3195,14 +3405,17 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
             replies_html = '<div class="reply-list">'
             for reply in replies:
                 reply_date = message_datetime(reply.get("CreatedAt", ""))
+                reply_attachments = message_attachments_html(reply.get("Attachments", []))
                 replies_html += (
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
                     f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    f'{reply_attachments}'
                     '</div>'
                 )
             replies_html += "</div>"
+        message_attachments = message_attachments_html(message.get("Attachments", []))
         st.markdown(
             f"""
             <div class="parent-row">
@@ -3210,6 +3423,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
                 <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
                 <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                {message_attachments}
                 {replies_html}
               </div>
               <div class="parent-status">{'Replied' if replies else 'Message'}</div>
@@ -3220,18 +3434,34 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         if st.button("Reply", key=f"{key_prefix}_open_reply_{message_id}"):
             st.session_state[reply_open_key] = True
         if st.session_state.get(reply_open_key):
+            reply_media_key = f"{key_prefix}_reply_media_{message_id}"
             reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
+            reply_media_files = st.file_uploader(
+                "Photos or videos",
+                type=MESSAGE_ATTACHMENT_TYPES,
+                accept_multiple_files=True,
+                key=reply_media_key,
+                help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
+            )
             send_col, cancel_col = st.columns(2)
             if send_col.button("Send Reply", key=f"{key_prefix}_send_reply_{message_id}", type="primary", width="stretch"):
-                if add_parent_reply(message_id, parent, reply_body):
-                    st.session_state.pop(reply_key, None)
-                    st.session_state.pop(reply_open_key, None)
-                    st.success("Reply sent.")
-                    st.rerun()
+                if not str(reply_body or "").strip() and not reply_media_files:
+                    st.warning("Please write a reply or add a photo/video first.")
                 else:
-                    st.warning("Please write a reply first.")
+                    reply_attachments, attachment_error = prepare_message_attachments(reply_media_files)
+                    if attachment_error:
+                        st.warning(attachment_error)
+                    elif add_parent_reply(message_id, parent, reply_body, reply_attachments):
+                        st.session_state.pop(reply_key, None)
+                        st.session_state.pop(reply_media_key, None)
+                        st.session_state.pop(reply_open_key, None)
+                        st.success("Reply sent.")
+                        st.rerun()
+                    else:
+                        st.error("The reply was not saved permanently. Please check the GitHub data key and try again.")
             if cancel_col.button("Cancel Reply", key=f"{key_prefix}_cancel_reply_{message_id}", width="stretch"):
                 st.session_state.pop(reply_key, None)
+                st.session_state.pop(reply_media_key, None)
                 st.session_state.pop(reply_open_key, None)
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
@@ -3347,14 +3577,17 @@ def render_admin_messages():
             replies_html = '<div class="reply-list">'
             for reply in replies:
                 reply_date = message_datetime(reply.get("CreatedAt", ""))
+                reply_attachments = message_attachments_html(reply.get("Attachments", []))
                 replies_html += (
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
                     f'<div class="parent-detail">{html.escape(reply.get("Message", ""))}</div>'
+                    f'{reply_attachments}'
                     '</div>'
                 )
             replies_html += "</div>"
+        message_attachments = message_attachments_html(message.get("Attachments", []))
         st.markdown(
             f"""
             <div class="parent-row">
@@ -3366,6 +3599,7 @@ def render_admin_messages():
                 <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
                 <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
+                {message_attachments}
                 {replies_html}
               </div>
               <div class="message-status-stack">
