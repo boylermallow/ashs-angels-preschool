@@ -956,6 +956,97 @@ def guardian_from_fields(name, relationship, email, phone, address, invited):
     return [guardian]
 
 
+def parent_option_label(parent):
+    name = str(parent.get("FirstName", "") or "Unnamed parent").strip()
+    email = str(parent.get("Email", "") or "").strip()
+    child_name = str(parent.get("ChildName", "") or "").strip()
+    bits = [name]
+    if email:
+        bits.append(email)
+    if child_name:
+        bits.append(f"assigned to {child_name}")
+    return " - ".join(bits)
+
+
+def parent_defaults(parent, fallback_guardian=None):
+    fallback_guardian = fallback_guardian or {}
+    return {
+        "Name": parent.get("FirstName") or fallback_guardian.get("Name", ""),
+        "Relationship": clean_contact_relationship(parent.get("Relationship", ""), "")
+        or clean_contact_relationship(fallback_guardian.get("Relationship", ""), "Guardian"),
+        "Email": parent.get("Email") or fallback_guardian.get("Email", ""),
+        "Phone": parent.get("EmergencyContact1") or parent.get("Phone") or fallback_guardian.get("Phone", ""),
+        "Address": parent.get("Address") or fallback_guardian.get("Address", ""),
+        "Invited": bool(fallback_guardian.get("Invited") or parent.get("salt") or parent.get("hash")),
+    }
+
+
+def matching_parent_id(parents, guardian, child_id=""):
+    guardian_email = lookup_key(guardian.get("Email", ""))
+    for parent in parents:
+        if child_id and parent.get("ChildID") == child_id:
+            return parent.get("ID", "")
+    if guardian_email:
+        for parent in parents:
+            if lookup_key(parent.get("Email", "")) == guardian_email:
+                return parent.get("ID", "")
+    return ""
+
+
+def sync_guardian_to_parent(parents, child, guardians, selected_parent_id=""):
+    if not guardians:
+        return False
+    guardian = guardians[0]
+    guardian_email = lookup_key(guardian.get("Email", ""))
+    if not selected_parent_id and not guardian_email:
+        return False
+
+    parent = None
+    if selected_parent_id:
+        parent = next((item for item in parents if item.get("ID") == selected_parent_id), None)
+    if parent is None and guardian_email:
+        parent = next((item for item in parents if lookup_key(item.get("Email", "")) == guardian_email), None)
+
+    changed = False
+    if parent is None:
+        parent = {
+            "ID": uuid.uuid4().hex,
+            "FirstName": guardian.get("Name", ""),
+            "Relationship": guardian.get("Relationship", "Guardian"),
+            "Email": guardian.get("Email", ""),
+            "EmergencyContact1": guardian.get("Phone", ""),
+            "EmergencyContact2": "",
+            "Address": guardian.get("Address", ""),
+            "Status": "Approved" if guardian.get("Invited") else "Pending",
+            "ChildID": "",
+            "ChildName": "",
+        }
+        parents.append(parent)
+        changed = True
+
+    updates = {
+        "ChildID": child.get("ID", ""),
+        "ChildName": child.get("Name", ""),
+        "Relationship": clean_contact_relationship(guardian.get("Relationship", ""), parent.get("Relationship", "Guardian")),
+    }
+    if guardian.get("Name"):
+        updates["FirstName"] = guardian.get("Name")
+    if guardian.get("Email"):
+        updates["Email"] = guardian.get("Email")
+    if guardian.get("Phone"):
+        updates["EmergencyContact1"] = guardian.get("Phone")
+    if guardian.get("Address"):
+        updates["Address"] = guardian.get("Address")
+    if guardian.get("Invited") or selected_parent_id:
+        updates["Status"] = "Approved"
+
+    for key, value in updates.items():
+        if parent.get(key) != value:
+            parent[key] = value
+            changed = True
+    return changed
+
+
 def contact_display_name(name, relationship):
     clean_name = str(name or "").strip()
     clean_relationship = clean_contact_relationship(relationship, "")
@@ -3272,6 +3363,20 @@ def render_admin_children():
             current_session = clean_session_name(editing_child.get("Session"))
             session_index = SESSIONS.index(current_session) if current_session in SESSIONS else 0
             current_guardian = (child_guardians(editing_child) or [{}])[0]
+            parent_options = [""] + [parent.get("ID", "") for parent in parents if parent.get("ID")]
+            parent_lookup = {parent.get("ID", ""): parent for parent in parents if parent.get("ID")}
+            default_parent_id = matching_parent_id(parents, current_guardian, edit_child_id)
+            selected_parent_id = st.selectbox(
+                "Assign existing parent",
+                parent_options,
+                index=parent_options.index(default_parent_id) if default_parent_id in parent_options else 0,
+                format_func=lambda parent_id: "No existing parent selected"
+                if not parent_id
+                else parent_option_label(parent_lookup.get(parent_id, {})),
+                key=f"existing_parent_{edit_child_id}",
+            )
+            selected_parent = parent_lookup.get(selected_parent_id, {})
+            guardian_defaults = parent_defaults(selected_parent, current_guardian) if selected_parent else current_guardian
             with st.form(f"edit_child_form_{edit_child_id}"):
                 details_col, thumbnail_col = st.columns([0.62, 0.38], gap="large")
                 with details_col:
@@ -3284,20 +3389,20 @@ def render_admin_children():
                     st.markdown('<div class="guardian-form-title">Parents/guardians</div>', unsafe_allow_html=True)
                     guardian_cols = st.columns([1, 1], gap="small")
                     with guardian_cols[0]:
-                        guardian_name = st.text_input("Parent/guardian name", value=current_guardian.get("Name", ""))
+                        guardian_name = st.text_input("Parent/guardian name", value=guardian_defaults.get("Name", ""))
                     with guardian_cols[1]:
                         guardian_relationship = st.selectbox(
                             "Relationship",
                             CONTACT_RELATIONSHIPS,
-                            index=relationship_index(current_guardian.get("Relationship", "Guardian")),
+                            index=relationship_index(guardian_defaults.get("Relationship", "Guardian")),
                         )
                     guardian_contact_cols = st.columns([1, 1], gap="small")
                     with guardian_contact_cols[0]:
-                        guardian_email = st.text_input("Guardian email", value=current_guardian.get("Email", ""))
+                        guardian_email = st.text_input("Guardian email", value=guardian_defaults.get("Email", ""))
                     with guardian_contact_cols[1]:
-                        guardian_phone = st.text_input("Guardian phone", value=current_guardian.get("Phone", ""))
-                    guardian_address = st.text_area("Guardian address", value=current_guardian.get("Address", ""), height=88)
-                    guardian_invited = st.checkbox("Invited to use the app", value=current_guardian.get("Invited", False))
+                        guardian_phone = st.text_input("Guardian phone", value=guardian_defaults.get("Phone", ""))
+                    guardian_address = st.text_area("Guardian address", value=guardian_defaults.get("Address", ""), height=88)
+                    guardian_invited = st.checkbox("Invited to use the app", value=guardian_defaults.get("Invited", False))
                 with thumbnail_col:
                     st.markdown(
                         f'<div class="current-thumb-preview">{child_thumb_html(editing_child)}<span>Current thumbnail</span></div>',
@@ -3344,6 +3449,7 @@ def render_admin_children():
                 if not edited_name:
                     st.warning("Please add the child's full name.")
                 else:
+                    updated_child = None
                     for child in children:
                         if child.get("ID") == edit_child_id:
                             child.update(
@@ -3355,10 +3461,21 @@ def render_admin_children():
                                     "Guardians": edited_guardians,
                                 }
                             )
+                            updated_child = child
                             break
-                    if save_children(children):
+                    parent_changed = sync_guardian_to_parent(
+                        parents,
+                        updated_child or editing_child,
+                        edited_guardians,
+                        selected_parent_id,
+                    )
+                    children_saved = save_children(children)
+                    parents_saved = save_parents(parents) if children_saved and parent_changed else True
+                    if children_saved and parents_saved:
                         st.success("Thumbnail removed.")
                         st.rerun()
+                    elif children_saved:
+                        st.error("The thumbnail was removed, but the parent assignment was not saved. Please check the GitHub data key and try again.")
                     else:
                         st.error("The thumbnail was not removed permanently. Please check the GitHub data key and try again.")
 
@@ -3371,6 +3488,7 @@ def render_admin_children():
                     if edited_thumbnail is not None:
                         thumbnail_path = save_uploaded_thumbnail(edited_thumbnail)
 
+                    updated_child = None
                     for child in children:
                         if child.get("ID") == edit_child_id:
                             child.update(
@@ -3382,11 +3500,22 @@ def render_admin_children():
                                     "Guardians": edited_guardians,
                                 }
                             )
+                            updated_child = child
                             break
-                    if save_children(children):
+                    parent_changed = sync_guardian_to_parent(
+                        parents,
+                        updated_child or editing_child,
+                        edited_guardians,
+                        selected_parent_id,
+                    )
+                    children_saved = save_children(children)
+                    parents_saved = save_parents(parents) if children_saved and parent_changed else True
+                    if children_saved and parents_saved:
                         st.query_params.pop("edit_child", None)
                         st.success("Child updated.")
                         st.rerun()
+                    elif children_saved:
+                        st.error("The child was updated, but the parent assignment was not saved. Please check the GitHub data key and try again.")
                     else:
                         st.error("The child was not updated permanently. Please check the GitHub data key and try again.")
 
@@ -3447,6 +3576,19 @@ def render_admin_children():
 
 def render_add_child_dialog():
     children = load_children()
+    parents = load_parents()
+    parent_options = [""] + [parent.get("ID", "") for parent in parents if parent.get("ID")]
+    parent_lookup = {parent.get("ID", ""): parent for parent in parents if parent.get("ID")}
+    selected_parent_id = st.selectbox(
+        "Assign existing parent",
+        parent_options,
+        format_func=lambda parent_id: "No existing parent selected"
+        if not parent_id
+        else parent_option_label(parent_lookup.get(parent_id, {})),
+        key="add_child_existing_parent",
+    )
+    selected_parent = parent_lookup.get(selected_parent_id, {})
+    guardian_defaults = parent_defaults(selected_parent, {}) if selected_parent else {}
     with st.form("add_child_form", clear_on_submit=True):
         full_name = st.text_input("Child full name")
         date_of_birth = st.date_input("Date of birth", value=None)
@@ -3457,16 +3599,20 @@ def render_add_child_dialog():
         st.markdown('<div class="guardian-form-title">Parents/guardians</div>', unsafe_allow_html=True)
         guardian_cols = st.columns([1, 1], gap="small")
         with guardian_cols[0]:
-            guardian_name = st.text_input("Parent/guardian name")
+            guardian_name = st.text_input("Parent/guardian name", value=guardian_defaults.get("Name", ""))
         with guardian_cols[1]:
-            guardian_relationship = st.selectbox("Relationship", CONTACT_RELATIONSHIPS, index=relationship_index("Guardian"))
+            guardian_relationship = st.selectbox(
+                "Relationship",
+                CONTACT_RELATIONSHIPS,
+                index=relationship_index(guardian_defaults.get("Relationship", "Guardian")),
+            )
         guardian_contact_cols = st.columns([1, 1], gap="small")
         with guardian_contact_cols[0]:
-            guardian_email = st.text_input("Guardian email")
+            guardian_email = st.text_input("Guardian email", value=guardian_defaults.get("Email", ""))
         with guardian_contact_cols[1]:
-            guardian_phone = st.text_input("Guardian phone")
-        guardian_address = st.text_area("Guardian address", height=88)
-        guardian_invited = st.checkbox("Invited to use the app")
+            guardian_phone = st.text_input("Guardian phone", value=guardian_defaults.get("Phone", ""))
+        guardian_address = st.text_area("Guardian address", value=guardian_defaults.get("Address", ""), height=88)
+        guardian_invited = st.checkbox("Invited to use the app", value=guardian_defaults.get("Invited", False))
         thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"])
         if thumbnail is not None:
             preview_child = {
@@ -3499,21 +3645,25 @@ def render_add_child_dialog():
                 guardian_address,
                 guardian_invited,
             )
-            children.append(
-                {
-                    "ID": uuid.uuid4().hex,
-                    "Name": full_name.strip(),
-                    "DOB": date_of_birth.isoformat() if date_of_birth else "",
-                    "Session": session,
-                    "Thumbnail": thumbnail_path,
-                    "Guardians": guardians,
-                }
-            )
-            if save_children(children):
+            new_child = {
+                "ID": uuid.uuid4().hex,
+                "Name": full_name.strip(),
+                "DOB": date_of_birth.isoformat() if date_of_birth else "",
+                "Session": session,
+                "Thumbnail": thumbnail_path,
+                "Guardians": guardians,
+            }
+            children.append(new_child)
+            parent_changed = sync_guardian_to_parent(parents, new_child, guardians, selected_parent_id)
+            children_saved = save_children(children)
+            parents_saved = save_parents(parents) if children_saved and parent_changed else True
+            if children_saved and parents_saved:
                 st.session_state["show_add_child"] = False
                 st.session_state["child_added_message"] = "Child added."
                 st.query_params["app_page"] = "Children"
                 st.rerun()
+            elif children_saved:
+                st.error("The child was saved, but the parent assignment was not saved. Please check the GitHub data key and try again.")
             else:
                 st.error("The child was not saved permanently. Please check the GitHub data key and try again.")
 
