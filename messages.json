@@ -49,8 +49,20 @@
       }
     ],
     "CreatedAt": "2026-07-06T20:22:27",
-    "Status": "Sent",
+    "Status": "Replied",
     "Read": true,
-    "ReadAt": "2026-07-06T20:23:05"
+    "ReadAt": "2026-07-06T20:23:05",
+    "Replies": [
+      {
+        "ID": "5b49048877884a4c8fb349efe876a738",
+        "From": "Parent",
+        "ParentID": "62919d5ce8e24a2fbc5c14fbe11f4900",
+        "ParentName": "Liam O' Boyle",
+        "Message": "brilliant",
+        "Attachments": [],
+        "CreatedAt": "2026-07-06T20:24:13"
+      }
+    ],
+    "LastReplyAt": "2026-07-06T20:24:13"
   }
 ]
