@@ -1373,6 +1373,30 @@ st.markdown(
         height: 76px;
         min-height: 76px;
     }}
+    .message-title-line {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+        min-height: 64px;
+    }}
+    .message-title-line .child-thumb {{
+        position: static;
+        width: 64px;
+        height: 64px;
+        min-width: 64px;
+        min-height: 64px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: transparent;
+    }}
+    .message-title-line .child-thumb.placeholder {{
+        object-fit: contain;
+        opacity: .72;
+    }}
+    .message-title-line .parent-name {{
+        margin-bottom: 0;
+    }}
     .parents-list div[data-testid="stButton"] button {{
         width: auto !important;
         min-height: 40px !important;
@@ -2840,16 +2864,14 @@ def render_admin_messages():
             f"""
             <div class="parent-row">
               <div>
-                <div class="message-child admin-message-child">
+                <div class="message-title-line">
                   {child_thumb_html(child)}
-                  <div>
-                    <div class="parent-name">{html.escape(child_name)}</div>
-                    <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
-                    <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-                    <div class="parent-detail"><strong>Read:</strong> {html.escape(read_status)}</div>
-                    <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
-                  </div>
+                  <div class="parent-name">{html.escape(child_name)}</div>
                 </div>
+                <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
+                <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
+                <div class="parent-detail"><strong>Read:</strong> {html.escape(read_status)}</div>
+                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
               </div>
               <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
