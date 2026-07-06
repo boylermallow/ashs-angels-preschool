@@ -1459,6 +1459,44 @@ st.markdown(
     .admin-messages-list div[data-testid="stButton"] button {{
         margin: 14px 0 18px 16px !important;
     }}
+    .message-status-stack {{
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        min-width: 210px;
+    }}
+    .read-badge {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 7px;
+        min-height: 34px;
+        border-radius: 999px;
+        padding: 0 12px;
+        background: #eef2f6;
+        color: var(--muted);
+        font-size: .9rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }}
+    .read-badge.is-read {{
+        background: #e9f8ed;
+        color: #14783a;
+        border: 1px solid #b8e4c4;
+    }}
+    .read-tick {{
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: #22b455;
+        color: #ffffff;
+        font-size: .78rem;
+        font-weight: 950;
+        line-height: 1;
+    }}
     .parent-row {{
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -2084,6 +2122,17 @@ st.markdown(
             grid-template-columns: 1fr;
             gap: 12px;
             padding: 14px;
+        }}
+        .message-status-stack {{
+            min-width: 0;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+            flex-wrap: wrap;
+        }}
+        .read-badge {{
+            justify-content: flex-start;
+            white-space: normal;
         }}
         .birthday-card {{
             grid-template-columns: 64px minmax(0, 1fr);
@@ -2891,6 +2940,8 @@ def render_admin_messages():
         sent_date = message_datetime(message.get("CreatedAt", ""))
         read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
         read_status = f"Read {read_at}" if message.get("Read") else "Unread"
+        read_badge_class = "read-badge is-read" if message.get("Read") else "read-badge"
+        read_icon = '<span class="read-tick">&#10003;</span>' if message.get("Read") else ""
         parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
         child_name = message.get("ChildName", "Preschool message")
         child = message_child_record(message, children_by_id, children_by_name, parents_by_id, parents_by_email)
@@ -2919,11 +2970,13 @@ def render_admin_messages():
                 </div>
                 <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-                <div class="parent-detail"><strong>Read:</strong> {html.escape(read_status)}</div>
                 <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
               </div>
-              <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
+              <div class="message-status-stack">
+                <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
+                <div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>
+              </div>
             </div>
             """,
             unsafe_allow_html=True,
