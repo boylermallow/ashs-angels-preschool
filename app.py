@@ -3634,15 +3634,16 @@ def render_parent_dashboard():
 def render_parent_messages():
     parent = current_parent_record()
     messages = current_parent_messages()
-    st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
     if not parent:
-        st.markdown('<div class="muted">We could not find your parent registration yet.</div></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="panel parents-panel"><div class="muted">We could not find your parent registration yet.</div></div>',
+            unsafe_allow_html=True,
+        )
         return
     if not messages:
-        st.markdown('<div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
         return
     render_parent_message_items(parent, messages)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_parent_forms():
