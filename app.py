@@ -608,6 +608,41 @@ def save_messages(messages):
     return save_persistent_json("messages.json", messages, "Update messages")
 
 
+def admin_unseen_message_count(messages=None):
+    messages = load_messages() if messages is None else messages
+    count = 0
+    for message in messages:
+        replies = message.get("Replies", [])
+        if any(reply.get("From") == "Parent" and not reply.get("AdminRead") for reply in replies):
+            count += 1
+    return count
+
+
+def parent_unseen_message_count(parent_email=None, messages=None):
+    clean_email = str(parent_email or st.session_state.get("email", "")).strip().lower()
+    if not clean_email:
+        return 0
+    messages = load_messages() if messages is None else messages
+    return sum(
+        1
+        for message in messages
+        if message.get("ParentEmail", "").strip().lower() == clean_email and not message.get("Read")
+    )
+
+
+def mark_parent_replies_seen(messages):
+    changed = False
+    read_at = datetime.now().isoformat(timespec="seconds")
+    for message in messages:
+        for reply in message.get("Replies", []):
+            if reply.get("From") == "Parent" and not reply.get("AdminRead"):
+                reply["AdminRead"] = True
+                reply["AdminReadAt"] = read_at
+                changed = True
+    if changed:
+        save_messages(messages)
+
+
 def send_parent_notification(child, parent, message_body, attachments=None):
     messages = load_messages()
     messages.append(
@@ -1082,7 +1117,10 @@ st.markdown(
         margin-bottom: 8px;
     }}
     .menu-item {{
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
         border: 1px solid var(--line);
         border-radius: 8px;
         background: #fffaf1;
@@ -1096,6 +1134,26 @@ st.markdown(
         background: var(--brand-blue);
         color: white;
         border-color: var(--brand-blue);
+    }}
+    .menu-badge {{
+        display: inline-grid;
+        place-items: center;
+        min-width: 24px;
+        height: 24px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: var(--orange);
+        color: #ffffff;
+        border: 2px solid rgba(255,255,255,.88);
+        font-size: .78rem;
+        font-weight: 950;
+        line-height: 1;
+        box-shadow: 0 4px 10px rgba(255,159,28,.32);
+    }}
+    .menu-item.active .menu-badge {{
+        background: #ffffff;
+        color: var(--brand-blue);
+        border-color: rgba(255,255,255,.55);
     }}
     .sign-out {{
         display: inline-flex;
@@ -3058,8 +3116,17 @@ def render_login():
 
 def render_side_menu(role, selected_page):
     nav_items = ["Children", "Parents", "Messages", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    message_badge_count = admin_unseen_message_count() if role == "Admin" else parent_unseen_message_count()
+
+    def nav_label(item):
+        badge = ""
+        if item == "Messages" and message_badge_count:
+            badge_text = "9+" if message_badge_count > 9 else str(message_badge_count)
+            badge = f'<span class="menu-badge" aria-label="{message_badge_count} unseen message{"s" if message_badge_count != 1 else ""}">{badge_text}</span>'
+        return f'<span>{html.escape(item)}</span>{badge}'
+
     items_html = "\n".join(
-        f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{html.escape(item)}</a>'
+        f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{nav_label(item)}</a>'
         for item in nav_items
     )
     st.markdown(
@@ -3656,7 +3723,8 @@ def render_parent_forms():
 
 
 def render_admin_messages():
-    messages = sorted(load_messages(), key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    stored_messages = load_messages()
+    messages = sorted(stored_messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
     children = load_children()
     parents = load_parents()
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
@@ -3727,6 +3795,7 @@ def render_admin_messages():
             st.rerun()
         if st.session_state.get("confirm_delete_message_id") == message_id:
             render_delete_message_dialog(message)
+    mark_parent_replies_seen(stored_messages)
     st.markdown("</div></div>", unsafe_allow_html=True)
 
 
