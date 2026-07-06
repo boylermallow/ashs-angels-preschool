@@ -1506,6 +1506,13 @@ st.markdown(
         background: #ffffff;
         overflow: visible;
     }}
+    .parent-child-card.no-photo {{
+        grid-template-columns: minmax(0, 1fr);
+        padding: 12px 14px;
+    }}
+    .parent-child-card.no-photo .parent-child-name {{
+        font-size: 1rem;
+    }}
     .parent-child-card .child-thumb {{
         position: static;
         width: 58px;
@@ -2729,7 +2736,6 @@ def current_parent_messages():
 
 
 def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None, children_by_id=None):
-    children_by_id = children_by_id or {child.get("ID", ""): child for child in load_children() if child.get("ID")}
     sorted_messages = sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
     if limit:
         sorted_messages = sorted_messages[:limit]
@@ -2739,10 +2745,6 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         message_id = message.get("ID", "")
         reply_key = f"{key_prefix}_reply_body_{message_id}"
         reply_open_key = f"{key_prefix}_reply_open_{message_id}"
-        child = children_by_id.get(message.get("ChildID", "")) or {
-            "Name": message.get("ChildName", "Preschool message"),
-            "Thumbnail": "",
-        }
         replies = message.get("Replies", [])
         replies_html = ""
         if replies:
@@ -2761,14 +2763,9 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
             f"""
             <div class="parent-row">
               <div>
-                <div class="message-child">
-                  {child_thumb_html(child)}
-                  <div>
-                    <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
-                    <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
-                    <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
-                  </div>
-                </div>
+                <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
+                <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
+                <div class="parent-detail">{html.escape(message.get("Message", ""))}</div>
                 {replies_html}
               </div>
               <div class="parent-status">{'Replied' if replies else 'Message'}</div>
@@ -2822,8 +2819,7 @@ def render_parent_dashboard():
             <div class="parent-row">
               <div>
                 <div class="parent-name">Your child</div>
-                <div class="parent-child-card">
-                  {child_thumb_html(child)}
+                <div class="parent-child-card no-photo">
                   <div class="parent-child-name">{html.escape(child.get("Name", "Your child"))}</div>
                 </div>
               </div>
