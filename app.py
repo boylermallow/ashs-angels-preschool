@@ -1433,61 +1433,62 @@ st.markdown(
     }}
     .guardian-section {{
         display: grid;
-        gap: 10px;
-        margin: 12px 0 16px;
+        gap: 16px;
+        margin: 18px 0 24px;
+        padding: 4px 0;
     }}
     .guardian-section-title {{
-        color: var(--ink);
-        font-size: 1.08rem;
-        font-weight: 900;
+        color: #4d4f54;
+        font-size: 1.32rem;
+        font-weight: 760;
         line-height: 1.15;
     }}
     .guardian-card {{
         display: grid;
-        grid-template-columns: 56px minmax(0, 1fr);
-        gap: 14px;
+        grid-template-columns: 68px minmax(0, 1fr);
+        gap: 18px;
         align-items: center;
         width: fit-content;
         max-width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #fffaf1;
-        padding: 14px 16px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
     }}
     .guardian-avatar {{
         display: grid;
         place-items: center;
-        width: 54px;
-        height: 54px;
+        width: 68px;
+        height: 68px;
         border-radius: 999px;
         background: #10a461;
         color: #ffffff;
-        font-size: 1.45rem;
-        font-weight: 900;
+        font-size: 2.05rem;
+        font-weight: 680;
         line-height: 1;
     }}
     .guardian-name {{
         color: #10a461;
-        font-size: 1.02rem;
-        font-weight: 900;
+        font-size: 1.08rem;
+        font-weight: 760;
         line-height: 1.18;
     }}
     .guardian-contact,
     .guardian-address {{
         color: #4d4f54;
-        font-size: .96rem;
-        font-weight: 620;
+        font-size: .98rem;
+        font-weight: 520;
         line-height: 1.28;
-        margin-top: 3px;
+        margin-top: 4px;
     }}
     .guardian-invited,
     .guardian-not-invited {{
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        margin-top: 5px;
-        font-size: .94rem;
-        font-weight: 760;
+        margin-top: 7px;
+        font-size: .98rem;
+        font-weight: 560;
         line-height: 1.25;
     }}
     .guardian-invited {{
