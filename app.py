@@ -41,6 +41,7 @@ DATA_BRANCH = "main"
 MESSAGE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 MESSAGE_ATTACHMENT_MAX_COUNT = 4
 MESSAGE_ATTACHMENT_TYPES = ["png", "jpg", "jpeg", "webp", "mp4", "mov", "m4v", "webm"]
+CONTACT_RELATIONSHIPS = ["Mam", "Dad", "Guardian"]
 
 
 def setting(name, fallback=""):
@@ -863,12 +864,33 @@ def normalize_guardian(guardian):
         return {}
     return {
         "Name": str(guardian.get("Name", "")).strip(),
-        "Relationship": str(guardian.get("Relationship", "")).strip(),
+        "Relationship": clean_contact_relationship(guardian.get("Relationship", "")),
         "Email": str(guardian.get("Email", "")).strip(),
         "Phone": str(guardian.get("Phone", "")).strip(),
         "Address": str(guardian.get("Address", "")).strip(),
         "Invited": bool(guardian.get("Invited")),
     }
+
+
+def clean_contact_relationship(value, default=""):
+    relationship = str(value or "").strip()
+    if not relationship:
+        return default
+    aliases = {
+        "mam": "Mam",
+        "mum": "Mam",
+        "mom": "Mam",
+        "mother": "Mam",
+        "dad": "Dad",
+        "father": "Dad",
+        "guardian": "Guardian",
+    }
+    return aliases.get(relationship.lower(), relationship if relationship in CONTACT_RELATIONSHIPS else default)
+
+
+def relationship_index(value, default="Guardian"):
+    relationship = clean_contact_relationship(value, default)
+    return CONTACT_RELATIONSHIPS.index(relationship) if relationship in CONTACT_RELATIONSHIPS else CONTACT_RELATIONSHIPS.index(default)
 
 
 def child_guardians(child):
@@ -880,7 +902,7 @@ def child_guardians(child):
     guardians = []
     for guardian in raw_guardians:
         clean_guardian = normalize_guardian(guardian)
-        if any(clean_guardian.get(field) for field in ("Name", "Relationship", "Email", "Phone", "Address")):
+        if any(clean_guardian.get(field) for field in ("Name", "Email", "Phone", "Address")):
             guardians.append(clean_guardian)
     return guardians
 
@@ -888,15 +910,42 @@ def child_guardians(child):
 def guardian_from_fields(name, relationship, email, phone, address, invited):
     guardian = {
         "Name": str(name or "").strip(),
-        "Relationship": str(relationship or "").strip(),
+        "Relationship": clean_contact_relationship(relationship, "Guardian"),
         "Email": str(email or "").strip(),
         "Phone": str(phone or "").strip(),
         "Address": str(address or "").strip(),
         "Invited": bool(invited),
     }
-    if not any(guardian.get(field) for field in ("Name", "Relationship", "Email", "Phone", "Address")):
+    if not any(guardian.get(field) for field in ("Name", "Email", "Phone", "Address")):
         return []
     return [guardian]
+
+
+def contact_display_name(name, relationship):
+    clean_name = str(name or "").strip()
+    clean_relationship = clean_contact_relationship(relationship, "")
+    if clean_name and clean_relationship:
+        return f"({clean_relationship}) {clean_name}"
+    return clean_name or "Parent/guardian"
+
+
+def guardian_relationship_for_parent(parent, child):
+    parent_email = lookup_key(parent.get("Email", ""))
+    parent_name = lookup_key(parent.get("FirstName", ""))
+    for guardian in child_guardians(child or {}):
+        if parent_email and lookup_key(guardian.get("Email", "")) == parent_email:
+            return guardian.get("Relationship", "")
+        if parent_name and lookup_key(guardian.get("Name", "")) == parent_name:
+            return guardian.get("Relationship", "")
+    return ""
+
+
+def parent_relationship(parent, child=None):
+    return (
+        clean_contact_relationship(parent.get("Relationship", ""), "")
+        or clean_contact_relationship(guardian_relationship_for_parent(parent, child), "")
+        or ("Dad" if lookup_key(parent.get("FirstName", "")) == "liam o' boyle" else "Guardian")
+    )
 
 
 def guardian_summary_html(child):
@@ -907,9 +956,7 @@ def guardian_summary_html(child):
     for guardian in guardians:
         name = guardian.get("Name") or "Parent/guardian"
         relationship = guardian.get("Relationship", "")
-        name_line = html.escape(name)
-        if relationship:
-            name_line += f" ({html.escape(relationship)})"
+        name_line = html.escape(contact_display_name(name, relationship))
         contact_bits = [guardian.get("Email", ""), guardian.get("Phone", "")]
         contact_line = " &bull; ".join(html.escape(bit) for bit in contact_bits if bit)
         address_line = html.escape(guardian.get("Address", ""))
@@ -1913,6 +1960,51 @@ st.markdown(
         line-height: 1.15;
         margin-bottom: 10px;
     }}
+    .parent-child-heading {{
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        margin-bottom: 12px;
+    }}
+    .parent-child-heading .child-thumb {{
+        position: static;
+        width: 58px;
+        height: 58px;
+        min-height: 58px;
+        margin: 0;
+        object-fit: contain;
+        border-radius: 0;
+        background: transparent;
+    }}
+    .parent-child-heading .child-thumb.placeholder {{
+        object-fit: contain;
+        border-radius: 8px;
+    }}
+    .parent-card-label {{
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 850;
+        line-height: 1;
+        text-transform: uppercase;
+        letter-spacing: 0;
+        margin-bottom: 4px;
+    }}
+    .parent-card-child-name {{
+        color: var(--ink);
+        font-size: 1.08rem;
+        font-weight: 950;
+        line-height: 1.1;
+    }}
+    .parent-contact-name {{
+        color: var(--ink);
+        font-size: .98rem;
+        font-weight: 850;
+        line-height: 1.15;
+        margin-bottom: 8px;
+    }}
     .parent-details {{
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2731,6 +2823,7 @@ def render_sign_in_dialog(selected_role):
     if selected_role == "ParentRegister":
         st.markdown('<div class="panel-title">Parent Registration</div>', unsafe_allow_html=True)
         first_name = st.text_input("Parent first name")
+        relationship = st.selectbox("Relationship to child", CONTACT_RELATIONSHIPS, index=relationship_index("Guardian"))
         email = st.text_input("Email address")
         emergency_contact_1 = st.text_input("Emergency contact 1 phone")
         emergency_contact_2 = st.text_input("Emergency contact 2 phone")
@@ -2738,6 +2831,7 @@ def render_sign_in_dialog(selected_role):
         confirm_password = st.text_input("Confirm password")
         if st.button("Register Parent", type="primary", width="stretch"):
             clean_name = str(first_name or "").strip()
+            clean_relationship = clean_contact_relationship(relationship, "Guardian")
             clean_email = str(email or "").strip().lower()
             clean_emergency_1 = str(emergency_contact_1 or "").strip()
             clean_emergency_2 = str(emergency_contact_2 or "").strip()
@@ -2755,6 +2849,7 @@ def render_sign_in_dialog(selected_role):
                         st.info("This parent is already registered. Please use Parent Login.")
                     else:
                         existing["FirstName"] = clean_name
+                        existing["Relationship"] = clean_relationship
                         existing["EmergencyContact1"] = clean_emergency_1
                         existing["EmergencyContact2"] = clean_emergency_2
                         existing.update(hash_password(clean_password))
@@ -2765,6 +2860,7 @@ def render_sign_in_dialog(selected_role):
                         {
                             "ID": uuid.uuid4().hex,
                             "FirstName": clean_name,
+                            "Relationship": clean_relationship,
                             "Email": clean_email,
                             "EmergencyContact1": clean_emergency_1,
                             "EmergencyContact2": clean_emergency_2,
@@ -3112,7 +3208,11 @@ def render_admin_children():
                     with guardian_cols[0]:
                         guardian_name = st.text_input("Parent/guardian name", value=current_guardian.get("Name", ""))
                     with guardian_cols[1]:
-                        guardian_relationship = st.text_input("Relationship", value=current_guardian.get("Relationship", ""))
+                        guardian_relationship = st.selectbox(
+                            "Relationship",
+                            CONTACT_RELATIONSHIPS,
+                            index=relationship_index(current_guardian.get("Relationship", "Guardian")),
+                        )
                     guardian_contact_cols = st.columns([1, 1], gap="small")
                     with guardian_contact_cols[0]:
                         guardian_email = st.text_input("Guardian email", value=current_guardian.get("Email", ""))
@@ -3281,7 +3381,7 @@ def render_add_child_dialog():
         with guardian_cols[0]:
             guardian_name = st.text_input("Parent/guardian name")
         with guardian_cols[1]:
-            guardian_relationship = st.text_input("Relationship")
+            guardian_relationship = st.selectbox("Relationship", CONTACT_RELATIONSHIPS, index=relationship_index("Guardian"))
         guardian_contact_cols = st.columns([1, 1], gap="small")
         with guardian_contact_cols[0]:
             guardian_email = st.text_input("Guardian email")
@@ -3696,9 +3796,15 @@ def render_parent_approvals():
     if edit_parent_id:
         parent_to_edit = next((parent for parent in parents if parent.get("ID") == edit_parent_id), None)
         if parent_to_edit:
+            current_parent_child = children_by_id.get(parent_to_edit.get("ChildID", ""))
             st.markdown('<div class="edit-tools"><div class="panel-title">Edit Parent</div>', unsafe_allow_html=True)
             with st.form(f"edit_parent_{edit_parent_id}"):
                 first_name = st.text_input("Parent first name", value=parent_to_edit.get("FirstName", ""))
+                relationship = st.selectbox(
+                    "Relationship to child",
+                    CONTACT_RELATIONSHIPS,
+                    index=relationship_index(parent_relationship(parent_to_edit, current_parent_child)),
+                )
                 email = st.text_input("Email address", value=parent_to_edit.get("Email", ""))
                 emergency_1 = st.text_input("Emergency contact 1", value=parent_to_edit.get("EmergencyContact1", ""))
                 emergency_2 = st.text_input("Emergency contact 2", value=parent_to_edit.get("EmergencyContact2", ""))
@@ -3720,6 +3826,7 @@ def render_parent_approvals():
             st.markdown(f'<a class="section-edit" href="{app_href("Parents")}" target="_self">Cancel</a></div>', unsafe_allow_html=True)
             if saved:
                 parent_to_edit["FirstName"] = first_name.strip()
+                parent_to_edit["Relationship"] = clean_contact_relationship(relationship, "Guardian")
                 parent_to_edit["Email"] = email.strip()
                 parent_to_edit["EmergencyContact1"] = emergency_1.strip()
                 parent_to_edit["EmergencyContact2"] = emergency_2.strip()
@@ -3742,21 +3849,24 @@ def render_parent_approvals():
         assigned_child = children_by_id.get(parent.get("ChildID", ""))
         edit_href = app_href("Parents", edit_parent=parent.get("ID", ""))
         status_class = "approved" if status == "Approved" else "pending"
-        child_profile_html = ""
+        relationship_name = contact_display_name(parent.get("FirstName", ""), parent_relationship(parent, assigned_child))
+        child_heading_name = assigned_child.get("Name", child_name) if assigned_child else child_name
+        child_heading_thumb = ""
         if status == "Approved" and assigned_child:
-            child_profile_html = (
-                '<div class="parent-child-card">'
-                f'{child_thumb_html(assigned_child)}'
-                f'<div class="parent-child-name">{html.escape(assigned_child.get("Name", child_name))}</div>'
-                '</div>'
-            )
+            child_heading_thumb = child_thumb_html(assigned_child)
         elif status == "Approved" and child_name != "No child assigned":
-            child_profile_html = (
-                '<div class="parent-child-card">'
-                f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
-                f'<div class="parent-child-name">{html.escape(child_name)}</div>'
-                '</div>'
-            )
+            child_heading_thumb = f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
+        child_heading_html = (
+            '<div class="parent-child-heading">'
+            f'{child_heading_thumb}'
+            '<div>'
+            '<div class="parent-card-label">Child</div>'
+            f'<div class="parent-card-child-name">{html.escape(child_heading_name)}</div>'
+            '</div>'
+            '</div>'
+            if child_heading_name != "No child assigned"
+            else '<div class="parent-card-child-name">No child assigned</div>'
+        )
         recent_replies = replies_for_parent(parent.get("Email", ""))[:3]
         replies_html = ""
         if recent_replies:
@@ -3775,13 +3885,13 @@ def render_parent_approvals():
             f"""
             <div class="parent-row">
               <div>
-                <div class="parent-name">{html.escape(parent.get("FirstName", ""))}</div>
+                {child_heading_html}
+                <div class="parent-contact-name">{html.escape(relationship_name)}</div>
                 <div class="parent-details">
                   <div class="parent-detail"><strong>Email:</strong> {html.escape(parent.get("Email", ""))}</div>
                   <div class="parent-detail"><strong>Emergency 1:</strong> {html.escape(parent.get("EmergencyContact1", "") or "Not added")}</div>
                   <div class="parent-detail"><strong>Emergency 2:</strong> {html.escape(parent.get("EmergencyContact2", "") or "Not added")}</div>
                 </div>
-                {child_profile_html or f'<div class="parent-detail"><strong>Assigned child:</strong> {html.escape(child_name)}</div>'}
                 {replies_html}
               </div>
               <div class="parent-actions">
