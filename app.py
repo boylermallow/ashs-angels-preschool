@@ -17,6 +17,7 @@ from urllib.error import HTTPError, URLError
 
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageFilter
 
 
@@ -618,6 +619,170 @@ def admin_unseen_message_count(messages=None):
     return count
 
 
+def latest_admin_unseen_message(messages=None):
+    messages = load_messages() if messages is None else messages
+    latest = None
+    for message in messages:
+        for reply in message.get("Replies", []):
+            if reply.get("From") != "Parent" or reply.get("AdminRead"):
+                continue
+            candidate = {
+                "MessageID": message.get("ID", ""),
+                "ReplyID": reply.get("ID", ""),
+                "ChildName": message.get("ChildName", "a child"),
+                "ParentName": reply.get("ParentName") or message.get("ParentName") or "A parent",
+                "Message": reply.get("Message", ""),
+                "CreatedAt": reply.get("CreatedAt", ""),
+            }
+            if latest is None or candidate["CreatedAt"] > latest["CreatedAt"]:
+                latest = candidate
+    return latest
+
+
+def render_admin_message_notification(messages=None):
+    if st.session_state.get("role") != "Admin":
+        return
+    messages = load_messages() if messages is None else messages
+    unseen_count = admin_unseen_message_count(messages)
+    latest = latest_admin_unseen_message(messages)
+    if not unseen_count or not latest:
+        components.html(
+            """
+            <script>
+            try {
+              window.parent.document.title = "Ash's Angels Preschool App";
+            } catch (error) {}
+            setTimeout(() => {
+              try { window.parent.location.reload(); } catch (error) {}
+            }, 45000);
+            </script>
+            """,
+            height=0,
+        )
+        return
+
+    child_name = html.escape(latest.get("ChildName", "a child"))
+    parent_name = html.escape(latest.get("ParentName", "A parent"))
+    latest_message = html.escape(latest.get("Message", "")[:120])
+    notification_key = f'{latest.get("MessageID", "")}-{latest.get("ReplyID", "")}-{latest.get("CreatedAt", "")}'
+    components.html(
+        f"""
+        <style>
+          body {{
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #23345f;
+          }}
+          .notification-tools {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 42px;
+          }}
+          #enable-admin-notifications {{
+            appearance: none;
+            border: 0;
+            border-radius: 8px;
+            background: #2f4fa3;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 800;
+            padding: 10px 14px;
+            cursor: pointer;
+          }}
+          #enable-admin-notifications:hover {{
+            background: #24448f;
+          }}
+          #admin-notification-state {{
+            font-size: 14px;
+            font-weight: 650;
+            color: #647486;
+          }}
+        </style>
+        <div class="notification-tools">
+          <button id="enable-admin-notifications" type="button">Enable message notifications</button>
+          <span id="admin-notification-state"></span>
+        </div>
+        <script>
+        const notificationKey = {json.dumps(notification_key)};
+        const unseenCount = {int(unseen_count)};
+        const childName = {json.dumps(latest.get("ChildName", "a child"))};
+        const parentName = {json.dumps(latest.get("ParentName", "A parent"))};
+        const messagePreview = {json.dumps(latest.get("Message", "")[:120])};
+        const state = document.getElementById("admin-notification-state");
+        const button = document.getElementById("enable-admin-notifications");
+
+        function setTitle() {{
+          try {{
+            window.parent.document.title = unseenCount + " new message" + (unseenCount === 1 ? "" : "s") + " - Ash's Angels";
+          }} catch (error) {{}}
+        }}
+
+        function notifyIfAllowed() {{
+          try {{
+            const lastShown = window.localStorage.getItem("ash_admin_notification_key");
+            if (lastShown === notificationKey) return;
+            window.localStorage.setItem("ash_admin_notification_key", notificationKey);
+            if (!("Notification" in window) || Notification.permission !== "granted") return;
+            const note = new Notification("New parent message", {{
+              body: parentName + " replied about " + childName + (messagePreview ? ": " + messagePreview : "."),
+              tag: "ash-admin-message",
+              renotify: true
+            }});
+            note.onclick = () => {{
+              try {{
+                window.parent.focus();
+                window.parent.location.href = {json.dumps(app_href("Messages"))};
+              }} catch (error) {{}}
+            }};
+          }} catch (error) {{}}
+        }}
+
+        function updatePermissionState() {{
+          if (!("Notification" in window)) {{
+            state.textContent = "Browser notifications are not supported here.";
+            button.style.display = "none";
+            return;
+          }}
+          if (Notification.permission === "granted") {{
+            state.textContent = "Notifications are on.";
+            button.style.display = "none";
+            notifyIfAllowed();
+          }} else if (Notification.permission === "denied") {{
+            state.textContent = "Notifications are blocked in this browser.";
+            button.style.display = "none";
+          }} else {{
+            state.textContent = "Turn this on to get a browser alert while the app is open.";
+          }}
+        }}
+
+        button.addEventListener("click", async () => {{
+          if (!("Notification" in window)) return updatePermissionState();
+          await Notification.requestPermission();
+          updatePermissionState();
+        }});
+
+        setTitle();
+        updatePermissionState();
+        setTimeout(() => {{
+          try {{ window.parent.location.reload(); }} catch (error) {{}}
+        }}, 45000);
+        </script>
+        """,
+        height=48,
+    )
+    st.markdown(
+        f"""
+        <div class="admin-new-message-alert">
+          <span class="admin-new-message-dot"></span>
+          <div><strong>{unseen_count} new parent message{"s" if unseen_count != 1 else ""}</strong><br>
+          Latest: {parent_name} replied about {child_name}{(": " + latest_message) if latest_message else ""}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def parent_unseen_message_count(parent_email=None, messages=None):
     clean_email = str(parent_email or st.session_state.get("email", "")).strip().lower()
     if not clean_email:
@@ -683,6 +848,7 @@ def add_parent_reply(message_id, parent, reply_body, attachments=None):
                     "Message": clean_reply,
                     "Attachments": attachments,
                     "CreatedAt": datetime.now().isoformat(timespec="seconds"),
+                    "AdminRead": False,
                 }
             )
             message["Status"] = "Replied"
@@ -1628,6 +1794,38 @@ st.markdown(
     @keyframes quickToastFade {{
         0%, 72% {{ opacity: 1; }}
         100% {{ opacity: 0; pointer-events: none; }}
+    }}
+    .admin-new-message-alert {{
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        background: #fffaf1;
+        color: var(--ink);
+        border: 2px solid var(--brand-blue);
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin: 0 0 16px;
+        box-shadow: 0 12px 24px rgba(35,52,95,.12);
+        font-size: .98rem;
+        line-height: 1.35;
+    }}
+    .admin-new-message-alert strong {{
+        color: var(--brand-blue);
+        font-weight: 900;
+    }}
+    .admin-new-message-dot {{
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: var(--orange);
+        margin-top: 4px;
+        box-shadow: 0 0 0 0 rgba(255,159,28,.45);
+        animation: adminMessagePulse 1.45s ease-out infinite;
+        flex: 0 0 auto;
+    }}
+    @keyframes adminMessagePulse {{
+        0% {{ box-shadow: 0 0 0 0 rgba(255,159,28,.55); }}
+        80%, 100% {{ box-shadow: 0 0 0 10px rgba(255,159,28,0); }}
     }}
     .danger-confirm {{
         background: #c82032;
@@ -3946,6 +4144,16 @@ def render_admin_messages():
         if st.session_state.get("confirm_delete_message_id") == message_id:
             render_delete_message_dialog(message)
     mark_parent_replies_seen(stored_messages)
+    components.html(
+        """
+        <script>
+        try {
+          window.parent.document.title = "Ash's Angels Preschool App";
+        } catch (error) {}
+        </script>
+        """,
+        height=0,
+    )
     st.markdown("</div></div>", unsafe_allow_html=True)
 
 
@@ -4179,6 +4387,8 @@ with menu_col:
 
 with content_col:
     if current_role == "Admin":
+        if selected_page != "Messages":
+            render_admin_message_notification()
         if selected_page == "Parents":
             render_parent_approvals()
         elif selected_page == "Messages":
