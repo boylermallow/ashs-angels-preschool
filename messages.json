@@ -9,9 +9,22 @@
     "ParentEmail": "youprint.ie@gmail.com",
     "Message": "testing",
     "CreatedAt": "2026-07-04T20:12:08",
-    "Status": "Sent",
+    "Status": "Replied",
     "Read": true,
-    "ReadAt": "2026-07-04T20:49:42"
+    "ReadAt": "2026-07-04T20:49:42",
+    "Replies": [
+      {
+        "ID": "da63ffcbfbc64be9b270934fa5a28299",
+        "From": "Parent",
+        "ParentID": "62919d5ce8e24a2fbc5c14fbe11f4900",
+        "ParentName": "Liam O' Boyle",
+        "Message": "Testing Notification",
+        "Attachments": [],
+        "CreatedAt": "2026-07-08T22:41:20",
+        "AdminRead": false
+      }
+    ],
+    "LastReplyAt": "2026-07-08T22:41:20"
   },
   {
     "ID": "b2c321aba7024b328ef84093d262f739",
