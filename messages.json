@@ -130,6 +130,7 @@
     ],
     "CreatedAt": "2026-07-08T22:53:06",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-08T23:04:40"
   }
 ]
