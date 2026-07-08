@@ -21,7 +21,8 @@
         "Message": "Testing Notification",
         "Attachments": [],
         "CreatedAt": "2026-07-08T22:41:20",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-08T22:44:59"
       }
     ],
     "LastReplyAt": "2026-07-08T22:41:20"
