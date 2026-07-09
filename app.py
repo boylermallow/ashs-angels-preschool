@@ -3568,6 +3568,19 @@ st.markdown(
             margin: 0;
             line-height: 1.1;
         }}
+        .parent-dashboard-title-panel {{
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            min-height: 0 !important;
+        }}
+        .parent-dashboard-title-panel > .panel-title,
+        .parent-dashboard-child-summary,
+        .parent-dashboard-latest-title {{
+            display: none !important;
+        }}
         div[data-testid="stForm"] {{
             padding: 18px 14px 24px !important;
         }}
@@ -4437,7 +4450,7 @@ def render_parent_dashboard():
     parent = current_parent_record()
     children = load_children()
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
-    st.markdown('<div class="panel parents-panel"><div class="panel-title">Parent Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel parents-panel parent-dashboard-title-panel"><div class="panel-title">Parent Dashboard</div>', unsafe_allow_html=True)
     if not parent:
         st.markdown('<div class="muted">We could not find your parent registration yet.</div></div>', unsafe_allow_html=True)
         return
@@ -4456,7 +4469,7 @@ def render_parent_dashboard():
     if child:
         st.markdown(
             f"""
-            <div class="parent-row">
+            <div class="parent-row parent-dashboard-child-summary">
               <div>
                 <div class="parent-name">Your child</div>
                 <div class="parent-child-card no-photo">
@@ -4470,14 +4483,14 @@ def render_parent_dashboard():
         )
     else:
         st.markdown(
-            '<div class="parent-row"><div><div class="parent-name">Approved</div>'
+            '<div class="parent-row parent-dashboard-child-summary"><div><div class="parent-name">Approved</div>'
             '<div class="parent-detail">Your account is approved. A child has not been assigned yet.</div>'
             '</div><div class="parent-status">Approved</div></div>',
             unsafe_allow_html=True,
         )
     messages = current_parent_messages()
     if messages:
-        st.markdown('<div class="section-title">Latest messages</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title parent-dashboard-latest-title">Latest messages</div>', unsafe_allow_html=True)
         render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3, children_by_id=children_by_id)
         if len(messages) > 3:
             st.markdown(f'<a class="menu-item" href="{app_href("Messages")}" target="_self">View all messages</a>', unsafe_allow_html=True)
