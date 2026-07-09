@@ -688,8 +688,12 @@ def push_subscription_fingerprint(subscription):
     return hashlib.sha256(endpoint.encode("utf-8")).hexdigest() if endpoint else ""
 
 
-def save_admin_push_subscription(subscription, email):
+def save_push_subscription_for_user(subscription, email, role):
     if not isinstance(subscription, dict) or not subscription.get("endpoint") or not subscription.get("keys"):
+        return False
+    clean_role = "Parent" if role == "Parent" else "Admin"
+    clean_email = str(email or DEFAULT_ADMIN_EMAIL or "").strip().lower()
+    if not clean_email:
         return False
     fingerprint = push_subscription_fingerprint(subscription)
     if not fingerprint:
@@ -698,15 +702,19 @@ def save_admin_push_subscription(subscription, email):
     now = datetime.now().isoformat(timespec="seconds")
     entry = {
         "ID": uuid.uuid4().hex,
-        "Role": "Admin",
-        "Email": str(email or DEFAULT_ADMIN_EMAIL or "").strip().lower(),
+        "Role": clean_role,
+        "Email": clean_email,
         "EndpointHash": fingerprint,
         "Subscription": subscription,
         "CreatedAt": now,
         "LastSeenAt": now,
     }
     for index, existing in enumerate(subscriptions):
-        if existing.get("EndpointHash") == fingerprint:
+        if (
+            existing.get("EndpointHash") == fingerprint
+            and existing.get("Role") == clean_role
+            and str(existing.get("Email", "")).strip().lower() == clean_email
+        ):
             entry["ID"] = existing.get("ID") or entry["ID"]
             entry["CreatedAt"] = existing.get("CreatedAt") or entry["CreatedAt"]
             subscriptions[index] = entry
@@ -714,6 +722,10 @@ def save_admin_push_subscription(subscription, email):
     else:
         subscriptions.append(entry)
     return save_push_subscriptions(subscriptions)
+
+
+def save_admin_push_subscription(subscription, email):
+    return save_push_subscription_for_user(subscription, email, "Admin")
 
 
 def decode_push_subscription(encoded_subscription):
@@ -729,20 +741,21 @@ def decode_push_subscription(encoded_subscription):
 
 
 def handle_push_subscription_query():
-    if st.session_state.get("role") != "Admin":
+    role = st.session_state.get("role", "")
+    if role not in {"Admin", "Parent"}:
         return
     if st.query_params.get("push_error"):
-        st.session_state["push_notice"] = "Push notifications could not be enabled on this browser."
+        st.session_state["push_notice"] = "Message notifications could not be enabled on this browser."
         st.query_params.pop("push_error", None)
         st.rerun()
     encoded_subscription = st.query_params.get("push_subscription")
     if not encoded_subscription:
         return
     subscription = decode_push_subscription(encoded_subscription)
-    if subscription and save_admin_push_subscription(subscription, st.session_state.get("email", "")):
-        st.session_state["push_notice"] = "Push notifications are on for this device."
+    if subscription and save_push_subscription_for_user(subscription, st.session_state.get("email", ""), role):
+        st.session_state["push_notice"] = "Message notifications are on for this device."
     else:
-        st.session_state["push_notice"] = "Push notifications could not be saved. Check permanent saving and try again."
+        st.session_state["push_notice"] = "Message notifications could not be saved. Check permanent saving and try again."
     st.query_params.pop("push_subscription", None)
     st.rerun()
 
@@ -773,6 +786,60 @@ def send_web_push_to_admins(payload):
             admin_account = get_login_account(entry.get("Email", ""), "Admin")
             admin_auth = make_auth_token(admin_account) if admin_account else ""
             push_payload["url"] = message_href(message_id, auth_token=admin_auth)
+        try:
+            webpush(
+                subscription_info=entry["Subscription"],
+                data=json.dumps(push_payload),
+                vapid_private_key=config["private_key"],
+                vapid_claims={"sub": config["contact"]},
+                ttl=24 * 60 * 60,
+            )
+            sent = True
+        except WebPushException as exc:
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            if status_code in (404, 410):
+                expired.append(entry.get("EndpointHash", ""))
+        except Exception:
+            pass
+    for fingerprint in expired:
+        remove_expired_push_subscription(fingerprint)
+    return sent
+
+
+def send_web_push_to_parent(message):
+    config = web_push_config()
+    if not config["ready"]:
+        return False
+    parent_email = str(message.get("ParentEmail", "") or "").strip().lower()
+    if not parent_email:
+        return False
+    subscriptions = [
+        entry for entry in load_push_subscriptions()
+        if entry.get("Role") == "Parent"
+        and str(entry.get("Email", "")).strip().lower() == parent_email
+        and isinstance(entry.get("Subscription"), dict)
+    ]
+    if not subscriptions:
+        return False
+
+    message_text = str(message.get("Message", "") or "").strip()
+    if not message_text and message.get("Attachments"):
+        message_text = "New photo/video message."
+    child_name = message.get("ChildName") or "your child"
+    body = f"{child_name}: {message_text[:120]}" if message_text else f"You have a new message about {child_name}."
+    parent_account = get_login_account(parent_email, "Parent")
+    parent_auth = make_auth_token(parent_account) if parent_account else ""
+    push_payload = {
+        "title": "New preschool message",
+        "body": body,
+        "url": message_href(message.get("ID", ""), auth_token=parent_auth),
+        "icon": PUSH_ICON_URL,
+        "badge": PUSH_ICON_URL,
+        "tag": f"parent-message-{message.get('ID', '')}",
+    }
+    sent = False
+    expired = []
+    for entry in subscriptions:
         try:
             webpush(
                 subscription_info=entry["Subscription"],
@@ -972,6 +1039,149 @@ def render_admin_push_control():
         button.addEventListener("click", enablePush);
         updateState().catch(() => {{
           state.textContent = "Push notification status could not be checked.";
+        }});
+        </script>
+        """,
+        height=54,
+    )
+
+
+def render_parent_push_control():
+    if st.session_state.get("role") != "Parent":
+        return
+    PUSH_COMPONENT(default=None, key="parent-push-assets")
+    notice = st.session_state.pop("push_notice", "")
+    if notice:
+        show_quick_notice(notice)
+    config = web_push_config()
+    if not config["has_public_key"] or not config["has_sender"]:
+        return
+    components.html(
+        f"""
+        <style>
+          body {{
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #23345f;
+          }}
+          .push-tools {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 46px;
+          }}
+          #enable-parent-push {{
+            appearance: none;
+            border: 0;
+            border-radius: 8px;
+            background: #2f4fa3;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 800;
+            padding: 10px 14px;
+            cursor: pointer;
+          }}
+          #enable-parent-push:hover {{
+            background: #24448f;
+            transform: translateY(-1px);
+          }}
+          #parent-push-state {{
+            font-size: 14px;
+            font-weight: 650;
+            color: #647486;
+          }}
+        </style>
+        <div class="push-tools">
+          <button id="enable-parent-push" type="button">Enable message notifications</button>
+          <span id="parent-push-state">Use this once on this device.</span>
+        </div>
+        <script>
+        const publicKey = {json.dumps(config["public_key"])};
+        const swUrl = {json.dumps(PUSH_SW_URL)};
+        const swScope = {json.dumps(PUSH_SW_SCOPE)};
+        const button = document.getElementById("enable-parent-push");
+        const state = document.getElementById("parent-push-state");
+
+        function urlBase64ToUint8Array(base64String) {{
+          const padding = "=".repeat((4 - base64String.length % 4) % 4);
+          const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {{
+            outputArray[i] = rawData.charCodeAt(i);
+          }}
+          return outputArray;
+        }}
+
+        function encodeSubscription(subscription) {{
+          const json = JSON.stringify(subscription.toJSON());
+          return btoa(unescape(encodeURIComponent(json)))
+            .replace(/\\+/g, "-")
+            .replace(/\\//g, "_")
+            .replace(/=+$/, "");
+        }}
+
+        function updateParentParam(name, value) {{
+          const target = new URL(window.parent.location.href);
+          target.searchParams.set(name, value);
+          window.parent.location.href = target.toString();
+        }}
+
+        async function currentSubscription() {{
+          const registration = await navigator.serviceWorker.getRegistration(swScope);
+          if (!registration) return null;
+          return await registration.pushManager.getSubscription();
+        }}
+
+        async function updateState() {{
+          if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+            state.textContent = "Notifications are not supported in this browser.";
+            button.style.display = "none";
+            return;
+          }}
+          const subscription = await currentSubscription();
+          if (subscription) {{
+            state.textContent = "Message notifications are on for this device.";
+            button.textContent = "Refresh notifications";
+          }} else if (Notification.permission === "denied") {{
+            state.textContent = "Notifications are blocked in this browser.";
+            button.style.display = "none";
+          }} else {{
+            state.textContent = "Use this once on this device.";
+          }}
+        }}
+
+        async function enablePush() {{
+          try {{
+            if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+              state.textContent = "Notifications are not supported in this browser.";
+              return;
+            }}
+            button.disabled = true;
+            state.textContent = "Switching on message notifications...";
+            const registration = await navigator.serviceWorker.register(swUrl, {{ scope: swScope }});
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {{
+              const permission = await Notification.requestPermission();
+              if (permission !== "granted") {{
+                state.textContent = "Notifications were not allowed.";
+                button.disabled = false;
+                return;
+              }}
+              subscription = await registration.pushManager.subscribe({{
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
+              }});
+            }}
+            updateParentParam("push_subscription", encodeSubscription(subscription));
+          }} catch (error) {{
+            updateParentParam("push_error", "1");
+          }}
+        }}
+
+        button.addEventListener("click", enablePush);
+        updateState().catch(() => {{
+          state.textContent = "Notification status could not be checked.";
         }});
         </script>
         """,
@@ -1181,24 +1391,26 @@ def mark_parent_replies_seen(messages):
 
 def send_parent_notification(child, parent, message_body, attachments=None):
     messages = load_messages()
-    messages.append(
-        {
-            "ID": uuid.uuid4().hex,
-            "Type": "Notification",
-            "ChildID": child.get("ID", ""),
-            "ChildName": child.get("Name", ""),
-            "ChildThumbnail": child.get("Thumbnail", ""),
-            "ParentID": parent.get("ID", ""),
-            "ParentName": parent.get("FirstName", ""),
-            "ParentEmail": parent.get("Email", ""),
-            "Message": message_body.strip(),
-            "Attachments": attachments or [],
-            "CreatedAt": datetime.now().isoformat(timespec="seconds"),
-            "Status": "Sent",
-            "Read": False,
-        }
-    )
-    return save_messages(messages)
+    message = {
+        "ID": uuid.uuid4().hex,
+        "Type": "Notification",
+        "ChildID": child.get("ID", ""),
+        "ChildName": child.get("Name", ""),
+        "ChildThumbnail": child.get("Thumbnail", ""),
+        "ParentID": parent.get("ID", ""),
+        "ParentName": parent.get("FirstName", ""),
+        "ParentEmail": parent.get("Email", ""),
+        "Message": message_body.strip(),
+        "Attachments": attachments or [],
+        "CreatedAt": datetime.now().isoformat(timespec="seconds"),
+        "Status": "Sent",
+        "Read": False,
+    }
+    messages.append(message)
+    saved = save_messages(messages)
+    if saved:
+        send_web_push_to_parent(message)
+    return saved
 
 
 def add_parent_reply(message_id, parent, reply_body, attachments=None):
@@ -2749,6 +2961,11 @@ st.markdown(
         scroll-margin-top: 120px;
     }}
     .admin-message-row.is-target {{
+        border-color: var(--brand-blue);
+        box-shadow: 0 0 0 4px rgba(47,79,163,.18), 0 14px 28px rgba(35,52,95,.12);
+        background: #fff7e8;
+    }}
+    .parent-row.is-target {{
         border-color: var(--brand-blue);
         box-shadow: 0 0 0 4px rgba(47,79,163,.18), 0 14px 28px rgba(35,52,95,.12);
         background: #fff7e8;
@@ -4403,9 +4620,12 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
     if limit:
         sorted_messages = sorted_messages[:limit]
     mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
+    target_message_id = str(st.query_params.get("message_id", "") or "")
     st.markdown('<div class="parents-list">', unsafe_allow_html=True)
     for message in sorted_messages:
         message_id = message.get("ID", "")
+        anchor_id = message_anchor_id(message_id)
+        target_class = " is-target" if target_message_id and message_id == target_message_id else ""
         reply_key = f"{key_prefix}_reply_body_{message_id}"
         reply_open_key = f"{key_prefix}_reply_open_{message_id}"
         replies = message.get("Replies", [])
@@ -4427,7 +4647,8 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         message_attachments = message_attachments_html(message.get("Attachments", []))
         st.markdown(
             f"""
-            <div class="parent-row">
+            <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
+            <div class="parent-row{target_class}">
               <div>
                 <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
@@ -4864,7 +5085,7 @@ if not st.session_state.get("logged_in"):
 
 
 current_role = st.session_state.get("role", "Parent")
-if current_role == "Admin":
+if current_role in {"Admin", "Parent"}:
     handle_push_subscription_query()
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
@@ -4904,6 +5125,7 @@ with content_col:
         else:
             render_admin_children()
     else:
+        render_parent_push_control()
         if selected_page == "Messages":
             render_parent_messages()
         elif selected_page == "Forms":
