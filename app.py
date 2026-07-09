@@ -924,6 +924,7 @@ def render_admin_push_control():
           .push-tools {{
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 12px;
             min-height: 46px;
           }}
@@ -946,6 +947,12 @@ def render_admin_push_control():
             font-size: 14px;
             font-weight: 650;
             color: #647486;
+            line-height: 1.3;
+          }}
+          @media (max-width: 560px) {{
+            #enable-admin-push {{
+              width: 100%;
+            }}
           }}
         </style>
         <div class="push-tools">
@@ -1042,7 +1049,7 @@ def render_admin_push_control():
         }});
         </script>
         """,
-        height=54,
+        height=84,
     )
 
 
@@ -2408,6 +2415,99 @@ st.markdown(
     .st-key-edit-child-panel .guardian-section {{
         margin-top: 10px;
         margin-bottom: 18px;
+    }}
+    .st-key-settings_panel,
+    .st-key-settings-panel {{
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+    }}
+    .settings-heading {{
+        color: var(--brand-blue);
+        font-size: 1.15rem;
+        font-weight: 900;
+        line-height: 1.12;
+        margin-bottom: 14px;
+    }}
+    .settings-section {{
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffaf1;
+    }}
+    .settings-section + .settings-section {{
+        margin-top: 14px;
+    }}
+    .st-key-settings_push_section,
+    .st-key-settings-push-section {{
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffaf1;
+        margin-top: 14px;
+    }}
+    .settings-section-title {{
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.15;
+    }}
+    .settings-section-copy {{
+        color: var(--muted);
+        font-size: .92rem;
+        font-weight: 520;
+        line-height: 1.35;
+    }}
+    .settings-action-card {{
+        display: grid;
+        grid-template-columns: 46px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        color: inherit !important;
+        text-decoration: none !important;
+        transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }}
+    .settings-action-card:hover {{
+        border-color: var(--brand-blue);
+        box-shadow: 0 8px 18px rgba(35,52,95,.12);
+        transform: translateY(-1px);
+    }}
+    .settings-action-icon {{
+        display: inline-grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 8px;
+        background: var(--brand-blue);
+        color: #ffffff;
+        font-size: 1.65rem;
+        font-weight: 950;
+        line-height: 1;
+    }}
+    .settings-action-title {{
+        color: var(--brand-blue);
+        font-size: 1.02rem;
+        font-weight: 900;
+        line-height: 1.12;
+    }}
+    .settings-action-copy {{
+        color: var(--muted);
+        font-size: .9rem;
+        font-weight: 520;
+        line-height: 1.28;
+        margin-top: 3px;
     }}
     .edit-form-actions {{
         display: flex;
@@ -3906,6 +4006,13 @@ st.markdown(
         .admin-message-row {{
             height: auto;
         }}
+        .st-key-settings_panel,
+        .st-key-settings-panel {{
+            padding: 14px;
+        }}
+        .settings-action-card {{
+            width: 100%;
+        }}
         .create-message-button {{
             width: 100%;
             min-height: 46px;
@@ -4768,7 +4875,6 @@ if hasattr(st, "dialog"):
 
 
 def render_admin_settings():
-    st.markdown("<br>", unsafe_allow_html=True)
     data_save_warning = st.session_state.pop("data_save_warning", "")
     if data_save_warning:
         st.warning(data_save_warning)
@@ -4779,15 +4885,40 @@ def render_admin_settings():
     if "show_add_child" not in st.session_state:
         st.session_state["show_add_child"] = False
 
-    st.markdown(
-        f"""
-        <div class="section-header">
-          <div class="panel-title">Settings</div>
-          <a class="add-child-icon" href="{app_href("Settings", add_child=1)}" target="_self" aria-label="Add child" title="Add child">+</a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    try:
+        settings_panel = st.container(key="settings_panel")
+    except TypeError:
+        settings_panel = st.container()
+
+    with settings_panel:
+        st.markdown(
+            f"""
+            <div class="settings-heading">Settings</div>
+            <div class="settings-section">
+              <div class="settings-section-title">Children</div>
+              <div class="settings-section-copy">Create a child profile, add parent details, and assign a session.</div>
+              <a class="settings-action-card" href="{app_href("Settings", add_child=1)}" target="_self" aria-label="Add child">
+                <span class="settings-action-icon">+</span>
+                <span>
+                  <span class="settings-action-title">Add Child</span>
+                  <span class="settings-action-copy">Open the child setup form.</span>
+                </span>
+              </a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        try:
+            push_section = st.container(key="settings_push_section")
+        except TypeError:
+            push_section = st.container()
+        with push_section:
+            st.markdown(
+                '<div class="settings-section-title">Push notifications</div>'
+                '<div class="settings-section-copy">Enable notifications on each admin device to receive alerts for new parent messages.</div>',
+                unsafe_allow_html=True,
+            )
+            render_admin_push_control()
 
     if st.query_params.get("add_child"):
         st.session_state["show_add_child"] = True
@@ -5320,7 +5451,7 @@ valid_pages = {"Children", "Parents", "Messages", "Birthdays", "Settings"} if cu
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
-    selected_page = "Children"
+    selected_page = st.query_params.get("app_page", "Children")
 if current_role == "Admin" and st.query_params.get("create_message"):
     selected_page = "Messages"
 if st.query_params.get("edit_child"):
@@ -5335,7 +5466,6 @@ with menu_col:
 
 with content_col:
     if current_role == "Admin":
-        render_admin_push_control()
         admin_interaction_open = any(
             st.query_params.get(param)
             for param in ("message_child", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "create_message")
