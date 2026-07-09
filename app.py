@@ -4403,7 +4403,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Children", "Parents", "Messages", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms"]
+    nav_items = ["Children", "Parents", "Messages", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms", "Settings"]
     message_badge_count = admin_unseen_message_count() if role == "Admin" else parent_unseen_message_count()
 
     def nav_label(item):
@@ -5160,6 +5160,27 @@ def render_parent_forms():
     )
 
 
+def render_parent_settings():
+    try:
+        settings_panel = st.container(key="settings_panel")
+    except TypeError:
+        settings_panel = st.container()
+
+    with settings_panel:
+        st.markdown('<div class="settings-heading">Settings</div>', unsafe_allow_html=True)
+        try:
+            push_section = st.container(key="settings_push_section")
+        except TypeError:
+            push_section = st.container()
+        with push_section:
+            st.markdown(
+                '<div class="settings-section-title">Message notifications</div>'
+                '<div class="settings-section-copy">Turn on notifications on this device so you know when the preschool sends a new message.</div>',
+                unsafe_allow_html=True,
+            )
+            render_parent_push_control()
+
+
 def render_admin_messages():
     stored_messages = load_messages()
     messages = sorted(stored_messages, key=message_activity_key, reverse=True)
@@ -5447,7 +5468,7 @@ if current_role in {"Admin", "Parent"}:
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
-valid_pages = {"Children", "Parents", "Messages", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms"}
+valid_pages = {"Children", "Parents", "Messages", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms", "Settings"}
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
@@ -5483,10 +5504,11 @@ with content_col:
         else:
             render_admin_children()
     else:
-        render_parent_push_control()
         if selected_page == "Messages":
             render_parent_messages()
         elif selected_page == "Forms":
             render_parent_forms()
+        elif selected_page == "Settings":
+            render_parent_settings()
         else:
             render_parent_dashboard()
