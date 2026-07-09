@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ash's Angels Push</title>
+  </head>
+  <body>
+    <script>
+      window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1 }, "*");
+      window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:setFrameHeight", height: 0 }, "*");
+    </script>
+  </body>
+</html>
