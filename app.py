@@ -20,6 +20,14 @@ import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageFilter
 
+try:
+    from pywebpush import WebPushException, webpush
+except Exception:
+    webpush = None
+
+    class WebPushException(Exception):
+        pass
+
 
 APP_DIR = Path(__file__).parent
 LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
@@ -28,8 +36,11 @@ USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
 PARENTS_FILE = APP_DIR / "parents.json"
 MESSAGES_FILE = APP_DIR / "messages.json"
+PUSH_SUBSCRIPTIONS_FILE = APP_DIR / "push_subscriptions.json"
 CHILDREN_DIR = APP_DIR / "assets" / "children"
 MESSAGES_DIR = APP_DIR / "assets" / "messages"
+PUSH_COMPONENT_DIR = APP_DIR / "push_component"
+PUSH_COMPONENT_NAME = f"{Path(__file__).stem}.ashs_angels_push"
 SESSIONS = ["Morning Session", "Afternoon Session"]
 SESSION_ALIASES = {
     "Morning Session - 8:30am to 11:30am": "Morning Session",
@@ -43,6 +54,9 @@ MESSAGE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 MESSAGE_ATTACHMENT_MAX_COUNT = 4
 MESSAGE_ATTACHMENT_TYPES = ["png", "jpg", "jpeg", "webp", "mp4", "mov", "m4v", "webm"]
 CONTACT_RELATIONSHIPS = ["Mam", "Dad", "Guardian"]
+PUSH_SW_URL = f"/component/{PUSH_COMPONENT_NAME}/sw.js"
+PUSH_SW_SCOPE = f"/component/{PUSH_COMPONENT_NAME}/"
+PUSH_ICON_URL = f"/component/{PUSH_COMPONENT_NAME}/icon.svg"
 
 
 def setting(name, fallback=""):
@@ -62,6 +76,8 @@ st.set_page_config(
     page_icon=str(ICON_IMAGE),
     layout="wide",
 )
+
+PUSH_COMPONENT = components.declare_component("ashs_angels_push", path=str(PUSH_COMPONENT_DIR))
 
 
 def asset_url(path):
@@ -609,6 +625,333 @@ def save_messages(messages):
     return save_persistent_json("messages.json", messages, "Update messages")
 
 
+def push_secret(*names):
+    for name in names:
+        value = setting(name)
+        if value:
+            return value
+    try:
+        push_settings = st.secrets.get("push", {})
+        for name in names:
+            nested_name = name.lower().replace("web_push_", "").replace("vapid_", "")
+            value = str(push_settings.get(nested_name, "")).strip()
+            if value:
+                return value
+    except Exception:
+        pass
+    return ""
+
+
+def web_push_config():
+    public_key = push_secret("WEB_PUSH_PUBLIC_KEY", "VAPID_PUBLIC_KEY")
+    private_key = push_secret("WEB_PUSH_PRIVATE_KEY", "VAPID_PRIVATE_KEY").replace("\\n", "\n")
+    contact = push_secret("WEB_PUSH_CONTACT", "VAPID_CONTACT") or f"mailto:{DEFAULT_ADMIN_EMAIL or 'childcare@ashsangels.com'}"
+    return {
+        "public_key": public_key,
+        "private_key": private_key,
+        "contact": contact,
+        "ready": bool(public_key and private_key and webpush),
+        "has_public_key": bool(public_key),
+        "has_sender": bool(private_key and webpush),
+    }
+
+
+def load_push_subscriptions():
+    subscriptions = load_persistent_json("push_subscriptions.json", [])
+    return subscriptions if isinstance(subscriptions, list) else []
+
+
+def save_push_subscriptions(subscriptions):
+    return save_persistent_json("push_subscriptions.json", subscriptions, "Update push subscriptions")
+
+
+def push_subscription_fingerprint(subscription):
+    endpoint = str((subscription or {}).get("endpoint", "")).strip()
+    return hashlib.sha256(endpoint.encode("utf-8")).hexdigest() if endpoint else ""
+
+
+def save_admin_push_subscription(subscription, email):
+    if not isinstance(subscription, dict) or not subscription.get("endpoint") or not subscription.get("keys"):
+        return False
+    fingerprint = push_subscription_fingerprint(subscription)
+    if not fingerprint:
+        return False
+    subscriptions = load_push_subscriptions()
+    now = datetime.now().isoformat(timespec="seconds")
+    entry = {
+        "ID": uuid.uuid4().hex,
+        "Role": "Admin",
+        "Email": str(email or DEFAULT_ADMIN_EMAIL or "").strip().lower(),
+        "EndpointHash": fingerprint,
+        "Subscription": subscription,
+        "CreatedAt": now,
+        "LastSeenAt": now,
+    }
+    for index, existing in enumerate(subscriptions):
+        if existing.get("EndpointHash") == fingerprint:
+            entry["ID"] = existing.get("ID") or entry["ID"]
+            entry["CreatedAt"] = existing.get("CreatedAt") or entry["CreatedAt"]
+            subscriptions[index] = entry
+            break
+    else:
+        subscriptions.append(entry)
+    return save_push_subscriptions(subscriptions)
+
+
+def decode_push_subscription(encoded_subscription):
+    raw_value = str(encoded_subscription or "").strip()
+    if not raw_value:
+        return None
+    try:
+        padded_value = raw_value + ("=" * (-len(raw_value) % 4))
+        decoded = base64.urlsafe_b64decode(padded_value.encode("ascii")).decode("utf-8")
+        return json.loads(decoded)
+    except Exception:
+        return None
+
+
+def handle_push_subscription_query():
+    if st.session_state.get("role") != "Admin":
+        return
+    if st.query_params.get("push_error"):
+        st.session_state["push_notice"] = "Push notifications could not be enabled on this browser."
+        st.query_params.pop("push_error", None)
+        st.rerun()
+    encoded_subscription = st.query_params.get("push_subscription")
+    if not encoded_subscription:
+        return
+    subscription = decode_push_subscription(encoded_subscription)
+    if subscription and save_admin_push_subscription(subscription, st.session_state.get("email", "")):
+        st.session_state["push_notice"] = "Push notifications are on for this device."
+    else:
+        st.session_state["push_notice"] = "Push notifications could not be saved. Check permanent saving and try again."
+    st.query_params.pop("push_subscription", None)
+    st.rerun()
+
+
+def remove_expired_push_subscription(fingerprint):
+    if not fingerprint:
+        return
+    subscriptions = load_push_subscriptions()
+    kept = [entry for entry in subscriptions if entry.get("EndpointHash") != fingerprint]
+    if len(kept) != len(subscriptions):
+        save_push_subscriptions(kept)
+
+
+def send_web_push_to_admins(payload):
+    config = web_push_config()
+    if not config["ready"]:
+        return False
+    subscriptions = [
+        entry for entry in load_push_subscriptions()
+        if entry.get("Role") == "Admin" and isinstance(entry.get("Subscription"), dict)
+    ]
+    sent = False
+    expired = []
+    for entry in subscriptions:
+        try:
+            webpush(
+                subscription_info=entry["Subscription"],
+                data=json.dumps(payload),
+                vapid_private_key=config["private_key"],
+                vapid_claims={"sub": config["contact"]},
+                ttl=24 * 60 * 60,
+            )
+            sent = True
+        except WebPushException as exc:
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            if status_code in (404, 410):
+                expired.append(entry.get("EndpointHash", ""))
+        except Exception:
+            pass
+    for fingerprint in expired:
+        remove_expired_push_subscription(fingerprint)
+    return sent
+
+
+def send_admin_reply_push(message, reply):
+    reply_text = str(reply.get("Message", "") or "").strip()
+    if not reply_text and reply.get("Attachments"):
+        reply_text = "Sent a photo/video reply."
+    preview = reply_text[:120]
+    child_name = message.get("ChildName", "a child")
+    parent_name = reply.get("ParentName") or message.get("ParentName") or "A parent"
+    body = f"{parent_name} replied about {child_name}"
+    if preview:
+        body = f"{body}: {preview}"
+    return send_web_push_to_admins(
+        {
+            "title": "New parent message",
+            "body": body,
+            "url": app_href("Messages"),
+            "icon": PUSH_ICON_URL,
+            "badge": PUSH_ICON_URL,
+            "tag": f"admin-message-{message.get('ID', '')}",
+        }
+    )
+
+
+def render_admin_push_control():
+    if st.session_state.get("role") != "Admin":
+        return
+    PUSH_COMPONENT(default=None, key="admin-push-assets")
+    notice = st.session_state.pop("push_notice", "")
+    if notice:
+        show_quick_notice(notice)
+    config = web_push_config()
+    if not config["has_public_key"]:
+        st.markdown(
+            '<div class="admin-new-message-alert admin-push-setup-alert">'
+            '<span class="admin-new-message-dot"></span>'
+            '<div><strong>Push notifications need to be switched on.</strong><br>'
+            'Add the push notification keys in Streamlit secrets, then enable this device.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    if not config["has_sender"]:
+        st.markdown(
+            '<div class="admin-new-message-alert admin-push-setup-alert">'
+            '<span class="admin-new-message-dot"></span>'
+            '<div><strong>Push sending is not ready yet.</strong><br>'
+            'The app needs the private push key before it can send notifications.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    components.html(
+        f"""
+        <style>
+          body {{
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #23345f;
+          }}
+          .push-tools {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 46px;
+          }}
+          #enable-admin-push {{
+            appearance: none;
+            border: 0;
+            border-radius: 8px;
+            background: #2f4fa3;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 800;
+            padding: 10px 14px;
+            cursor: pointer;
+          }}
+          #enable-admin-push:hover {{
+            background: #24448f;
+            transform: translateY(-1px);
+          }}
+          #admin-push-state {{
+            font-size: 14px;
+            font-weight: 650;
+            color: #647486;
+          }}
+        </style>
+        <div class="push-tools">
+          <button id="enable-admin-push" type="button">Enable push notifications</button>
+          <span id="admin-push-state">Use this once on each admin device.</span>
+        </div>
+        <script>
+        const publicKey = {json.dumps(config["public_key"])};
+        const swUrl = {json.dumps(PUSH_SW_URL)};
+        const swScope = {json.dumps(PUSH_SW_SCOPE)};
+        const button = document.getElementById("enable-admin-push");
+        const state = document.getElementById("admin-push-state");
+
+        function urlBase64ToUint8Array(base64String) {{
+          const padding = "=".repeat((4 - base64String.length % 4) % 4);
+          const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {{
+            outputArray[i] = rawData.charCodeAt(i);
+          }}
+          return outputArray;
+        }}
+
+        function encodeSubscription(subscription) {{
+          const json = JSON.stringify(subscription.toJSON());
+          return btoa(unescape(encodeURIComponent(json)))
+            .replace(/\\+/g, "-")
+            .replace(/\\//g, "_")
+            .replace(/=+$/, "");
+        }}
+
+        function updateParentParam(name, value) {{
+          const target = new URL(window.parent.location.href);
+          target.searchParams.set(name, value);
+          window.parent.location.href = target.toString();
+        }}
+
+        async function currentSubscription() {{
+          const registration = await navigator.serviceWorker.getRegistration(swScope);
+          if (!registration) return null;
+          return await registration.pushManager.getSubscription();
+        }}
+
+        async function updateState() {{
+          if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+            state.textContent = "Push notifications are not supported in this browser.";
+            button.style.display = "none";
+            return;
+          }}
+          const subscription = await currentSubscription();
+          if (subscription) {{
+            state.textContent = "Push notifications are on for this device.";
+            button.textContent = "Refresh push notifications";
+          }} else if (Notification.permission === "denied") {{
+            state.textContent = "Notifications are blocked in this browser.";
+            button.style.display = "none";
+          }} else {{
+            state.textContent = "Use this once on each admin device.";
+          }}
+        }}
+
+        async function enablePush() {{
+          try {{
+            if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+              state.textContent = "Push notifications are not supported in this browser.";
+              return;
+            }}
+            button.disabled = true;
+            state.textContent = "Switching on push notifications...";
+            const registration = await navigator.serviceWorker.register(swUrl, {{ scope: swScope }});
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {{
+              const permission = await Notification.requestPermission();
+              if (permission !== "granted") {{
+                state.textContent = "Notifications were not allowed.";
+                button.disabled = false;
+                return;
+              }}
+              subscription = await registration.pushManager.subscribe({{
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
+              }});
+            }}
+            updateParentParam("push_subscription", encodeSubscription(subscription));
+          }} catch (error) {{
+            updateParentParam("push_error", "1");
+          }}
+        }}
+
+        button.addEventListener("click", enablePush);
+        updateState().catch(() => {{
+          state.textContent = "Push notification status could not be checked.";
+        }});
+        </script>
+        """,
+        height=54,
+    )
+
+
 def admin_unseen_message_count(messages=None):
     messages = load_messages() if messages is None else messages
     count = 0
@@ -853,7 +1196,10 @@ def add_parent_reply(message_id, parent, reply_body, attachments=None):
             )
             message["Status"] = "Replied"
             message["LastReplyAt"] = replies[-1]["CreatedAt"]
-            return save_messages(messages)
+            saved = save_messages(messages)
+            if saved:
+                send_admin_reply_push(message, replies[-1])
+            return saved
     return False
 
 
@@ -4367,6 +4713,8 @@ if not st.session_state.get("logged_in"):
 
 
 current_role = st.session_state.get("role", "Parent")
+if current_role == "Admin":
+    handle_push_subscription_query()
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
@@ -4387,6 +4735,7 @@ with menu_col:
 
 with content_col:
     if current_role == "Admin":
+        render_admin_push_control()
         if selected_page != "Messages":
             render_admin_message_notification()
         if selected_page == "Parents":
