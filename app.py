@@ -1074,8 +1074,10 @@ def render_parent_push_control():
           .push-tools {{
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 12px;
-            min-height: 46px;
+            min-height: 58px;
+            overflow: visible;
           }}
           #enable-parent-push {{
             appearance: none;
@@ -1085,17 +1087,37 @@ def render_parent_push_control():
             color: #ffffff;
             font-size: 15px;
             font-weight: 800;
+            line-height: 1.18;
             padding: 10px 14px;
             cursor: pointer;
+            min-height: 46px;
+            white-space: normal;
           }}
           #enable-parent-push:hover {{
             background: #24448f;
             transform: translateY(-1px);
           }}
           #parent-push-state {{
+            display: block;
+            flex: 1 1 170px;
             font-size: 14px;
             font-weight: 650;
             color: #647486;
+            line-height: 1.28;
+          }}
+          @media (max-width: 520px) {{
+            .push-tools {{
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 8px;
+              align-items: stretch;
+            }}
+            #enable-parent-push {{
+              width: 100%;
+            }}
+            #parent-push-state {{
+              width: 100%;
+            }}
           }}
         </style>
         <div class="push-tools">
@@ -1192,7 +1214,7 @@ def render_parent_push_control():
         }});
         </script>
         """,
-        height=54,
+        height=122,
     )
 
 
