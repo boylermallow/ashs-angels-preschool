@@ -3790,26 +3790,29 @@ def render_message_dialog(child, parent):
         f'<div class="muted">This will send a message about {html.escape(child_name)}.</div>',
         unsafe_allow_html=True,
     )
-    message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-    media_files = st.file_uploader(
-        "Photos or videos",
-        type=MESSAGE_ATTACHMENT_TYPES,
-        accept_multiple_files=True,
-        key=media_key,
-        help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
-    )
-    if media_files:
-        st.markdown(
-            '<div class="media-note">'
-            + html.escape(
-                f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
-            )
-            + "</div>",
-            unsafe_allow_html=True,
+    with st.form(key=f"message_form_{child_id}", clear_on_submit=False):
+        message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+        media_files = st.file_uploader(
+            "Photos or videos",
+            type=MESSAGE_ATTACHMENT_TYPES,
+            accept_multiple_files=True,
+            key=media_key,
+            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
         )
-    send_col, cancel_col = st.columns(2)
+        if media_files:
+            st.markdown(
+                '<div class="media-note">'
+                + html.escape(
+                    f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
+                )
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+        send_col, cancel_col = st.columns(2)
+        send_message = send_col.form_submit_button("Send message", width="stretch")
+        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
 
-    if send_col.button("Send message", key=f"send_message_{child_id}", width="stretch"):
+    if send_message:
         if not message_body.strip() and not media_files:
             st.warning("Please add a message, photo, or video first.")
         else:
@@ -3825,7 +3828,7 @@ def render_message_dialog(child, parent):
             else:
                 st.error("The message was not saved permanently. Please check the GitHub data key and try again.")
 
-    if cancel_col.button("Cancel", key=f"cancel_message_{child_id}", width="stretch"):
+    if cancel_message:
         st.session_state.pop(message_key, None)
         st.session_state.pop(media_key, None)
         st.query_params.pop("message_child", None)
@@ -4884,7 +4887,11 @@ with menu_col:
 with content_col:
     if current_role == "Admin":
         render_admin_push_control()
-        if selected_page != "Messages":
+        admin_interaction_open = any(
+            st.query_params.get(param)
+            for param in ("message_child", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child")
+        )
+        if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
         if selected_page == "Parents":
             render_parent_approvals()
