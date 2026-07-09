@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Ash's Angels notification icon">
+  <circle cx="96" cy="96" r="88" fill="#2f4fa3"/>
+  <circle cx="96" cy="82" r="29" fill="#ffffff"/>
+  <path d="M45 150c7-30 27-48 51-48s44 18 51 48c-13 15-29 23-51 23s-38-8-51-23z" fill="#ffffff"/>
+  <path d="M77 75c7-16 32-16 39 0" fill="none" stroke="#2f4fa3" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="84" cy="90" r="6" fill="#2f4fa3"/>
+  <circle cx="108" cy="90" r="6" fill="#2f4fa3"/>
+  <path d="M84 112c8 6 17 6 25 0" fill="none" stroke="#2f4fa3" stroke-width="8" stroke-linecap="round"/>
+</svg>
