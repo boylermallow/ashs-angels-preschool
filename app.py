@@ -5,6 +5,7 @@ import html
 import json
 import mimetypes
 import os
+import re
 import secrets
 import uuid
 from collections import deque
@@ -1265,6 +1266,31 @@ def message_datetime(value):
         return parsed.strftime("%d/%m/%Y %H:%M")
     except ValueError:
         return raw_value.replace("T", " ")
+
+
+def message_activity_key(message):
+    values = [str(message.get("CreatedAt", "") or ""), str(message.get("LastReplyAt", "") or "")]
+    values.extend(
+        str(reply.get("CreatedAt", "") or "")
+        for reply in message.get("Replies", [])
+        if isinstance(reply, dict)
+    )
+    return max(values) if values else ""
+
+
+def clean_message_text(value):
+    text = html.unescape(str(value or ""))
+    text = re.sub(r"</?\s*[a-z][^>]*>", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bdiv\s*class\s*=\s*(['\"]).*?\1\s*>?", " ", text, flags=re.IGNORECASE)
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    return "\n".join(line for line in lines if line)
+
+
+def message_body_html(value):
+    text = clean_message_text(value)
+    if not text:
+        return ""
+    return "<br>".join(html.escape(line) for line in text.splitlines())
 
 
 def replies_for_parent(parent_email):
@@ -4313,7 +4339,7 @@ def current_parent_messages():
 
 
 def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None, children_by_id=None):
-    sorted_messages = sorted(messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    sorted_messages = sorted(messages, key=message_activity_key, reverse=True)
     if limit:
         sorted_messages = sorted_messages[:limit]
     mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
@@ -4333,7 +4359,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="message-body">{html.escape(reply.get("Message", ""))}</div>'
+                    f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                     f'{reply_attachments}'
                     '</div>'
                 )
@@ -4345,7 +4371,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
               <div>
                 <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
-                <div class="message-body">{html.escape(message.get("Message", ""))}</div>
+                <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
                 {message_attachments}
                 {replies_html}
               </div>
@@ -4469,7 +4495,7 @@ def render_parent_forms():
 
 def render_admin_messages():
     stored_messages = load_messages()
-    messages = sorted(stored_messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    messages = sorted(stored_messages, key=message_activity_key, reverse=True)
     target_message_id = str(st.query_params.get("message_id", "") or "")
     target_anchor_id = message_anchor_id(target_message_id) if target_message_id else ""
     children = load_children()
@@ -4511,7 +4537,7 @@ def render_admin_messages():
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="message-body">{html.escape(reply.get("Message", ""))}</div>'
+                    f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                     f'{reply_attachments}'
                     '</div>'
                 )
@@ -4528,7 +4554,7 @@ def render_admin_messages():
                 </div>
                 <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
                 <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-                <div class="message-body">{html.escape(message.get("Message", ""))}</div>
+                <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
                 {message_attachments}
                 {replies_html}
               </div>
@@ -4727,7 +4753,7 @@ def render_parent_approvals():
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">Reply about {html.escape(reply.get("ChildName", "child"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="message-body">{html.escape(reply.get("Message", ""))}</div>'
+                    f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                     '</div>'
                 )
             replies_html += "</div>"
