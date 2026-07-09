@@ -125,7 +125,8 @@
         "Message": "Wow, what a lovely bike",
         "Attachments": [],
         "CreatedAt": "2026-07-09T21:45:11",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-09T21:46:42"
       }
     ],
     "LastReplyAt": "2026-07-09T21:45:11"
