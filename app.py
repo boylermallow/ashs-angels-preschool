@@ -1851,6 +1851,37 @@ def parent_relationship(parent, child=None):
     )
 
 
+def message_parent_targets(children, parents):
+    children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
+    children_by_name = {lookup_key(child.get("Name", "")): child for child in children if child.get("Name")}
+    targets = []
+    for parent in parents:
+        if parent.get("Status") != "Approved" or not parent.get("Email"):
+            continue
+        child = children_by_id.get(parent.get("ChildID", ""))
+        if not child:
+            child = children_by_name.get(lookup_key(parent.get("ChildName", "")))
+        if not child:
+            continue
+        relationship = parent_relationship(parent, child)
+        parent_name = contact_display_name(parent.get("FirstName", ""), relationship)
+        child_name = child.get("Name", "Unnamed child")
+        email = parent.get("Email", "")
+        label = f"{child_name} - {parent_name}"
+        if email:
+            label = f"{label} - {email}"
+        targets.append(
+            {
+                "Key": f'{child.get("ID", "")}|{parent.get("ID", "") or parent.get("Email", "")}',
+                "Label": label,
+                "Child": child,
+                "Parent": parent,
+                "Sort": (str(child_name).lower(), str(parent.get("FirstName", "")).lower(), str(email).lower()),
+            }
+        )
+    return sorted(targets, key=lambda item: item["Sort"])
+
+
 def guardian_summary_html(child):
     guardians = child_guardians(child)
     if not guardians:
@@ -2765,9 +2796,40 @@ st.markdown(
         padding: 14px !important;
         margin-bottom: 14px;
     }}
+    .messages-title-row {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }}
     .messages-title-panel .panel-title {{
         margin: 0;
         line-height: 1.15;
+    }}
+    .create-message-button {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 8px 18px;
+        border-radius: 8px;
+        background: var(--brand-blue);
+        color: #ffffff !important;
+        font-weight: 850;
+        line-height: 1.1;
+        text-decoration: none !important;
+        box-shadow: 0 8px 16px rgba(47,78,161,.18);
+    }}
+    .create-message-button:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(47,78,161,.24);
+    }}
+    .create-message-target {{
+        margin: 16px 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffaf2;
     }}
     .parents-panel .section-title {{
         margin-bottom: 14px;
@@ -3803,9 +3865,17 @@ st.markdown(
             margin-top: -8px;
             margin-bottom: 12px;
         }}
+        .messages-title-row {{
+            align-items: stretch;
+            flex-direction: column;
+        }}
         .messages-title-panel .panel-title {{
             margin: 0;
             line-height: 1.1;
+        }}
+        .create-message-button {{
+            width: 100%;
+            min-height: 46px;
         }}
         .parent-dashboard-title-panel {{
             padding: 0 !important;
@@ -4054,6 +4124,100 @@ def render_message_dialog(child, parent):
 
 if hasattr(st, "dialog"):
     render_message_dialog = st.dialog("Send parent message")(render_message_dialog)
+
+
+def render_create_message_dialog():
+    children = load_children()
+    parents = load_parents()
+    targets = message_parent_targets(children, parents)
+    message_key = "admin_create_message_body"
+    media_key = "admin_create_message_media"
+
+    st.markdown(
+        '<div class="panel-title">Create Message</div>'
+        '<div class="muted">Choose a parent, then add a message, photo, or video.</div>',
+        unsafe_allow_html=True,
+    )
+    if not targets:
+        st.markdown(
+            '<div class="status"><span class="status-dot"></span>'
+            '<div>No approved parent with an assigned child is ready to message yet.</div></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Close", key="close_create_message_empty"):
+            st.query_params.pop("create_message", None)
+            st.rerun()
+        return
+
+    target_by_key = {target["Key"]: target for target in targets}
+    selected_target_key = st.selectbox(
+        "Parent",
+        [target["Key"] for target in targets],
+        format_func=lambda key: target_by_key.get(key, {}).get("Label", "Parent"),
+        key="admin_create_message_target",
+    )
+    selected_target = target_by_key[selected_target_key]
+    child = selected_target["Child"]
+    parent = selected_target["Parent"]
+    st.markdown(
+        '<div class="message-child admin-message-child create-message-target">'
+        f'{child_thumb_html(child)}'
+        '<div>'
+        f'<div class="parent-name">{html.escape(child.get("Name", "Unnamed child"))}</div>'
+        f'<div class="parent-detail">To: {html.escape(contact_display_name(parent.get("FirstName", ""), parent_relationship(parent, child)))}</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.form(key="admin_create_message_form", clear_on_submit=False):
+        message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+        media_files = st.file_uploader(
+            "Photos or videos",
+            type=MESSAGE_ATTACHMENT_TYPES,
+            accept_multiple_files=True,
+            key=media_key,
+            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
+        )
+        if media_files:
+            st.markdown(
+                '<div class="media-note">'
+                + html.escape(
+                    f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
+                )
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+        send_col, cancel_col = st.columns(2)
+        send_message = send_col.form_submit_button("Send message", width="stretch")
+        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+
+    if send_message:
+        if not message_body.strip() and not media_files:
+            st.warning("Please add a message, photo, or video first.")
+        else:
+            attachments, attachment_error = prepare_message_attachments(media_files)
+            if attachment_error:
+                st.warning(attachment_error)
+            elif send_parent_notification(child, parent, message_body, attachments):
+                st.session_state["notification_sent"] = f'Message sent to {parent.get("FirstName", "Parent") or "Parent"}.'
+                st.session_state.pop(message_key, None)
+                st.session_state.pop(media_key, None)
+                st.query_params.pop("create_message", None)
+                st.query_params["app_page"] = "Messages"
+                st.rerun()
+            else:
+                st.error("The message was not saved permanently. Please check the GitHub data key and try again.")
+
+    if cancel_message:
+        st.session_state.pop(message_key, None)
+        st.session_state.pop(media_key, None)
+        st.query_params.pop("create_message", None)
+        st.rerun()
+
+
+if hasattr(st, "dialog"):
+    render_create_message_dialog = st.dialog("Create message")(render_create_message_dialog)
 
 
 def render_login():
@@ -4772,10 +4936,23 @@ def render_admin_messages():
     children_by_name = {lookup_key(child.get("Name", "")): child for child in children if child.get("Name")}
     parents_by_id = {parent.get("ID", ""): parent for parent in parents if parent.get("ID")}
     parents_by_email = {lookup_key(parent.get("Email", "")): parent for parent in parents if parent.get("Email")}
-    st.markdown('<div class="panel parents-panel messages-title-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
+    if st.query_params.get("create_message"):
+        render_create_message_dialog()
+    create_message_href = app_href("Messages", create_message=1)
+    st.markdown(
+        '<div class="panel parents-panel messages-title-panel">'
+        '<div class="messages-title-row">'
+        '<div class="panel-title">Messages</div>'
+        f'<a class="create-message-button" href="{create_message_href}" target="_self">Create Message</a>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     deleted_message = st.session_state.pop("message_deleted_notice", "")
     if deleted_message:
         st.success(deleted_message)
+    notification_sent = st.session_state.pop("notification_sent", "")
+    if notification_sent:
+        st.success(notification_sent)
     if not messages:
         st.markdown('<div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
         return
@@ -5065,7 +5242,7 @@ if BUILD_MODE:
 sync_saved_login()
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu", "add_child"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu", "add_child", "create_message"):
         st.query_params.pop(protected_param, None)
     render_login()
     st.stop()
@@ -5082,6 +5259,8 @@ if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
     selected_page = "Children"
+if current_role == "Admin" and st.query_params.get("create_message"):
+    selected_page = "Messages"
 if st.query_params.get("edit_child"):
     selected_page = "Children"
 if st.query_params.get("edit_parent"):
@@ -5097,7 +5276,7 @@ with content_col:
         render_admin_push_control()
         admin_interaction_open = any(
             st.query_params.get(param)
-            for param in ("message_child", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child")
+            for param in ("message_child", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "create_message")
         )
         if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
