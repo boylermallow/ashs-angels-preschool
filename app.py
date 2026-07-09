@@ -2960,8 +2960,27 @@ st.markdown(
         padding: 8px 16px !important;
         margin: 0 0 4px 16px !important;
     }}
+    .admin-messages-list {{
+        display: block;
+    }}
+    .admin-messages-list div[data-testid="stHorizontalBlock"] {{
+        gap: 18px;
+        align-items: stretch;
+        margin-bottom: 18px;
+    }}
+    .admin-messages-list div[data-testid="column"] {{
+        min-width: 0;
+    }}
+    .admin-message-item {{
+        display: grid;
+        gap: 0;
+        height: 100%;
+    }}
+    .admin-message-row {{
+        height: 100%;
+    }}
     .admin-messages-list div[data-testid="stButton"] button {{
-        margin: 14px 0 18px 16px !important;
+        margin: 10px 0 18px 0 !important;
     }}
     .message-status-stack {{
         display: flex;
@@ -3874,6 +3893,18 @@ st.markdown(
         .messages-title-panel .panel-title {{
             margin: 0;
             line-height: 1.1;
+        }}
+        .admin-messages-list div[data-testid="stHorizontalBlock"] {{
+            display: block !important;
+            margin-bottom: 0;
+        }}
+        .admin-messages-list div[data-testid="column"] {{
+            width: 100% !important;
+            min-width: 0 !important;
+            margin-bottom: 12px;
+        }}
+        .admin-message-row {{
+            height: auto;
         }}
         .create-message-button {{
             width: 100%;
@@ -4918,6 +4949,77 @@ def render_parent_messages():
     render_parent_message_items(parent, messages)
 
 
+def render_admin_message_item(
+    message,
+    index,
+    target_message_id,
+    children_by_id,
+    children_by_name,
+    parents_by_id,
+    parents_by_email,
+):
+    message_id = message.get("ID", "")
+    anchor_id = message_anchor_id(message_id)
+    target_class = " is-target" if target_message_id and message_id == target_message_id else ""
+    sent_date = message_datetime(message.get("CreatedAt", ""))
+    read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
+    read_status = f"Read {read_at}" if message.get("Read") else "Unread"
+    read_badge_class = "read-badge is-read" if message.get("Read") else "read-badge"
+    read_icon = '<span class="read-tick">&#10003;</span>' if message.get("Read") else ""
+    parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
+    child_name = message.get("ChildName", "Preschool message")
+    child = message_child_record(message, children_by_id, children_by_name, parents_by_id, parents_by_email)
+    child_name = child.get("Name") or child_name
+    replies = message.get("Replies", [])
+    replies_html = ""
+    if replies:
+        replies_html = '<div class="reply-list">'
+        for reply in replies:
+            reply_date = message_datetime(reply.get("CreatedAt", ""))
+            reply_attachments = message_attachments_html(reply.get("Attachments", []))
+            replies_html += (
+                '<div class="reply-bubble">'
+                f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
+                f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
+                f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
+                f'{reply_attachments}'
+                '</div>'
+            )
+        replies_html += "</div>"
+    message_attachments = message_attachments_html(message.get("Attachments", []))
+    delete_key = f"delete_message_{message_id or index}"
+    st.markdown('<div class="admin-message-item">', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
+        <div class="parent-row admin-message-row{target_class}">
+          <div>
+            <div class="message-title-line">
+              {child_thumb_html(child)}
+              <div class="parent-name">{html.escape(child_name)}</div>
+            </div>
+            <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
+            <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
+            <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
+            {message_attachments}
+            {replies_html}
+          </div>
+          <div class="message-status-stack">
+            <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
+            <div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Delete Message", key=delete_key):
+        st.session_state["confirm_delete_message_id"] = message_id
+        st.rerun()
+    if st.session_state.get("confirm_delete_message_id") == message_id:
+        render_delete_message_dialog(message)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_parent_forms():
     st.markdown(
         '<div class="panel parents-panel"><div class="panel-title">Forms</div>'
@@ -4960,64 +5062,22 @@ def render_admin_messages():
         return
 
     st.markdown('<div class="parents-list admin-messages-list">', unsafe_allow_html=True)
-    for message in messages:
-        message_id = message.get("ID", "")
-        anchor_id = message_anchor_id(message_id)
-        target_class = " is-target" if target_message_id and message_id == target_message_id else ""
-        sent_date = message_datetime(message.get("CreatedAt", ""))
-        read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
-        read_status = f"Read {read_at}" if message.get("Read") else "Unread"
-        read_badge_class = "read-badge is-read" if message.get("Read") else "read-badge"
-        read_icon = '<span class="read-tick">&#10003;</span>' if message.get("Read") else ""
-        parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
-        child_name = message.get("ChildName", "Preschool message")
-        child = message_child_record(message, children_by_id, children_by_name, parents_by_id, parents_by_email)
-        child_name = child.get("Name") or child_name
-        replies = message.get("Replies", [])
-        replies_html = ""
-        if replies:
-            replies_html = '<div class="reply-list">'
-            for reply in replies:
-                reply_date = message_datetime(reply.get("CreatedAt", ""))
-                reply_attachments = message_attachments_html(reply.get("Attachments", []))
-                replies_html += (
-                    '<div class="reply-bubble">'
-                    f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
-                    f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
-                    f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
-                    f'{reply_attachments}'
-                    '</div>'
+    for row_start in range(0, len(messages), 2):
+        columns = st.columns(2, gap="medium")
+        for offset, column in enumerate(columns):
+            message_index = row_start + offset
+            if message_index >= len(messages):
+                continue
+            with column:
+                render_admin_message_item(
+                    messages[message_index],
+                    message_index,
+                    target_message_id,
+                    children_by_id,
+                    children_by_name,
+                    parents_by_id,
+                    parents_by_email,
                 )
-            replies_html += "</div>"
-        message_attachments = message_attachments_html(message.get("Attachments", []))
-        st.markdown(
-            f"""
-            <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
-            <div class="parent-row admin-message-row{target_class}">
-              <div>
-                <div class="message-title-line">
-                  {child_thumb_html(child)}
-                  <div class="parent-name">{html.escape(child_name)}</div>
-                </div>
-                <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
-                <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-                <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
-                {message_attachments}
-                {replies_html}
-              </div>
-              <div class="message-status-stack">
-                <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
-                <div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        if st.button("Delete Message", key=f"delete_message_{message_id}"):
-            st.session_state["confirm_delete_message_id"] = message_id
-            st.rerun()
-        if st.session_state.get("confirm_delete_message_id") == message_id:
-            render_delete_message_dialog(message)
     mark_parent_replies_seen(stored_messages)
     components.html(
         """
