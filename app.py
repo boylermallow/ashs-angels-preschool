@@ -2527,6 +2527,14 @@ st.markdown(
         min-height: auto;
         padding: 18px 18px 20px;
     }}
+    .messages-title-panel {{
+        padding: 14px !important;
+        margin-bottom: 14px;
+    }}
+    .messages-title-panel .panel-title {{
+        margin: 0;
+        line-height: 1.15;
+    }}
     .parents-panel .section-title {{
         margin-bottom: 14px;
     }}
@@ -3551,6 +3559,15 @@ st.markdown(
         .role-grid {{ grid-template-columns: 1fr; }}
         .child-row {{ grid-template-columns: 68px minmax(0, 1fr) auto; }}
         .profile-link {{ grid-template-columns: 68px minmax(0, 1fr); }}
+        .messages-title-panel {{
+            padding: 10px 12px !important;
+            margin-top: -8px;
+            margin-bottom: 12px;
+        }}
+        .messages-title-panel .panel-title {{
+            margin: 0;
+            line-height: 1.1;
+        }}
         div[data-testid="stForm"] {{
             padding: 18px 14px 24px !important;
         }}
@@ -4504,7 +4521,7 @@ def render_admin_messages():
     children_by_name = {lookup_key(child.get("Name", "")): child for child in children if child.get("Name")}
     parents_by_id = {parent.get("ID", ""): parent for parent in parents if parent.get("ID")}
     parents_by_email = {lookup_key(parent.get("Email", "")): parent for parent in parents if parent.get("Email")}
-    st.markdown('<div class="panel parents-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel parents-panel messages-title-panel"><div class="panel-title">Messages</div>', unsafe_allow_html=True)
     deleted_message = st.session_state.pop("message_deleted_notice", "")
     if deleted_message:
         st.success(deleted_message)
