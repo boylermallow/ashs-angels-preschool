@@ -2144,6 +2144,28 @@ st.markdown(
     .edit-tools .muted {{
         margin-bottom: 8px;
     }}
+    .st-key-edit_child_panel,
+    .st-key-edit-child-panel {{
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        padding: 18px 18px 20px;
+    }}
+    .st-key-edit_child_panel div[data-testid="stForm"],
+    .st-key-edit-child-panel div[data-testid="stForm"] {{
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-top: 18px !important;
+    }}
+    .st-key-edit_child_panel .guardian-section,
+    .st-key-edit-child-panel .guardian-section {{
+        margin-top: 10px;
+        margin-bottom: 18px;
+    }}
     .edit-form-actions {{
         display: flex;
         gap: 10px;
@@ -4003,10 +4025,6 @@ def render_admin_children():
         editing_child = next((child for child in children if child.get("ID") == edit_child_id), None)
         if editing_child:
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown('<div class="panel-title">Edit Child</div>', unsafe_allow_html=True)
-            guardian_preview = guardian_summary_html(editing_child)
-            if guardian_preview:
-                st.markdown(guardian_preview, unsafe_allow_html=True)
             try:
                 dob_value = date.fromisoformat(editing_child.get("DOB", ""))
             except ValueError:
@@ -4017,63 +4035,72 @@ def render_admin_children():
             parent_options = [""] + [parent.get("ID", "") for parent in parents if parent.get("ID")]
             parent_lookup = {parent.get("ID", ""): parent for parent in parents if parent.get("ID")}
             default_parent_id = matching_parent_id(parents, current_guardian, edit_child_id)
-            selected_parent_id = st.selectbox(
-                "Assign existing parent",
-                parent_options,
-                index=parent_options.index(default_parent_id) if default_parent_id in parent_options else 0,
-                format_func=lambda parent_id: "No existing parent selected"
-                if not parent_id
-                else parent_option_label(parent_lookup.get(parent_id, {})),
-                key=f"existing_parent_{edit_child_id}",
-            )
-            selected_parent = parent_lookup.get(selected_parent_id, {})
-            guardian_defaults = parent_defaults(selected_parent, current_guardian) if selected_parent else current_guardian
-            with st.form(f"edit_child_form_{edit_child_id}"):
-                details_col, thumbnail_col = st.columns([0.62, 0.38], gap="large")
-                with details_col:
-                    edited_name = st.text_input("Child full name", value=editing_child.get("Name", ""))
-                    edited_dob = st.date_input("Date of birth", value=dob_value)
-                    child_badges = child_info_badges_html(edited_dob)
-                    if child_badges:
-                        st.markdown(child_badges, unsafe_allow_html=True)
-                    edited_session = st.selectbox("Assign to session", SESSIONS, index=session_index)
-                    st.markdown('<div class="guardian-form-title">Parents/guardians</div>', unsafe_allow_html=True)
-                    guardian_cols = st.columns([1, 1], gap="small")
-                    with guardian_cols[0]:
-                        guardian_name = st.text_input("Parent/guardian name", value=guardian_defaults.get("Name", ""))
-                    with guardian_cols[1]:
-                        guardian_relationship = st.selectbox(
-                            "Relationship",
-                            CONTACT_RELATIONSHIPS,
-                            index=relationship_index(guardian_defaults.get("Relationship", "Guardian")),
-                        )
-                    guardian_contact_cols = st.columns([1, 1], gap="small")
-                    with guardian_contact_cols[0]:
-                        guardian_email = st.text_input("Guardian email", value=guardian_defaults.get("Email", ""))
-                    with guardian_contact_cols[1]:
-                        guardian_phone = st.text_input("Guardian phone", value=guardian_defaults.get("Phone", ""))
-                    guardian_address = st.text_area("Guardian address", value=guardian_defaults.get("Address", ""), height=88)
-                    guardian_invited = st.checkbox("Invited to use the app", value=guardian_defaults.get("Invited", False))
-                with thumbnail_col:
-                    st.markdown(
-                        f'<div class="current-thumb-preview">{child_thumb_html(editing_child)}<span>Current thumbnail</span></div>',
-                        unsafe_allow_html=True,
-                    )
-                    edited_thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"], key=f"edit_thumb_{edit_child_id}")
-                    if edited_thumbnail is not None:
-                        preview_child = {
-                            "Name": editing_child.get("Name", "Child"),
-                            "Thumbnail": uploaded_thumbnail_data_uri(edited_thumbnail.getvalue()),
-                        }
+            try:
+                edit_panel = st.container(key="edit_child_panel")
+            except TypeError:
+                edit_panel = st.container()
+            with edit_panel:
+                st.markdown('<div class="panel-title">Edit Child</div>', unsafe_allow_html=True)
+                guardian_preview = guardian_summary_html(editing_child)
+                if guardian_preview:
+                    st.markdown(guardian_preview, unsafe_allow_html=True)
+                selected_parent_id = st.selectbox(
+                    "Assign existing parent",
+                    parent_options,
+                    index=parent_options.index(default_parent_id) if default_parent_id in parent_options else 0,
+                    format_func=lambda parent_id: "No existing parent selected"
+                    if not parent_id
+                    else parent_option_label(parent_lookup.get(parent_id, {})),
+                    key=f"existing_parent_{edit_child_id}",
+                )
+                selected_parent = parent_lookup.get(selected_parent_id, {})
+                guardian_defaults = parent_defaults(selected_parent, current_guardian) if selected_parent else current_guardian
+                with st.form(f"edit_child_form_{edit_child_id}"):
+                    details_col, thumbnail_col = st.columns([0.62, 0.38], gap="large")
+                    with details_col:
+                        edited_name = st.text_input("Child full name", value=editing_child.get("Name", ""))
+                        edited_dob = st.date_input("Date of birth", value=dob_value)
+                        child_badges = child_info_badges_html(edited_dob)
+                        if child_badges:
+                            st.markdown(child_badges, unsafe_allow_html=True)
+                        edited_session = st.selectbox("Assign to session", SESSIONS, index=session_index)
+                        st.markdown('<div class="guardian-form-title">Parents/guardians</div>', unsafe_allow_html=True)
+                        guardian_cols = st.columns([1, 1], gap="small")
+                        with guardian_cols[0]:
+                            guardian_name = st.text_input("Parent/guardian name", value=guardian_defaults.get("Name", ""))
+                        with guardian_cols[1]:
+                            guardian_relationship = st.selectbox(
+                                "Relationship",
+                                CONTACT_RELATIONSHIPS,
+                                index=relationship_index(guardian_defaults.get("Relationship", "Guardian")),
+                            )
+                        guardian_contact_cols = st.columns([1, 1], gap="small")
+                        with guardian_contact_cols[0]:
+                            guardian_email = st.text_input("Guardian email", value=guardian_defaults.get("Email", ""))
+                        with guardian_contact_cols[1]:
+                            guardian_phone = st.text_input("Guardian phone", value=guardian_defaults.get("Phone", ""))
+                        guardian_address = st.text_area("Guardian address", value=guardian_defaults.get("Address", ""), height=88)
+                        guardian_invited = st.checkbox("Invited to use the app", value=guardian_defaults.get("Invited", False))
+                    with thumbnail_col:
                         st.markdown(
-                            f'<div class="current-thumb-preview">{child_thumb_html(preview_child)}<span>New thumbnail preview</span></div>',
+                            f'<div class="current-thumb-preview">{child_thumb_html(editing_child)}<span>Current thumbnail</span></div>',
                             unsafe_allow_html=True,
                         )
-                save_col, remove_thumb_col, cancel_col, delete_col = st.columns([1, 1, 1, 1], gap="small")
-                update_submitted = save_col.form_submit_button("Save Changes")
-                remove_thumbnail_submitted = remove_thumb_col.form_submit_button("Remove Thumbnail")
-                cancel_submitted = cancel_col.form_submit_button("Cancel Edit")
-                delete_submitted = delete_col.form_submit_button("Delete Child")
+                        edited_thumbnail = st.file_uploader("Thumbnail", type=["png", "jpg", "jpeg"], key=f"edit_thumb_{edit_child_id}")
+                        if edited_thumbnail is not None:
+                            preview_child = {
+                                "Name": editing_child.get("Name", "Child"),
+                                "Thumbnail": uploaded_thumbnail_data_uri(edited_thumbnail.getvalue()),
+                            }
+                            st.markdown(
+                                f'<div class="current-thumb-preview">{child_thumb_html(preview_child)}<span>New thumbnail preview</span></div>',
+                                unsafe_allow_html=True,
+                            )
+                    save_col, remove_thumb_col, cancel_col, delete_col = st.columns([1, 1, 1, 1], gap="small")
+                    update_submitted = save_col.form_submit_button("Save Changes")
+                    remove_thumbnail_submitted = remove_thumb_col.form_submit_button("Remove Thumbnail")
+                    cancel_submitted = cancel_col.form_submit_button("Cancel Edit")
+                    delete_submitted = delete_col.form_submit_button("Delete Child")
             edited_guardians = guardian_from_fields(
                 guardian_name,
                 guardian_relationship,
