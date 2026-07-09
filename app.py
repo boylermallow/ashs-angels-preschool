@@ -949,6 +949,9 @@ def render_admin_push_control():
             color: #647486;
             line-height: 1.3;
           }}
+          #admin-push-state:empty {{
+            display: none;
+          }}
           @media (max-width: 560px) {{
             #enable-admin-push {{
               width: 100%;
@@ -957,7 +960,7 @@ def render_admin_push_control():
         </style>
         <div class="push-tools">
           <button id="enable-admin-push" type="button">Enable push notifications</button>
-          <span id="admin-push-state">Use this once on each admin device.</span>
+          <span id="admin-push-state"></span>
         </div>
         <script>
         const publicKey = {json.dumps(config["public_key"])};
@@ -1011,7 +1014,7 @@ def render_admin_push_control():
             state.textContent = "Notifications are blocked in this browser.";
             button.style.display = "none";
           }} else {{
-            state.textContent = "Use this once on each admin device.";
+            state.textContent = "";
           }}
         }}
 
@@ -1105,6 +1108,9 @@ def render_parent_push_control():
             color: #647486;
             line-height: 1.28;
           }}
+          #parent-push-state:empty {{
+            display: none;
+          }}
           @media (max-width: 520px) {{
             .push-tools {{
               display: grid;
@@ -1122,7 +1128,7 @@ def render_parent_push_control():
         </style>
         <div class="push-tools">
           <button id="enable-parent-push" type="button">Enable message notifications</button>
-          <span id="parent-push-state">Use this once on this device.</span>
+          <span id="parent-push-state"></span>
         </div>
         <script>
         const publicKey = {json.dumps(config["public_key"])};
@@ -1176,7 +1182,7 @@ def render_parent_push_control():
             state.textContent = "Notifications are blocked in this browser.";
             button.style.display = "none";
           }} else {{
-            state.textContent = "Use this once on this device.";
+            state.textContent = "";
           }}
         }}
 
