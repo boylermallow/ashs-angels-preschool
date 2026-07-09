@@ -1196,6 +1196,67 @@ def render_parent_push_control():
     )
 
 
+def render_mobile_push_status_bell():
+    if st.session_state.get("role") not in {"Admin", "Parent"}:
+        return
+    components.html(
+        f"""
+        <script>
+        const swScope = {json.dumps(PUSH_SW_SCOPE)};
+        const parentWindow = window.parent;
+
+        function getBell() {{
+          try {{
+            return parentWindow.document.getElementById("mobile-push-status");
+          }} catch (error) {{
+            return null;
+          }}
+        }}
+
+        function setBell(isOn, label) {{
+          const bell = getBell();
+          if (!bell) return false;
+          bell.classList.toggle("is-on", isOn);
+          bell.classList.toggle("is-off", !isOn);
+          bell.setAttribute("aria-label", label);
+          bell.setAttribute("title", label);
+          return true;
+        }}
+
+        async function updateMobilePushBell() {{
+          if (!getBell()) {{
+            setTimeout(updateMobilePushBell, 250);
+            return;
+          }}
+          try {{
+            const notifications = parentWindow.Notification || window.Notification;
+            const hasPushSupport = (
+              parentWindow.navigator &&
+              "serviceWorker" in parentWindow.navigator &&
+              "PushManager" in parentWindow &&
+              notifications
+            );
+            if (!hasPushSupport) {{
+              setBell(false, "Device notifications are not supported");
+              return;
+            }}
+            const registration = await parentWindow.navigator.serviceWorker.getRegistration(swScope);
+            const subscription = registration ? await registration.pushManager.getSubscription() : null;
+            const isOn = Boolean(subscription && notifications.permission === "granted");
+            setBell(isOn, isOn ? "Device notifications are on" : "Device notifications are off");
+          }} catch (error) {{
+            setBell(false, "Device notifications are off");
+          }}
+        }}
+
+        updateMobilePushBell();
+        setInterval(updateMobilePushBell, 30000);
+        </script>
+        """,
+        height=0,
+    )
+
+
 def admin_unseen_message_count(messages=None):
     messages = load_messages() if messages is None else messages
     count = 0
@@ -2013,6 +2074,9 @@ st.markdown(
         transform: translateX(-50%);
     }}
     .mobile-menu {{
+        display: none;
+    }}
+    .mobile-push-status {{
         display: none;
     }}
     .menu-label {{
@@ -3904,6 +3968,42 @@ st.markdown(
             display: block;
             pointer-events: auto;
         }}
+        .mobile-push-status {{
+            position: absolute;
+            top: 11px;
+            right: max(13px, env(safe-area-inset-right));
+            z-index: 45;
+            display: inline-grid;
+            place-items: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            background: #c9233f;
+            color: #ffffff;
+            border: 2px solid rgba(255,255,255,.82);
+            box-shadow: 0 6px 14px rgba(35,52,95,.22);
+            text-decoration: none !important;
+            transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+        }}
+        .mobile-push-status.is-on {{
+            background: #16a65a;
+        }}
+        .mobile-push-status.is-off {{
+            background: #c9233f;
+        }}
+        .mobile-push-status:hover {{
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(35,52,95,.28);
+        }}
+        .mobile-push-status svg {{
+            width: 22px;
+            height: 22px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }}
         .mobile-menu-spacer {{
             width: 48px;
             height: 42px;
@@ -4428,6 +4528,12 @@ def render_side_menu(role, selected_page):
           <a class="mobile-menu-logo-link" href="{app_href("Children")}" target="_self" aria-label="Go to children">
             <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
           </a>
+          <a class="mobile-push-status is-off" id="mobile-push-status" href="{app_href("Settings")}" target="_self" aria-label="Device notifications are off" title="Device notifications are off">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </a>
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
@@ -4446,6 +4552,7 @@ def render_side_menu(role, selected_page):
         """,
         unsafe_allow_html=True,
     )
+    render_mobile_push_status_bell()
 
 
 def render_delete_child_dialog(child):
