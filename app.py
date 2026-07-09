@@ -370,19 +370,36 @@ def sync_saved_login():
         st.query_params["auth"] = token
 
 
-def app_href(page=None, **params):
+def app_href_for_auth(page=None, auth_token="", **params):
     query = []
     if page:
         if page == "Dashboard":
             page = "Children"
         query.append(f"app_page={quote(str(page))}")
-    auth_token = st.query_params.get("auth")
     if auth_token:
         query.append(f"auth={quote(str(auth_token))}")
     for key, value in params.items():
         if value not in (None, ""):
             query.append(f"{quote(str(key))}={quote(str(value))}")
     return "?" + "&".join(query) if query else "?"
+
+
+def app_href(page=None, **params):
+    return app_href_for_auth(page, st.query_params.get("auth"), **params)
+
+
+def message_anchor_id(message_id):
+    digest = hashlib.sha1(str(message_id or "").encode("utf-8")).hexdigest()[:16]
+    return f"message-{digest}"
+
+
+def message_href(message_id, auth_token=None):
+    if not message_id:
+        return app_href_for_auth("Messages", st.query_params.get("auth") if auth_token is None else auth_token)
+    if auth_token is None:
+        auth_token = st.query_params.get("auth")
+    anchor = message_anchor_id(message_id)
+    return f"{app_href_for_auth('Messages', auth_token, message_id=message_id)}#{anchor}"
 
 
 def clean_session_name(session_name):
@@ -749,10 +766,16 @@ def send_web_push_to_admins(payload):
     sent = False
     expired = []
     for entry in subscriptions:
+        push_payload = dict(payload)
+        message_id = push_payload.pop("message_id", "")
+        if message_id:
+            admin_account = get_login_account(entry.get("Email", ""), "Admin")
+            admin_auth = make_auth_token(admin_account) if admin_account else ""
+            push_payload["url"] = message_href(message_id, auth_token=admin_auth)
         try:
             webpush(
                 subscription_info=entry["Subscription"],
-                data=json.dumps(payload),
+                data=json.dumps(push_payload),
                 vapid_private_key=config["private_key"],
                 vapid_claims={"sub": config["contact"]},
                 ttl=24 * 60 * 60,
@@ -779,11 +802,14 @@ def send_admin_reply_push(message, reply):
     body = f"{parent_name} replied about {child_name}"
     if preview:
         body = f"{body}: {preview}"
+    message_id = message.get("ID", "")
+    message_url = message_href(message_id, auth_token="")
     return send_web_push_to_admins(
         {
             "title": "New parent message",
             "body": body,
-            "url": app_href("Messages"),
+            "url": message_url,
+            "message_id": message_id,
             "icon": PUSH_ICON_URL,
             "badge": PUSH_ICON_URL,
             "tag": f"admin-message-{message.get('ID', '')}",
@@ -1008,6 +1034,7 @@ def render_admin_message_notification(messages=None):
     parent_name = html.escape(latest.get("ParentName", "A parent"))
     latest_message = html.escape(latest.get("Message", "")[:120])
     notification_key = f'{latest.get("MessageID", "")}-{latest.get("ReplyID", "")}-{latest.get("CreatedAt", "")}'
+    latest_message_url = message_href(latest.get("MessageID", ""))
     components.html(
         f"""
         <style>
@@ -1075,7 +1102,7 @@ def render_admin_message_notification(messages=None):
             note.onclick = () => {{
               try {{
                 window.parent.focus();
-                window.parent.location.href = {json.dumps(app_href("Messages"))};
+                window.parent.location.href = {json.dumps(latest_message_url)};
               }} catch (error) {{}}
             }};
           }} catch (error) {{}}
@@ -1116,11 +1143,11 @@ def render_admin_message_notification(messages=None):
     )
     st.markdown(
         f"""
-        <div class="admin-new-message-alert">
+        <a class="admin-new-message-alert admin-new-message-link" href="{html.escape(latest_message_url)}" target="_self">
           <span class="admin-new-message-dot"></span>
           <div><strong>{unseen_count} new parent message{"s" if unseen_count != 1 else ""}</strong><br>
           Latest: {parent_name} replied about {child_name}{(": " + latest_message) if latest_message else ""}</div>
-        </div>
+        </a>
         """,
         unsafe_allow_html=True,
     )
@@ -2159,6 +2186,14 @@ st.markdown(
         color: var(--brand-blue);
         font-weight: 900;
     }}
+    .admin-new-message-link {{
+        text-decoration: none;
+        cursor: pointer;
+    }}
+    .admin-new-message-link:hover {{
+        background: #fff4dc;
+        box-shadow: 0 14px 28px rgba(35,52,95,.16);
+    }}
     .admin-new-message-dot {{
         width: 14px;
         height: 14px;
@@ -2645,6 +2680,22 @@ st.markdown(
         border-radius: 8px;
         background: #fffaf1;
         padding: 16px;
+    }}
+    .message-anchor {{
+        display: block;
+        position: relative;
+        top: -110px;
+        height: 0;
+        width: 0;
+        overflow: hidden;
+    }}
+    .admin-message-row {{
+        scroll-margin-top: 120px;
+    }}
+    .admin-message-row.is-target {{
+        border-color: var(--brand-blue);
+        box-shadow: 0 0 0 4px rgba(47,79,163,.18), 0 14px 28px rgba(35,52,95,.12);
+        background: #fff7e8;
     }}
     .parent-name {{
         color: var(--ink);
@@ -4419,6 +4470,8 @@ def render_parent_forms():
 def render_admin_messages():
     stored_messages = load_messages()
     messages = sorted(stored_messages, key=lambda item: item.get("CreatedAt", ""), reverse=True)
+    target_message_id = str(st.query_params.get("message_id", "") or "")
+    target_anchor_id = message_anchor_id(target_message_id) if target_message_id else ""
     children = load_children()
     parents = load_parents()
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
@@ -4436,6 +4489,8 @@ def render_admin_messages():
     st.markdown('<div class="parents-list admin-messages-list">', unsafe_allow_html=True)
     for message in messages:
         message_id = message.get("ID", "")
+        anchor_id = message_anchor_id(message_id)
+        target_class = " is-target" if target_message_id and message_id == target_message_id else ""
         sent_date = message_datetime(message.get("CreatedAt", ""))
         read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
         read_status = f"Read {read_at}" if message.get("Read") else "Unread"
@@ -4464,7 +4519,8 @@ def render_admin_messages():
         message_attachments = message_attachments_html(message.get("Attachments", []))
         st.markdown(
             f"""
-            <div class="parent-row">
+            <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
+            <div class="parent-row admin-message-row{target_class}">
               <div>
                 <div class="message-title-line">
                   {child_thumb_html(child)}
@@ -4496,8 +4552,17 @@ def render_admin_messages():
         try {
           window.parent.document.title = "Ash's Angels Preschool App";
         } catch (error) {}
+        const targetMessageId = __TARGET_MESSAGE_ID__;
+        if (targetMessageId) {
+          setTimeout(() => {
+            try {
+              const target = window.parent.document.getElementById(targetMessageId);
+              if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+            } catch (error) {}
+          }, 450);
+        }
         </script>
-        """,
+        """.replace("__TARGET_MESSAGE_ID__", json.dumps(target_anchor_id)),
         height=0,
     )
     st.markdown("</div></div>", unsafe_allow_html=True)
