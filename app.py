@@ -968,11 +968,14 @@ def render_admin_push_control():
         const swScope = {json.dumps(PUSH_SW_SCOPE)};
         const button = document.getElementById("enable-admin-push");
         const state = document.getElementById("admin-push-state");
+        const appWindow = window.parent && window.parent !== window ? window.parent : window;
+        const appNavigator = appWindow.navigator || window.navigator;
+        const notifications = appWindow.Notification || window.Notification;
 
         function urlBase64ToUint8Array(base64String) {{
           const padding = "=".repeat((4 - base64String.length % 4) % 4);
           const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-          const rawData = window.atob(base64);
+          const rawData = appWindow.atob ? appWindow.atob(base64) : window.atob(base64);
           const outputArray = new Uint8Array(rawData.length);
           for (let i = 0; i < rawData.length; ++i) {{
             outputArray[i] = rawData.charCodeAt(i);
@@ -982,26 +985,39 @@ def render_admin_push_control():
 
         function encodeSubscription(subscription) {{
           const json = JSON.stringify(subscription.toJSON());
-          return btoa(unescape(encodeURIComponent(json)))
+          const encoder = appWindow.btoa ? appWindow.btoa.bind(appWindow) : window.btoa.bind(window);
+          return encoder(unescape(encodeURIComponent(json)))
             .replace(/\\+/g, "-")
             .replace(/\\//g, "_")
             .replace(/=+$/, "");
         }}
 
+        function appHref() {{
+          try {{
+            return appWindow.location.href;
+          }} catch (error) {{
+            return document.referrer || window.location.href;
+          }}
+        }}
+
         function updateParentParam(name, value) {{
-          const target = new URL(window.parent.location.href);
+          const target = new URL(appHref());
           target.searchParams.set(name, value);
-          window.parent.location.href = target.toString();
+          try {{
+            appWindow.location.href = target.toString();
+          }} catch (error) {{
+            window.open(target.toString(), "_top");
+          }}
         }}
 
         async function currentSubscription() {{
-          const registration = await navigator.serviceWorker.getRegistration(swScope);
+          const registration = await appNavigator.serviceWorker.getRegistration(swScope);
           if (!registration) return null;
           return await registration.pushManager.getSubscription();
         }}
 
         async function updateState() {{
-          if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+          if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
             state.textContent = "Push notifications are not supported in this browser.";
             button.style.display = "none";
             return;
@@ -1010,7 +1026,7 @@ def render_admin_push_control():
           if (subscription) {{
             state.textContent = "Push notifications are on for this device.";
             button.textContent = "Refresh push notifications";
-          }} else if (Notification.permission === "denied") {{
+          }} else if (notifications.permission === "denied") {{
             state.textContent = "Notifications are blocked in this browser.";
             button.style.display = "none";
           }} else {{
@@ -1020,16 +1036,16 @@ def render_admin_push_control():
 
         async function enablePush() {{
           try {{
-            if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+            if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
               state.textContent = "Push notifications are not supported in this browser.";
               return;
             }}
             button.disabled = true;
             state.textContent = "Switching on push notifications...";
-            const registration = await navigator.serviceWorker.register(swUrl, {{ scope: swScope }});
+            const registration = await appNavigator.serviceWorker.register(swUrl, {{ scope: swScope }});
             let subscription = await registration.pushManager.getSubscription();
             if (!subscription) {{
-              const permission = await Notification.requestPermission();
+              const permission = await notifications.requestPermission();
               if (permission !== "granted") {{
                 state.textContent = "Notifications were not allowed.";
                 button.disabled = false;
@@ -1136,11 +1152,14 @@ def render_parent_push_control():
         const swScope = {json.dumps(PUSH_SW_SCOPE)};
         const button = document.getElementById("enable-parent-push");
         const state = document.getElementById("parent-push-state");
+        const appWindow = window.parent && window.parent !== window ? window.parent : window;
+        const appNavigator = appWindow.navigator || window.navigator;
+        const notifications = appWindow.Notification || window.Notification;
 
         function urlBase64ToUint8Array(base64String) {{
           const padding = "=".repeat((4 - base64String.length % 4) % 4);
           const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-          const rawData = window.atob(base64);
+          const rawData = appWindow.atob ? appWindow.atob(base64) : window.atob(base64);
           const outputArray = new Uint8Array(rawData.length);
           for (let i = 0; i < rawData.length; ++i) {{
             outputArray[i] = rawData.charCodeAt(i);
@@ -1150,26 +1169,39 @@ def render_parent_push_control():
 
         function encodeSubscription(subscription) {{
           const json = JSON.stringify(subscription.toJSON());
-          return btoa(unescape(encodeURIComponent(json)))
+          const encoder = appWindow.btoa ? appWindow.btoa.bind(appWindow) : window.btoa.bind(window);
+          return encoder(unescape(encodeURIComponent(json)))
             .replace(/\\+/g, "-")
             .replace(/\\//g, "_")
             .replace(/=+$/, "");
         }}
 
+        function appHref() {{
+          try {{
+            return appWindow.location.href;
+          }} catch (error) {{
+            return document.referrer || window.location.href;
+          }}
+        }}
+
         function updateParentParam(name, value) {{
-          const target = new URL(window.parent.location.href);
+          const target = new URL(appHref());
           target.searchParams.set(name, value);
-          window.parent.location.href = target.toString();
+          try {{
+            appWindow.location.href = target.toString();
+          }} catch (error) {{
+            window.open(target.toString(), "_top");
+          }}
         }}
 
         async function currentSubscription() {{
-          const registration = await navigator.serviceWorker.getRegistration(swScope);
+          const registration = await appNavigator.serviceWorker.getRegistration(swScope);
           if (!registration) return null;
           return await registration.pushManager.getSubscription();
         }}
 
         async function updateState() {{
-          if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+          if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
             state.textContent = "Notifications are not supported in this browser.";
             button.style.display = "none";
             return;
@@ -1178,7 +1210,7 @@ def render_parent_push_control():
           if (subscription) {{
             state.textContent = "Message notifications are on for this device.";
             button.textContent = "Refresh notifications";
-          }} else if (Notification.permission === "denied") {{
+          }} else if (notifications.permission === "denied") {{
             state.textContent = "Notifications are blocked in this browser.";
             button.style.display = "none";
           }} else {{
@@ -1188,16 +1220,16 @@ def render_parent_push_control():
 
         async function enablePush() {{
           try {{
-            if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {{
+            if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
               state.textContent = "Notifications are not supported in this browser.";
               return;
             }}
             button.disabled = true;
             state.textContent = "Switching on message notifications...";
-            const registration = await navigator.serviceWorker.register(swUrl, {{ scope: swScope }});
+            const registration = await appNavigator.serviceWorker.register(swUrl, {{ scope: swScope }});
             let subscription = await registration.pushManager.getSubscription();
             if (!subscription) {{
-              const permission = await Notification.requestPermission();
+              const permission = await notifications.requestPermission();
               if (permission !== "granted") {{
                 state.textContent = "Notifications were not allowed.";
                 button.disabled = false;
