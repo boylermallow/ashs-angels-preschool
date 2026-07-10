@@ -88,7 +88,8 @@
     ],
     "CreatedAt": "2026-07-10T08:36:29",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-10T08:42:00"
   },
   {
     "ID": "81e4b6e9a85e4fe9b11aab00dd6a9474",
@@ -113,6 +114,7 @@
     ],
     "CreatedAt": "2026-07-10T08:38:36",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-10T08:42:00"
   }
 ]
