@@ -4069,6 +4069,9 @@ st.markdown(
         .app-top {{ align-items: flex-start; }}
         .top-logo {{ width: 96px; height: 66px; }}
         .quick-grid {{ grid-template-columns: 1fr; }}
+        .parent-message-list {{
+            margin-top: -30px;
+        }}
         .parent-row {{
             grid-template-columns: 1fr;
             gap: 12px;
@@ -5084,7 +5087,7 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         sorted_messages = sorted_messages[:limit]
     mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
     target_message_id = str(st.query_params.get("message_id", "") or "")
-    st.markdown('<div class="parents-list">', unsafe_allow_html=True)
+    st.markdown('<div class="parents-list parent-message-list">', unsafe_allow_html=True)
     for message in sorted_messages:
         message_id = message.get("ID", "")
         anchor_id = message_anchor_id(message_id)
