@@ -338,37 +338,146 @@ def make_auth_token(account):
     return f"{email}|{role}|{auth_signature(account)}"
 
 
+def render_saved_login_bridge(auth_token="", clear=False):
+    components.html(
+        f"""
+        <script>
+        (function() {{
+          const storageKey = "ashs_angels_saved_login";
+          const cookieName = "ashs_angels_login";
+          const authToken = {json.dumps(str(auth_token or ""))};
+          const shouldClear = {json.dumps(bool(clear))};
+          const parentWindow = window.parent || window;
+
+          function getStorage() {{
+            try {{
+              return parentWindow.localStorage;
+            }} catch (error) {{}}
+            try {{
+              return window.localStorage;
+            }} catch (error) {{}}
+            return null;
+          }}
+
+          function setCookie(value, maxAge) {{
+            const safeValue = encodeURIComponent(value || "");
+            const secure = parentWindow.location && parentWindow.location.protocol === "https:" ? "; Secure" : "";
+            const cookieValue = cookieName + "=" + safeValue + "; max-age=" + maxAge + "; path=/; SameSite=Lax" + secure;
+            try {{
+              parentWindow.document.cookie = cookieValue;
+            }} catch (error) {{}}
+            try {{
+              document.cookie = cookieValue;
+            }} catch (error) {{}}
+          }}
+
+          function getCookie() {{
+            const sources = [];
+            try {{ sources.push(parentWindow.document.cookie || ""); }} catch (error) {{}}
+            try {{ sources.push(document.cookie || ""); }} catch (error) {{}}
+            for (const source of sources) {{
+              const parts = source.split(";").map((part) => part.trim());
+              for (const part of parts) {{
+                if (part.startsWith(cookieName + "=")) {{
+                  return decodeURIComponent(part.slice(cookieName.length + 1));
+                }}
+              }}
+            }}
+            return "";
+          }}
+
+          const storage = getStorage();
+
+          function saveToken(value) {{
+            if (!value) return;
+            try {{ storage && storage.setItem(storageKey, value); }} catch (error) {{}}
+            setCookie(value, 60 * 60 * 24 * 180);
+          }}
+
+          function clearToken() {{
+            try {{ storage && storage.removeItem(storageKey); }} catch (error) {{}}
+            setCookie("", 0);
+          }}
+
+          function savedToken() {{
+            try {{
+              const stored = storage && storage.getItem(storageKey);
+              if (stored) return stored;
+            }} catch (error) {{}}
+            return getCookie();
+          }}
+
+          let url;
+          try {{
+            url = new URL(parentWindow.location.href);
+          }} catch (error) {{
+            return;
+          }}
+
+          if (shouldClear) {{
+            clearToken();
+            parentWindow.location.replace(url.origin + url.pathname);
+            return;
+          }}
+
+          if (authToken) {{
+            saveToken(authToken);
+            return;
+          }}
+
+          if (url.searchParams.has("auth")) return;
+          const token = savedToken();
+          if (!token) return;
+          url.searchParams.set("auth", token);
+          url.searchParams.delete("login_role");
+          parentWindow.location.replace(url.toString());
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def restore_saved_login():
     if st.session_state.get("logged_in"):
-        return
+        return False
     token = str(st.query_params.get("auth", "") or "")
+    if not token:
+        return False
+
+    def reject_saved_login():
+        st.session_state["saved_login_invalid"] = True
+        return False
+
     try:
         email, role, signature = token.split("|", 2)
     except ValueError:
-        return
+        return reject_saved_login()
 
     account = get_login_account(email, role)
     if not account or account.get("role") != role:
-        return
+        return reject_saved_login()
     if not hmac.compare_digest(signature, auth_signature(account)):
-        return
+        return reject_saved_login()
 
     st.session_state["logged_in"] = True
     st.session_state["role"] = account["role"]
     st.session_state["email"] = account["email"]
+    return True
 
 
 def sync_saved_login():
     if not st.session_state.get("logged_in"):
-        return
+        return ""
     email = str(st.session_state.get("email", "")).strip().lower()
     role = st.session_state.get("role", "")
     account = get_login_account(email, role)
     if not account or account.get("role") != role:
-        return
+        return ""
     token = make_auth_token(account)
     if st.query_params.get("auth") != token:
         st.query_params["auth"] = token
+    return token
 
 
 def app_href_for_auth(page=None, auth_token="", **params):
@@ -5659,17 +5768,26 @@ def render_parent_approvals():
 
 if st.query_params.get("sign_out"):
     st.session_state.clear()
-    st.query_params.clear()
-    st.rerun()
+    st.info("Signing out...")
+    render_saved_login_bridge(clear=True)
+    st.stop()
 
+render_saved_login_bridge()
 restore_saved_login()
+
+if st.session_state.pop("saved_login_invalid", False):
+    st.info("Opening sign in...")
+    render_saved_login_bridge(clear=True)
+    st.stop()
 
 if BUILD_MODE:
     st.session_state["logged_in"] = True
     st.session_state["role"] = "Admin"
     st.session_state["email"] = DEFAULT_ADMIN_EMAIL
 
-sync_saved_login()
+saved_login_token = sync_saved_login()
+if saved_login_token:
+    render_saved_login_bridge(saved_login_token)
 
 if not st.session_state.get("logged_in"):
     for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu", "add_child", "create_message"):
