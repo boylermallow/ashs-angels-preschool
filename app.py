@@ -2069,8 +2069,14 @@ st.markdown(
         --line: rgba(38,55,70,.14);
         --shadow: 0 14px 34px rgba(38,55,70,.08);
     }}
-    html, body, [data-testid="stAppViewContainer"] {{
-        background: var(--bg);
+    html,
+    body,
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    [data-testid="stMainBlockContainer"] {{
+        background: var(--bg) !important;
+        background-color: var(--bg) !important;
         color: var(--ink);
         font-family: "Avenir Next", "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
     }}
@@ -2206,6 +2212,10 @@ st.markdown(
         margin-top: 0;
         padding: 24px 0;
     }}
+    .login-shell.has-login-form {{
+        min-height: auto;
+        padding-bottom: 12px;
+    }}
     .login-card {{
         width: min(760px, 100%); background: var(--panel); border: 1px solid var(--line);
         border-radius: 8px; padding: 22px; box-shadow: var(--shadow);
@@ -2232,6 +2242,26 @@ st.markdown(
         background: #fffaf1;
         border-color: var(--brand-blue);
         box-shadow: 0 0 0 2px rgba(49,84,165,.22), 0 8px 18px rgba(35,52,95,.12);
+    }}
+    .login-shell.has-login-form .role-grid {{
+        margin-bottom: 0;
+    }}
+    .login-shell.has-login-form .role-card {{
+        padding: 12px 14px;
+    }}
+    .login-shell.has-login-form .role-copy {{
+        display: none;
+    }}
+    div.st-key-login_form_card,
+    div[data-testid="stVerticalBlock"].st-key-login_form_card {{
+        width: min(680px, 100%);
+        margin: 0 auto 48px;
+        background: #fffaf1 !important;
+        background-color: #fffaf1 !important;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 22px !important;
+        box-shadow: var(--shadow);
     }}
     .role-card,
     .role-card *,
@@ -4356,17 +4386,13 @@ def render_sign_in_dialog(selected_role):
             st.error("Those login details do not match an account for this role.")
     if selected_role == "Parent":
         st.markdown(
-            '<a class="forgot-link" href="?login_role=ParentForgot">Forgot password?</a>',
+            '<a class="forgot-link" href="?login_role=ParentForgot" target="_self">Forgot password?</a>',
             unsafe_allow_html=True,
         )
     if st.button("Cancel", width="stretch"):
         st.session_state.pop("login_role", None)
         st.query_params.pop("login_role", None)
         st.rerun()
-
-
-if hasattr(st, "dialog"):
-    render_sign_in_dialog = st.dialog("Sign in")(render_sign_in_dialog)
 
 
 def render_message_dialog(child, parent):
@@ -4527,9 +4553,10 @@ def render_login():
     selected_role = st.query_params.get("login_role") or st.session_state.get("login_role")
     if selected_role not in {"Parent", "ParentRegister", "ParentForgot", "Admin"}:
         selected_role = None
+    shell_class = "login-shell has-login-form" if selected_role else "login-shell"
     st.markdown(
         f"""
-        <div class="login-shell">
+        <div class="{shell_class}">
           <div class="login-card">
             <div class="login-head">
               <div>
@@ -4539,15 +4566,15 @@ def render_login():
               <img class="login-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
             </div>
             <div class="role-grid">
-              <a class="role-card {'active' if selected_role == 'Parent' else ''}" href="?login_role=Parent">
+              <a class="role-card {'active' if selected_role == 'Parent' else ''}" href="?login_role=Parent" target="_self">
                 <div class="role-title">Parent Login</div>
                 <div class="role-copy">View child updates, forms, messages, and preschool notices.</div>
               </a>
-              <a class="role-card {'active' if selected_role == 'ParentRegister' else ''}" href="?login_role=ParentRegister">
+              <a class="role-card {'active' if selected_role == 'ParentRegister' else ''}" href="?login_role=ParentRegister" target="_self">
                 <div class="role-title">Parent Register</div>
                 <div class="role-copy">Create a parent account for approval and child assignment.</div>
               </a>
-              <a class="role-card {'active' if selected_role == 'Admin' else ''}" href="?login_role=Admin">
+              <a class="role-card {'active' if selected_role == 'Admin' else ''}" href="?login_role=Admin" target="_self">
                 <div class="role-title">Admin Login</div>
                 <div class="role-copy">For the preschool owner to manage enquiries, sessions, and parent information.</div>
               </a>
@@ -4562,7 +4589,8 @@ def render_login():
         return
 
     st.session_state["login_role"] = selected_role
-    render_sign_in_dialog(selected_role)
+    with st.container(key="login_form_card"):
+        render_sign_in_dialog(selected_role)
 
 
 def render_side_menu(role, selected_page):
