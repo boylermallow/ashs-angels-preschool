@@ -3954,8 +3954,12 @@ st.markdown(
         overflow: hidden;
     }}
     @media (max-width: 760px) {{
+        :root {{
+            --mobile-safe-top: 30px;
+            --mobile-safe-top: max(env(safe-area-inset-top), 30px);
+        }}
         .block-container {{
-            padding: 58px .85rem 2rem;
+            padding: calc(58px + var(--mobile-safe-top)) .85rem 2rem;
         }}
         .side-menu {{
             display: none;
@@ -3974,7 +3978,7 @@ st.markdown(
         }}
         .mobile-menu-toggle {{
             position: absolute;
-            top: 0;
+            top: var(--mobile-safe-top);
             left: 0;
             width: 58px;
             height: 64px;
@@ -3990,8 +3994,10 @@ st.markdown(
             grid-template-columns: 48px minmax(0, 1fr) 48px;
             align-items: center;
             width: 100%;
-            min-height: 64px;
-            padding: 6px max(12px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
+            height: calc(64px + var(--mobile-safe-top));
+            min-height: calc(64px + var(--mobile-safe-top));
+            box-sizing: border-box;
+            padding: calc(6px + var(--mobile-safe-top)) max(12px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
             background: var(--brand-blue);
             border: 0;
             border-bottom: 1px solid rgba(255,255,255,.18);
@@ -4052,7 +4058,7 @@ st.markdown(
         .mobile-menu-logo-link {{
             position: absolute;
             left: 50%;
-            top: 0;
+            top: var(--mobile-safe-top);
             transform: translateX(-50%);
             z-index: 30;
             display: block;
@@ -4060,7 +4066,7 @@ st.markdown(
         }}
         .mobile-push-status {{
             position: absolute;
-            top: 11px;
+            top: calc(var(--mobile-safe-top) + 11px);
             right: max(13px, env(safe-area-inset-right));
             z-index: 45;
             display: inline-grid;
