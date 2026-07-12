@@ -3946,10 +3946,7 @@ st.markdown(
     }}
     div[data-testid="stFileUploader"] section small,
     div[data-testid="stFileUploader"] section [data-testid="stMarkdownContainer"] p {{
-        color: #a8b5c2 !important;
-        font-size: .88rem !important;
-        font-weight: 480 !important;
-        line-height: 1.18 !important;
+        display: none !important;
     }}
     div[data-testid="stFileUploader"] section button {{
         background: #fffaf1 !important;
