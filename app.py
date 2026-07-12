@@ -3955,8 +3955,8 @@ st.markdown(
     }}
     @media (max-width: 760px) {{
         :root {{
-            --mobile-safe-top: 30px;
-            --mobile-safe-top: max(env(safe-area-inset-top), 30px);
+            --mobile-safe-top: 44px;
+            --mobile-safe-top: max(env(safe-area-inset-top), 44px);
         }}
         .block-container {{
             padding: calc(58px + var(--mobile-safe-top)) .85rem 2rem;
@@ -3975,6 +3975,18 @@ st.markdown(
             margin: 0;
             transform: none;
             overflow: visible;
+            background: var(--brand-blue);
+        }}
+        .mobile-menu::before {{
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--mobile-safe-top);
+            background: var(--brand-blue);
+            pointer-events: none;
+            z-index: 10;
         }}
         .mobile-menu-toggle {{
             position: absolute;
