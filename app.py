@@ -835,6 +835,19 @@ def save_push_subscription_for_user(subscription, email, role):
     return save_push_subscriptions(subscriptions)
 
 
+def has_push_subscription_for_user(email, role):
+    clean_email = str(email or "").strip().lower()
+    if not clean_email:
+        return False
+    return any(
+        entry.get("Role") == role
+        and str(entry.get("Email", "")).strip().lower() == clean_email
+        and isinstance(entry.get("Subscription"), dict)
+        and entry.get("Subscription", {}).get("endpoint")
+        for entry in load_push_subscriptions()
+    )
+
+
 def save_admin_push_subscription(subscription, email):
     return save_push_subscription_for_user(subscription, email, "Admin")
 
@@ -4624,7 +4637,10 @@ def render_message_dialog(child, parent):
             if attachment_error:
                 st.warning(attachment_error)
             elif send_parent_notification(child, parent, message_body, attachments):
-                st.session_state["notification_sent"] = f"Message sent to {parent_name}."
+                if has_push_subscription_for_user(parent.get("Email", ""), "Parent"):
+                    st.session_state["notification_sent"] = f"Message sent to {parent_name}. Notification sent to their device."
+                else:
+                    st.session_state["notification_sent"] = f"Message sent to {parent_name}. They need to enable message notifications on their device before alerts will appear."
                 st.session_state.pop(message_key, None)
                 st.session_state.pop(media_key, None)
                 st.query_params.pop("message_child", None)
@@ -4717,7 +4733,11 @@ def render_create_message_dialog():
             if attachment_error:
                 st.warning(attachment_error)
             elif send_parent_notification(child, parent, message_body, attachments):
-                st.session_state["notification_sent"] = f'Message sent to {parent.get("FirstName", "Parent") or "Parent"}.'
+                parent_name = parent.get("FirstName", "Parent") or "Parent"
+                if has_push_subscription_for_user(parent.get("Email", ""), "Parent"):
+                    st.session_state["notification_sent"] = f"Message sent to {parent_name}. Notification sent to their device."
+                else:
+                    st.session_state["notification_sent"] = f"Message sent to {parent_name}. They need to enable message notifications on their device before alerts will appear."
                 st.session_state.pop(message_key, None)
                 st.session_state.pop(media_key, None)
                 st.query_params.pop("create_message", None)
@@ -5442,6 +5462,7 @@ def render_parent_dashboard():
         )
         return
 
+    render_parent_push_control()
     messages = current_parent_messages()
     if messages:
         render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3, children_by_id=children_by_id)
@@ -5460,6 +5481,7 @@ def render_parent_messages():
             unsafe_allow_html=True,
         )
         return
+    render_parent_push_control()
     if not messages:
         st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
         return
