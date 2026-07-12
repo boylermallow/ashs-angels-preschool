@@ -3789,13 +3789,29 @@ st.markdown(
     }}
     div[data-testid="stTextInput"] input,
     div[data-baseweb="input"] input {{
+        background: #ffffff !important;
+        background-color: #ffffff !important;
         caret-color: var(--brand-blue) !important;
         -webkit-text-fill-color: var(--ink) !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"]:has(input[type="password"]),
+    div[data-testid="stTextInput"] div[data-baseweb="input"]:has(input[type="password"]) > div {{
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] input[type="password"] {{
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
+        padding-right: 54px !important;
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"] button,
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] {{
         background: #ffffff !important;
+        background-color: #ffffff !important;
         color: var(--brand-blue) !important;
+        -webkit-text-fill-color: var(--brand-blue) !important;
         border: 0 !important;
         box-shadow: none !important;
         display: inline-grid !important;
@@ -3807,6 +3823,17 @@ st.markdown(
         min-height: 44px !important;
         padding: 0 !important;
         overflow: hidden !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        text-indent: -9999px !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button *,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] * {{
+        color: transparent !important;
+        -webkit-text-fill-color: transparent !important;
+        fill: transparent !important;
+        stroke: transparent !important;
+        opacity: 0 !important;
         font-size: 0 !important;
         line-height: 0 !important;
         text-indent: -9999px !important;
@@ -3839,10 +3866,7 @@ st.markdown(
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"] button svg,
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] svg {{
-        color: var(--brand-blue) !important;
-        fill: var(--brand-blue) !important;
-        stroke: var(--brand-blue) !important;
-        opacity: 1 !important;
+        display: none !important;
     }}
     div[data-testid="stTextArea"] textarea {{
         position: relative !important;
