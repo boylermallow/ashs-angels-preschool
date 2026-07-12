@@ -338,7 +338,7 @@ def make_auth_token(account):
     return f"{email}|{role}|{auth_signature(account)}"
 
 
-def render_saved_login_bridge(auth_token="", clear=False):
+def render_saved_login_bridge(auth_token="", clear=False, restore=True):
     components.html(
         f"""
         <script>
@@ -347,6 +347,7 @@ def render_saved_login_bridge(auth_token="", clear=False):
           const cookieName = "ashs_angels_login";
           const authToken = {json.dumps(str(auth_token or ""))};
           const shouldClear = {json.dumps(bool(clear))};
+          const shouldRestore = {json.dumps(bool(restore))};
           const parentWindow = window.parent || window;
 
           function getStorage() {{
@@ -425,6 +426,7 @@ def render_saved_login_bridge(auth_token="", clear=False):
             return;
           }}
 
+          if (!shouldRestore) return;
           if (url.searchParams.has("auth")) return;
           const token = savedToken();
           if (!token) return;
@@ -4497,8 +4499,8 @@ def render_sign_in_dialog(selected_role):
 
     login_label = "Parent" if selected_role == "Parent" else selected_role
     st.markdown(f'<div class="panel-title">{login_label} Sign In</div>', unsafe_allow_html=True)
-    email = st.text_input("Email address")
-    password = st.text_input("Password")
+    email = st.text_input("Email address", key=f"{selected_role}_login_email")
+    password = st.text_input("Password", type="password", key=f"{selected_role}_login_password")
     if st.button(f"Sign In As {login_label}", type="primary", width="stretch"):
         account = login_user(email, password, selected_role)
         if account:
@@ -5772,13 +5774,13 @@ if st.query_params.get("sign_out"):
     render_saved_login_bridge(clear=True)
     st.stop()
 
-render_saved_login_bridge()
+is_login_flow = bool(st.query_params.get("login_role"))
+render_saved_login_bridge(restore=not is_login_flow)
 restore_saved_login()
 
 if st.session_state.pop("saved_login_invalid", False):
-    st.info("Opening sign in...")
+    st.query_params.pop("auth", None)
     render_saved_login_bridge(clear=True)
-    st.stop()
 
 if BUILD_MODE:
     st.session_state["logged_in"] = True
