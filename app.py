@@ -3798,7 +3798,44 @@ st.markdown(
         color: var(--brand-blue) !important;
         border: 0 !important;
         box-shadow: none !important;
+        display: inline-grid !important;
+        place-items: center !important;
+        position: relative !important;
+        flex: 0 0 48px !important;
+        width: 48px !important;
+        min-width: 48px !important;
         min-height: 44px !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        text-indent: -9999px !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button::before,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"]::before {{
+        content: "" !important;
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        width: 22px !important;
+        height: 14px !important;
+        border: 2px solid var(--brand-blue) !important;
+        border-radius: 50% / 65% !important;
+        box-sizing: border-box !important;
+        transform: translate(-50%, -50%) !important;
+        text-indent: 0 !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button::after,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"]::after {{
+        content: "" !important;
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        width: 6px !important;
+        height: 6px !important;
+        border-radius: 999px !important;
+        background: var(--brand-blue) !important;
+        transform: translate(-50%, -50%) !important;
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"] button svg,
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] svg {{
