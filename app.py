@@ -3952,9 +3952,9 @@ st.markdown(
         line-height: 1.18 !important;
     }}
     div[data-testid="stFileUploader"] section button {{
-        background: var(--brand-blue) !important;
-        color: #ffffff !important;
-        border: 0 !important;
+        background: #fffaf1 !important;
+        color: var(--brand-blue) !important;
+        border: 2px solid #d9e5ef !important;
         border-radius: 8px !important;
         font-weight: 900 !important;
         min-height: 42px !important;
@@ -3968,7 +3968,7 @@ st.markdown(
     }}
     div[data-testid="stFileUploader"] section button::after {{
         content: "Upload";
-        color: #ffffff !important;
+        color: var(--brand-blue) !important;
         display: inline-block;
         font-size: 1.04rem !important;
         font-weight: 900 !important;
@@ -4112,6 +4112,7 @@ st.markdown(
     [data-testid="stDialog"] div[data-testid="stFileUploader"] section button::after,
     [data-baseweb="modal"] div[data-testid="stFileUploader"] section button::after,
     div[role="dialog"] div[data-testid="stFileUploader"] section button::after {{
+        color: var(--brand-blue) !important;
         font-size: .98rem !important;
         font-weight: 780 !important;
     }}
