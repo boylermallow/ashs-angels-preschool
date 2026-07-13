@@ -40,6 +40,7 @@ except Exception:
 APP_DIR = Path(__file__).parent
 LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
 ICON_IMAGE = APP_DIR / "assets" / "ashs-angels-icon.svg"
+CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
 USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
 PARENTS_FILE = APP_DIR / "parents.json"
@@ -66,6 +67,22 @@ PUSH_SW_URL = f"/component/{PUSH_COMPONENT_NAME}/sw.js"
 PUSH_SW_SCOPE = f"/component/{PUSH_COMPONENT_NAME}/"
 PUSH_ICON_URL = f"/component/{PUSH_COMPONENT_NAME}/icon.svg"
 FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
+
+PRESCHOOL_CALENDAR_EVENTS = [
+    {"date": "31 August 2026", "event": "Preschool re-opening", "tag": "Open"},
+    {"date": "26-30 October 2026", "event": "Mid-term", "tag": "Closed"},
+    {"date": "23 December 2026 - 5 January 2027", "event": "Christmas Holidays", "tag": "Closed"},
+    {"date": "6 January 2027", "event": "School re-opening", "tag": "Open"},
+    {"date": "1 February 2027", "event": "St Brigid's Day", "tag": "Closed"},
+    {"date": "17-19 February 2027", "event": "Mid-term", "tag": "Closed"},
+    {"date": "17 March 2027", "event": "St Patrick's Day", "tag": "Closed"},
+    {"date": "22 March - 2 April 2027", "event": "Easter Holidays", "tag": "Closed"},
+    {"date": "5 April 2027", "event": "School re-opening", "tag": "Open"},
+    {"date": "3 May 2027", "event": "Public Holiday", "tag": "Closed"},
+    {"date": "7 June 2027", "event": "Public Holiday", "tag": "Closed"},
+    {"date": "23 June 2027", "event": "Last day of School", "tag": "Event"},
+    {"date": "24 June 2027", "event": "Graduation for children leaving for Primary School", "tag": "Event"},
+]
 
 
 def setting(name, fallback=""):
@@ -3868,6 +3885,78 @@ st.markdown(
         font-weight: 950;
         white-space: nowrap;
     }}
+    .calendar-intro {{
+        color: var(--muted);
+        font-size: 1.04rem;
+        font-weight: 720;
+        margin: -4px 0 18px;
+    }}
+    .calendar-list {{
+        display: grid;
+        gap: 12px;
+        margin-top: 8px;
+    }}
+    .calendar-row {{
+        display: grid;
+        grid-template-columns: minmax(170px, .55fr) minmax(0, 1fr) auto;
+        gap: 16px;
+        align-items: center;
+        padding: 16px;
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+    }}
+    .calendar-date {{
+        color: var(--brand-blue);
+        font-size: 1.02rem;
+        font-weight: 950;
+        line-height: 1.15;
+    }}
+    .calendar-event {{
+        color: var(--ink);
+        font-size: 1.04rem;
+        font-weight: 820;
+        line-height: 1.2;
+    }}
+    .calendar-tag {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        border-radius: 999px;
+        padding: 0 12px;
+        color: var(--brand-blue);
+        background: #e9f4ff;
+        font-size: .86rem;
+        font-weight: 950;
+        white-space: nowrap;
+    }}
+    .calendar-tag.closed {{
+        color: #9a331f;
+        background: #ffe6dc;
+    }}
+    .calendar-tag.event {{
+        color: #6d5200;
+        background: #fff1c7;
+    }}
+    .calendar-download {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        margin-top: 18px;
+        border-radius: 8px;
+        padding: 0 16px;
+        background: var(--brand-blue);
+        color: #ffffff !important;
+        font-size: 1.04rem;
+        font-weight: 900;
+        text-decoration: none !important;
+    }}
+    .calendar-download:hover {{
+        background: #203d86;
+        color: #ffffff !important;
+    }}
     .parent-actions {{
         display: flex;
         align-items: center;
@@ -3892,6 +3981,13 @@ st.markdown(
     @media (max-width: 760px) {{
         .session-columns {{
             grid-template-columns: 1fr;
+        }}
+        .calendar-row {{
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }}
+        .calendar-tag {{
+            justify-self: flex-start;
         }}
     }}
     @media (orientation: portrait) {{
@@ -5088,7 +5184,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Children", "Parents", "Messages", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Forms", "Settings"]
+    nav_items = ["Children", "Parents", "Messages", "Calendar", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Calendar", "Forms", "Settings"]
     message_badge_count = admin_unseen_message_count() if role == "Admin" else parent_unseen_message_count()
 
     def nav_label(item):
@@ -5717,6 +5813,41 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_calendar():
+    rows = []
+    for item in PRESCHOOL_CALENDAR_EVENTS:
+        tag = item["tag"]
+        tag_class = tag.lower()
+        rows.append(
+            '<div class="calendar-row">'
+            f'<div class="calendar-date">{html.escape(item["date"])}</div>'
+            f'<div class="calendar-event">{html.escape(item["event"])}</div>'
+            f'<div class="calendar-tag {html.escape(tag_class)}">{html.escape(tag)}</div>'
+            "</div>"
+        )
+
+    download_link = ""
+    if CALENDAR_PDF.exists():
+        encoded_pdf = base64.b64encode(CALENDAR_PDF.read_bytes()).decode("ascii")
+        download_link = (
+            '<a class="calendar-download" '
+            f'href="data:application/pdf;base64,{encoded_pdf}" '
+            'download="preschool-calendar-2026-2027.pdf" target="_self">'
+            "Download calendar PDF"
+            "</a>"
+        )
+
+    calendar_html = (
+        '<div class="panel parents-panel">'
+        '<div class="panel-title">Preschool Calendar</div>'
+        '<div class="calendar-intro">Key preschool dates for 2026/2027.</div>'
+        f'<div class="calendar-list">{"".join(rows)}</div>'
+        f"{download_link}"
+        "</div>"
+    )
+    st.markdown(calendar_html, unsafe_allow_html=True)
+
+
 def render_parent_dashboard():
     parent = current_parent_record()
     children = load_children()
@@ -6172,7 +6303,7 @@ if current_role in {"Admin", "Parent"}:
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
-valid_pages = {"Children", "Parents", "Messages", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Forms", "Settings"}
+valid_pages = {"Children", "Parents", "Messages", "Calendar", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Calendar", "Forms", "Settings"}
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
@@ -6201,6 +6332,8 @@ with content_col:
             render_parent_approvals()
         elif selected_page == "Messages":
             render_admin_messages()
+        elif selected_page == "Calendar":
+            render_calendar()
         elif selected_page == "Birthdays":
             render_admin_birthdays()
         elif selected_page == "Settings":
@@ -6210,6 +6343,8 @@ with content_col:
     else:
         if selected_page == "Messages":
             render_parent_messages()
+        elif selected_page == "Calendar":
+            render_calendar()
         elif selected_page == "Forms":
             render_parent_forms()
         elif selected_page == "Settings":
