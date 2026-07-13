@@ -29,6 +29,13 @@ except Exception:
     class WebPushException(Exception):
         pass
 
+try:
+    from google.auth.transport.requests import Request as GoogleAuthRequest
+    from google.oauth2 import service_account
+except Exception:
+    GoogleAuthRequest = None
+    service_account = None
+
 
 APP_DIR = Path(__file__).parent
 LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
@@ -58,6 +65,7 @@ CONTACT_RELATIONSHIPS = ["Mam", "Dad", "Guardian"]
 PUSH_SW_URL = f"/component/{PUSH_COMPONENT_NAME}/sw.js"
 PUSH_SW_SCOPE = f"/component/{PUSH_COMPONENT_NAME}/"
 PUSH_ICON_URL = f"/component/{PUSH_COMPONENT_NAME}/icon.svg"
+FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 
 
 def setting(name, fallback=""):
@@ -70,6 +78,7 @@ def setting(name, fallback=""):
 
 DEFAULT_ADMIN_EMAIL = setting("ASH_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = setting("ASH_ADMIN_PASSWORD")
+APP_PUBLIC_URL = setting("APP_PUBLIC_URL", "https://ashs-angels-preschool.streamlit.app").rstrip("/")
 
 
 st.set_page_config(
@@ -785,6 +794,90 @@ def web_push_config():
     }
 
 
+def absolute_app_url(url):
+    raw_url = str(url or "").strip()
+    if raw_url.startswith(("http://", "https://")):
+        return raw_url
+    if raw_url.startswith("?"):
+        return f"{APP_PUBLIC_URL}/{raw_url}"
+    if raw_url.startswith("/"):
+        return f"{APP_PUBLIC_URL}{raw_url}"
+    return f"{APP_PUBLIC_URL}/{raw_url.lstrip('/')}"
+
+
+def firebase_secret(*names):
+    for name in names:
+        value = setting(name)
+        if value:
+            return value
+    try:
+        firebase_settings = st.secrets.get("firebase", {})
+        for name in names:
+            nested_name = (
+                name.lower()
+                .replace("firebase_", "")
+                .replace("google_application_credentials_", "")
+            )
+            value = str(firebase_settings.get(nested_name, "")).strip()
+            if value:
+                return value
+    except Exception:
+        pass
+    return ""
+
+
+def firebase_service_account_info():
+    raw_value = firebase_secret(
+        "FIREBASE_SERVICE_ACCOUNT_JSON",
+        "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+        "SERVICE_ACCOUNT_JSON",
+    )
+    candidates = []
+    if raw_value:
+        candidates.append(raw_value)
+        try:
+            candidates.append(base64.b64decode(raw_value).decode("utf-8"))
+        except Exception:
+            pass
+    file_value = firebase_secret("FIREBASE_SERVICE_ACCOUNT_FILE", "GOOGLE_APPLICATION_CREDENTIALS")
+    if file_value:
+        try:
+            candidates.append(Path(file_value).read_text())
+        except Exception:
+            pass
+    for candidate in candidates:
+        try:
+            info = json.loads(candidate)
+            if isinstance(info, dict) and info.get("client_email") and info.get("private_key"):
+                return info
+        except Exception:
+            pass
+    return {}
+
+
+def firebase_project_id(service_account_info=None):
+    project_id = firebase_secret("FIREBASE_PROJECT_ID", "GOOGLE_CLOUD_PROJECT")
+    if project_id:
+        return project_id
+    info = service_account_info if isinstance(service_account_info, dict) else firebase_service_account_info()
+    return str(info.get("project_id", "")).strip()
+
+
+def fcm_config():
+    info = firebase_service_account_info()
+    project_id = firebase_project_id(info)
+    return {
+        "service_account_info": info,
+        "project_id": project_id,
+        "ready": bool(info and project_id and GoogleAuthRequest and service_account),
+    }
+
+
+def fcm_token_fingerprint(token):
+    clean_token = str(token or "").strip()
+    return hashlib.sha256(clean_token.encode("utf-8")).hexdigest() if clean_token else ""
+
+
 def load_push_subscriptions():
     subscriptions = load_persistent_json("push_subscriptions.json", [])
     return subscriptions if isinstance(subscriptions, list) else []
@@ -815,6 +908,7 @@ def save_push_subscription_for_user(subscription, email, role):
         "ID": uuid.uuid4().hex,
         "Role": clean_role,
         "Email": clean_email,
+        "Transport": "WebPush",
         "EndpointHash": fingerprint,
         "Subscription": subscription,
         "CreatedAt": now,
@@ -835,6 +929,44 @@ def save_push_subscription_for_user(subscription, email, role):
     return save_push_subscriptions(subscriptions)
 
 
+def save_fcm_token_for_user(token, email, role, platform="android"):
+    clean_token = str(token or "").strip()
+    if not clean_token:
+        return False
+    clean_role = "Parent" if role == "Parent" else "Admin"
+    clean_email = str(email or DEFAULT_ADMIN_EMAIL or "").strip().lower()
+    if not clean_email:
+        return False
+    fingerprint = fcm_token_fingerprint(clean_token)
+    subscriptions = load_push_subscriptions()
+    now = datetime.now().isoformat(timespec="seconds")
+    entry = {
+        "ID": uuid.uuid4().hex,
+        "Role": clean_role,
+        "Email": clean_email,
+        "Transport": "FCM",
+        "Platform": str(platform or "android").strip().lower()[:32],
+        "TokenHash": fingerprint,
+        "FCMToken": clean_token,
+        "CreatedAt": now,
+        "LastSeenAt": now,
+    }
+    for index, existing in enumerate(subscriptions):
+        if (
+            existing.get("Transport") == "FCM"
+            and existing.get("TokenHash") == fingerprint
+            and existing.get("Role") == clean_role
+            and str(existing.get("Email", "")).strip().lower() == clean_email
+        ):
+            entry["ID"] = existing.get("ID") or entry["ID"]
+            entry["CreatedAt"] = existing.get("CreatedAt") or entry["CreatedAt"]
+            subscriptions[index] = entry
+            break
+    else:
+        subscriptions.append(entry)
+    return save_push_subscriptions(subscriptions)
+
+
 def has_push_subscription_for_user(email, role):
     clean_email = str(email or "").strip().lower()
     if not clean_email:
@@ -842,8 +974,13 @@ def has_push_subscription_for_user(email, role):
     return any(
         entry.get("Role") == role
         and str(entry.get("Email", "")).strip().lower() == clean_email
-        and isinstance(entry.get("Subscription"), dict)
-        and entry.get("Subscription", {}).get("endpoint")
+        and (
+            (
+                isinstance(entry.get("Subscription"), dict)
+                and entry.get("Subscription", {}).get("endpoint")
+            )
+            or str(entry.get("FCMToken", "")).strip()
+        )
         for entry in load_push_subscriptions()
     )
 
@@ -884,6 +1021,21 @@ def handle_push_subscription_query():
     st.rerun()
 
 
+def handle_fcm_token_query():
+    role = st.session_state.get("role", "")
+    if role not in {"Admin", "Parent"}:
+        return
+    token = st.query_params.get("fcm_token")
+    if not token:
+        return
+    platform = st.query_params.get("fcm_platform", "android")
+    if save_fcm_token_for_user(token, st.session_state.get("email", ""), role, platform):
+        st.session_state["push_notice"] = "App notifications are on for this device."
+    st.query_params.pop("fcm_token", None)
+    st.query_params.pop("fcm_platform", None)
+    st.rerun()
+
+
 def remove_expired_push_subscription(fingerprint):
     if not fingerprint:
         return
@@ -891,6 +1043,116 @@ def remove_expired_push_subscription(fingerprint):
     kept = [entry for entry in subscriptions if entry.get("EndpointHash") != fingerprint]
     if len(kept) != len(subscriptions):
         save_push_subscriptions(kept)
+
+
+def remove_expired_fcm_token(fingerprint):
+    if not fingerprint:
+        return
+    subscriptions = load_push_subscriptions()
+    kept = [
+        entry for entry in subscriptions
+        if not (entry.get("Transport") == "FCM" and entry.get("TokenHash") == fingerprint)
+    ]
+    if len(kept) != len(subscriptions):
+        save_push_subscriptions(kept)
+
+
+def fcm_access_token(config):
+    credentials = service_account.Credentials.from_service_account_info(
+        config["service_account_info"],
+        scopes=[FCM_SCOPE],
+    )
+    credentials.refresh(GoogleAuthRequest())
+    return credentials.token
+
+
+def fcm_data_payload(payload):
+    data = {}
+    for key, value in (payload or {}).items():
+        if value in (None, ""):
+            continue
+        if key == "url":
+            value = absolute_app_url(value)
+        data[str(key)] = str(value)
+    return data
+
+
+def send_fcm_to_entries(entries, payload):
+    config = fcm_config()
+    if not config["ready"]:
+        return False
+    try:
+        access_token = fcm_access_token(config)
+    except Exception:
+        return False
+    url = f"https://fcm.googleapis.com/v1/projects/{config['project_id']}/messages:send"
+    sent = False
+    expired = []
+    for entry in entries:
+        token = str(entry.get("FCMToken", "")).strip()
+        if not token:
+            continue
+        body = {
+            "message": {
+                "token": token,
+                "data": fcm_data_payload(payload),
+                "android": {"priority": "HIGH"},
+            }
+        }
+        request = Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=12):
+                sent = True
+        except HTTPError as exc:
+            try:
+                error_body = exc.read().decode("utf-8", errors="ignore")
+            except Exception:
+                error_body = ""
+            if exc.code in (400, 404) and any(marker in error_body for marker in ("UNREGISTERED", "INVALID_ARGUMENT", "NOT_FOUND")):
+                expired.append(entry.get("TokenHash", ""))
+        except Exception:
+            pass
+    for fingerprint in expired:
+        remove_expired_fcm_token(fingerprint)
+    return sent
+
+
+def fcm_entries_for_user(role, email):
+    clean_email = str(email or "").strip().lower()
+    if not clean_email:
+        return []
+    return [
+        entry for entry in load_push_subscriptions()
+        if entry.get("Transport") == "FCM"
+        and entry.get("Role") == role
+        and str(entry.get("Email", "")).strip().lower() == clean_email
+        and str(entry.get("FCMToken", "")).strip()
+    ]
+
+
+def fcm_entries_for_role(role):
+    return [
+        entry for entry in load_push_subscriptions()
+        if entry.get("Transport") == "FCM"
+        and entry.get("Role") == role
+        and str(entry.get("FCMToken", "")).strip()
+    ]
+
+
+def send_fcm_to_user(role, email, payload):
+    return send_fcm_to_entries(fcm_entries_for_user(role, email), payload)
+
+
+def send_fcm_to_role(role, payload):
+    return send_fcm_to_entries(fcm_entries_for_role(role), payload)
 
 
 def send_web_push_to_admins(payload):
@@ -930,6 +1192,27 @@ def send_web_push_to_admins(payload):
     return sent
 
 
+def parent_message_push_payload(message):
+    parent_email = str(message.get("ParentEmail", "") or "").strip().lower()
+    if not parent_email:
+        return {}
+    message_text = str(message.get("Message", "") or "").strip()
+    if not message_text and message.get("Attachments"):
+        message_text = "New photo/video message."
+    child_name = message.get("ChildName") or "your child"
+    body = f"{child_name}: {message_text[:120]}" if message_text else f"You have a new message about {child_name}."
+    parent_account = get_login_account(parent_email, "Parent")
+    parent_auth = make_auth_token(parent_account) if parent_account else ""
+    push_payload = {
+        "title": "New preschool message",
+        "body": body,
+        "url": message_href(message.get("ID", ""), auth_token=parent_auth),
+        "icon": PUSH_ICON_URL,
+        "badge": PUSH_ICON_URL,
+        "tag": f"parent-message-{message.get('ID', '')}",
+    }
+
+
 def send_web_push_to_parent(message):
     config = web_push_config()
     if not config["ready"]:
@@ -946,21 +1229,9 @@ def send_web_push_to_parent(message):
     if not subscriptions:
         return False
 
-    message_text = str(message.get("Message", "") or "").strip()
-    if not message_text and message.get("Attachments"):
-        message_text = "New photo/video message."
-    child_name = message.get("ChildName") or "your child"
-    body = f"{child_name}: {message_text[:120]}" if message_text else f"You have a new message about {child_name}."
-    parent_account = get_login_account(parent_email, "Parent")
-    parent_auth = make_auth_token(parent_account) if parent_account else ""
-    push_payload = {
-        "title": "New preschool message",
-        "body": body,
-        "url": message_href(message.get("ID", ""), auth_token=parent_auth),
-        "icon": PUSH_ICON_URL,
-        "badge": PUSH_ICON_URL,
-        "tag": f"parent-message-{message.get('ID', '')}",
-    }
+    push_payload = parent_message_push_payload(message)
+    if not push_payload:
+        return False
     sent = False
     expired = []
     for entry in subscriptions:
@@ -984,6 +1255,14 @@ def send_web_push_to_parent(message):
     return sent
 
 
+def send_fcm_to_parent(message):
+    parent_email = str(message.get("ParentEmail", "") or "").strip().lower()
+    if not parent_email:
+        return False
+    payload = parent_message_push_payload(message)
+    return send_fcm_to_user("Parent", parent_email, payload) if payload else False
+
+
 def send_admin_reply_push(message, reply):
     reply_text = str(reply.get("Message", "") or "").strip()
     if not reply_text and reply.get("Attachments"):
@@ -996,17 +1275,18 @@ def send_admin_reply_push(message, reply):
         body = f"{body}: {preview}"
     message_id = message.get("ID", "")
     message_url = message_href(message_id, auth_token="")
-    return send_web_push_to_admins(
-        {
-            "title": "New parent message",
-            "body": body,
-            "url": message_url,
-            "message_id": message_id,
-            "icon": PUSH_ICON_URL,
-            "badge": PUSH_ICON_URL,
-            "tag": f"admin-message-{message.get('ID', '')}",
-        }
-    )
+    payload = {
+        "title": "New parent message",
+        "body": body,
+        "url": message_url,
+        "message_id": message_id,
+        "icon": PUSH_ICON_URL,
+        "badge": PUSH_ICON_URL,
+        "tag": f"admin-message-{message.get('ID', '')}",
+    }
+    web_sent = send_web_push_to_admins(payload)
+    fcm_sent = send_fcm_to_role("Admin", payload)
+    return web_sent or fcm_sent
 
 
 def render_admin_push_control():
@@ -1142,7 +1422,7 @@ def render_admin_push_control():
 
         async function updateState() {{
           if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
-            state.textContent = "Push notifications are not supported in this browser.";
+            state.textContent = "Web notifications are not supported here. Android app notifications are handled by the app.";
             button.style.display = "none";
             return;
           }}
@@ -1161,7 +1441,7 @@ def render_admin_push_control():
         async function enablePush() {{
           try {{
             if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
-              state.textContent = "Push notifications are not supported in this browser.";
+              state.textContent = "Web notifications are not supported here. Android app notifications are handled by the app.";
               return;
             }}
             button.disabled = true;
@@ -1326,7 +1606,7 @@ def render_parent_push_control():
 
         async function updateState() {{
           if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
-            state.textContent = "Notifications are not supported in this browser.";
+            state.textContent = "Web notifications are not supported here. Android app notifications are handled by the app.";
             button.style.display = "none";
             return;
           }}
@@ -1345,7 +1625,7 @@ def render_parent_push_control():
         async function enablePush() {{
           try {{
             if (!("serviceWorker" in appNavigator) || !("PushManager" in appWindow) || !notifications) {{
-              state.textContent = "Notifications are not supported in this browser.";
+              state.textContent = "Web notifications are not supported here. Android app notifications are handled by the app.";
               return;
             }}
             button.disabled = true;
@@ -1383,10 +1663,15 @@ def render_parent_push_control():
 def render_mobile_push_status_bell():
     if st.session_state.get("role") not in {"Admin", "Parent"}:
         return
+    server_push_on = has_push_subscription_for_user(
+        st.session_state.get("email", ""),
+        st.session_state.get("role", ""),
+    )
     components.html(
         f"""
         <script>
         const swScope = {json.dumps(PUSH_SW_SCOPE)};
+        const serverPushOn = {json.dumps(server_push_on)};
         const parentWindow = window.parent;
 
         function getBell() {{
@@ -1421,15 +1706,15 @@ def render_mobile_push_status_bell():
               notifications
             );
             if (!hasPushSupport) {{
-              setBell(false, "Device notifications are not supported");
+              setBell(serverPushOn, serverPushOn ? "Device notifications are on" : "Device notifications are handled by the app");
               return;
             }}
             const registration = await parentWindow.navigator.serviceWorker.getRegistration(swScope);
             const subscription = registration ? await registration.pushManager.getSubscription() : null;
-            const isOn = Boolean(subscription && notifications.permission === "granted");
+            const isOn = Boolean(serverPushOn || (subscription && notifications.permission === "granted"));
             setBell(isOn, isOn ? "Device notifications are on" : "Device notifications are off");
           }} catch (error) {{
-            setBell(false, "Device notifications are off");
+            setBell(serverPushOn, serverPushOn ? "Device notifications are on" : "Device notifications are off");
           }}
         }}
 
@@ -1662,6 +1947,7 @@ def send_parent_notification(child, parent, message_body, attachments=None):
     saved = save_messages(messages)
     if saved:
         send_web_push_to_parent(message)
+        send_fcm_to_parent(message)
     return saved
 
 
@@ -5882,6 +6168,7 @@ if not st.session_state.get("logged_in"):
 current_role = st.session_state.get("role", "Parent")
 if current_role in {"Admin", "Parent"}:
     handle_push_subscription_query()
+    handle_fcm_token_query()
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
