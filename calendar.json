@@ -1,0 +1,80 @@
+[
+  {
+    "id": "2026-08-31-reopening",
+    "date": "31 August 2026",
+    "event": "Preschool re-opening",
+    "tag": "Open"
+  },
+  {
+    "id": "2026-10-mid-term",
+    "date": "26-30 October 2026",
+    "event": "Mid-term",
+    "tag": "Closed"
+  },
+  {
+    "id": "2026-12-christmas",
+    "date": "23 December 2026 - 5 January 2027",
+    "event": "Christmas Holidays",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-01-06-reopening",
+    "date": "6 January 2027",
+    "event": "School re-opening",
+    "tag": "Open"
+  },
+  {
+    "id": "2027-02-01-brigids-day",
+    "date": "1 February 2027",
+    "event": "St Brigid's Day",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-02-mid-term",
+    "date": "17-19 February 2027",
+    "event": "Mid-term",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-03-17-patricks-day",
+    "date": "17 March 2027",
+    "event": "St Patrick's Day",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-03-easter",
+    "date": "22 March - 2 April 2027",
+    "event": "Easter Holidays",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-04-05-reopening",
+    "date": "5 April 2027",
+    "event": "School re-opening",
+    "tag": "Open"
+  },
+  {
+    "id": "2027-05-03-public-holiday",
+    "date": "3 May 2027",
+    "event": "Public Holiday",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-06-07-public-holiday",
+    "date": "7 June 2027",
+    "event": "Public Holiday",
+    "tag": "Closed"
+  },
+  {
+    "id": "2027-06-23-last-day",
+    "date": "23 June 2027",
+    "event": "Last day of School",
+    "tag": "Event"
+  },
+  {
+    "id": "2027-06-24-graduation",
+    "date": "24 June 2027",
+    "event": "Graduation for children leaving for Primary School",
+    "tag": "Event"
+  }
+]

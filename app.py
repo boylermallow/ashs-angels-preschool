@@ -41,6 +41,7 @@ APP_DIR = Path(__file__).parent
 LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
 ICON_IMAGE = APP_DIR / "assets" / "ashs-angels-icon.svg"
 CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
+CALENDAR_FILE = APP_DIR / "calendar.json"
 PARENT_STATEMENT_FILE = APP_DIR / "assets" / "parent-statement-2026.txt"
 USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
@@ -52,6 +53,7 @@ MESSAGES_DIR = APP_DIR / "assets" / "messages"
 PUSH_COMPONENT_DIR = APP_DIR / "push_component"
 PUSH_COMPONENT_NAME = f"{Path(__file__).stem}.ashs_angels_push"
 SESSIONS = ["Morning Session", "Afternoon Session"]
+CALENDAR_TAGS = ["Open", "Closed", "Event"]
 SESSION_ALIASES = {
     "Morning Session - 8:30am to 11:30am": "Morning Session",
     "Afternoon Session - 12:00pm to 3:00pm": "Afternoon Session",
@@ -223,15 +225,15 @@ def load_persistent_json(path, fallback):
         return local_value if isinstance(local_value, type(fallback)) else fallback
 
 
-def save_persistent_json(path, value, message):
+def save_persistent_json(path, value, message, allow_create=False):
     if not github_data_token():
         write_json(APP_DIR / path, value)
         st.session_state["data_save_warning"] = (
             "This change was saved for now, but permanent saving is not switched on yet."
         )
-        return False
+        return True
     remote = github_api_request("GET", path)
-    if not remote or not remote.get("sha"):
+    if (not remote or not remote.get("sha")) and not allow_create:
         st.session_state["data_save_warning"] = (
             "This change was not saved permanently. The GitHub data key needs checking."
         )
@@ -239,9 +241,10 @@ def save_persistent_json(path, value, message):
     payload = {
         "message": message,
         "content": base64.b64encode(json.dumps(value, indent=2).encode("utf-8")).decode("ascii"),
-        "sha": remote["sha"],
         "branch": DATA_BRANCH,
     }
+    if remote and remote.get("sha"):
+        payload["sha"] = remote["sha"]
     result = github_api_request("PUT", path, payload)
     if result:
         write_json(APP_DIR / path, value)
@@ -547,6 +550,55 @@ def clean_session_name(session_name):
     return SESSION_ALIASES.get(session_name, session_name)
 
 
+def default_calendar_events():
+    return [normalize_calendar_event(item) for item in PRESCHOOL_CALENDAR_EVENTS]
+
+
+def calendar_event_id(item):
+    existing_id = str(item.get("id") or item.get("ID") or "").strip()
+    if existing_id:
+        return existing_id
+    source = "|".join(
+        [
+            str(item.get("date") or item.get("Date") or "").strip(),
+            str(item.get("event") or item.get("Event") or "").strip(),
+            str(item.get("tag") or item.get("Tag") or "").strip(),
+        ]
+    )
+    return hashlib.sha1(source.encode("utf-8")).hexdigest()[:16]
+
+
+def normalize_calendar_event(item):
+    if not isinstance(item, dict):
+        return None
+    date_text = str(item.get("date") or item.get("Date") or "").strip()
+    event_text = str(item.get("event") or item.get("Event") or "").strip()
+    tag = str(item.get("tag") or item.get("Tag") or "Event").strip().title()
+    if tag not in CALENDAR_TAGS:
+        tag = "Event"
+    if not date_text or not event_text:
+        return None
+    return {
+        "id": calendar_event_id(item),
+        "date": date_text,
+        "event": event_text,
+        "tag": tag,
+    }
+
+
+def load_calendar_events():
+    calendar = load_persistent_json(CALENDAR_FILE.name, PRESCHOOL_CALENDAR_EVENTS)
+    if not isinstance(calendar, list):
+        calendar = PRESCHOOL_CALENDAR_EVENTS
+    events = [event for event in (normalize_calendar_event(item) for item in calendar) if event]
+    return events or default_calendar_events()
+
+
+def save_calendar_events(events):
+    normalized_events = [event for event in (normalize_calendar_event(item) for item in events) if event]
+    return save_persistent_json(CALENDAR_FILE.name, normalized_events, "Update calendar", allow_create=True)
+
+
 def load_children():
     children = load_persistent_json("children.json", [])
     return children if isinstance(children, list) else []
@@ -737,13 +789,29 @@ def attachment_source(attachment):
     return ""
 
 
-def message_attachments_html(attachments):
+def message_attachments_html(attachments, gallery_id="message"):
     clean_attachments = [attachment for attachment in (attachments or []) if attachment_source(attachment)]
     if not clean_attachments:
         return ""
 
-    items = []
-    for attachment in clean_attachments:
+    gallery_token = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(gallery_id)).strip("-")[:60]
+    if not gallery_token:
+        gallery_token = hashlib.sha256(
+            "|".join(attachment_source(attachment) for attachment in clean_attachments).encode("utf-8")
+        ).hexdigest()[:12]
+    gallery_class = " is-gallery" if len(clean_attachments) > 1 else ""
+    image_positions = [
+        index
+        for index, attachment in enumerate(clean_attachments)
+        if not (
+            str(attachment.get("Kind", "")).lower() == "video"
+            or str(attachment.get("MimeType", "")).startswith("video/")
+        )
+    ]
+    image_position_lookup = {attachment_index: position for position, attachment_index in enumerate(image_positions)}
+    lightbox_close_id = f"message-lightbox-close-{gallery_token}"
+    items = [f'<span class="message-lightbox-close-target" id="{lightbox_close_id}" aria-hidden="true"></span>']
+    for attachment_index, attachment in enumerate(clean_attachments):
         src = html.escape(attachment_source(attachment), quote=True)
         name = html.escape(str(attachment.get("FileName", "Attachment") or "Attachment"))
         mime_type = html.escape(str(attachment.get("MimeType", "") or ""), quote=True)
@@ -754,12 +822,37 @@ def message_attachments_html(attachments):
                 '</div>'
             )
         else:
+            lightbox_id = f"message-lightbox-{gallery_token}-{attachment_index}"
+            navigation_html = ""
+            if len(image_positions) > 1:
+                image_position = image_position_lookup[attachment_index]
+                previous_index = image_positions[(image_position - 1) % len(image_positions)]
+                next_index = image_positions[(image_position + 1) % len(image_positions)]
+                previous_id = f"message-lightbox-{gallery_token}-{previous_index}"
+                next_id = f"message-lightbox-{gallery_token}-{next_index}"
+                navigation_html = (
+                    f'<a class="message-lightbox-nav is-previous" href="#{previous_id}" '
+                    'aria-label="Previous photo">&#8249;</a>'
+                    f'<a class="message-lightbox-nav is-next" href="#{next_id}" '
+                    'aria-label="Next photo">&#8250;</a>'
+                )
             items.append(
                 '<div class="message-media-item">'
-                f'<img class="message-media-image" src="{src}" alt="{name}">'
+                f'<a class="message-media-link" href="#{lightbox_id}" title="View full image" aria-label="Enlarge {name}">'
+                f'<img class="message-media-image" src="{src}" alt="{name}" loading="lazy">'
+                '</a>'
                 '</div>'
+                f'<section class="message-lightbox" id="{lightbox_id}" role="dialog" aria-modal="true" aria-label="Enlarged {name}">'
+                f'<a class="message-lightbox-backdrop" href="#{lightbox_close_id}" aria-label="Close enlarged {name}"></a>'
+                '<span class="message-lightbox-dialog">'
+                f'<a class="message-lightbox-close" href="#{lightbox_close_id}" '
+                f'aria-label="Close enlarged {name}">&times;</a>'
+                f'<img class="message-lightbox-image" src="{src}" alt="{name}">'
+                '</span>'
+                f'{navigation_html}'
+                '</section>'
             )
-    return f'<div class="message-media-grid">{"".join(items)}</div>'
+    return f'<div class="message-media-grid{gallery_class}">{"".join(items)}</div>'
 
 
 def load_parents():
@@ -3562,6 +3655,125 @@ st.markdown(
         background: #ffffff;
         box-shadow: 0 6px 14px rgba(35,52,95,.08);
     }}
+    .message-media-link {{
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: zoom-in;
+        text-decoration: none;
+    }}
+    .message-media-link:hover .message-media-image {{
+        opacity: .9;
+    }}
+    .message-lightbox-close-target {{
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+    }}
+    .message-lightbox {{
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(18px, 4vw, 52px);
+        background: rgba(15, 23, 42, .88);
+        cursor: zoom-out;
+        box-sizing: border-box;
+    }}
+    .message-lightbox:target {{
+        display: flex;
+    }}
+    .message-lightbox-backdrop {{
+        position: absolute;
+        inset: 0;
+        cursor: zoom-out;
+    }}
+    .message-lightbox-dialog {{
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: fit-content;
+        max-width: 100%;
+        max-height: 100%;
+        cursor: default;
+    }}
+    .message-lightbox-image {{
+        display: block;
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        max-height: calc(100vh - clamp(36px, 8vw, 104px));
+        object-fit: contain;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 24px 70px rgba(0,0,0,.45);
+    }}
+    .message-lightbox-close {{
+        position: absolute;
+        top: -14px;
+        right: -14px;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        background: var(--brand-blue);
+        color: #ffffff;
+        font-family: system-ui, sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        line-height: 1;
+        box-shadow: 0 8px 20px rgba(0,0,0,.3);
+        cursor: pointer;
+        text-decoration: none;
+    }}
+    .message-lightbox-nav {{
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        transform: translateY(-50%);
+        border: 2px solid rgba(255,255,255,.9);
+        border-radius: 50%;
+        background: rgba(41,73,153,.92);
+        color: #ffffff;
+        font-family: system-ui, sans-serif;
+        font-size: 2.5rem;
+        font-weight: 500;
+        line-height: 1;
+        box-shadow: 0 8px 22px rgba(0,0,0,.35);
+        cursor: pointer;
+        user-select: none;
+        text-decoration: none;
+    }}
+    .message-lightbox-nav.is-previous {{
+        left: clamp(8px, 2vw, 28px);
+    }}
+    .message-lightbox-nav.is-next {{
+        right: clamp(8px, 2vw, 28px);
+    }}
+    .message-lightbox-nav:hover,
+    .message-lightbox-close:hover {{
+        background: #1f3d86;
+    }}
+    body:has(.message-lightbox:target) {{
+        overflow: hidden;
+    }}
+    body:has(.message-lightbox:target) #ashs-install-app-button {{
+        display: none !important;
+    }}
     .message-media-image,
     .message-media-video {{
         display: block;
@@ -3573,6 +3785,19 @@ st.markdown(
     .message-media-video {{
         aspect-ratio: 16 / 9;
         background: #23345f;
+    }}
+    .message-media-grid.is-gallery {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+    .message-media-grid.is-gallery .message-media-item {{
+        aspect-ratio: 1 / 1;
+    }}
+    .message-media-grid.is-gallery .message-media-image,
+    .message-media-grid.is-gallery .message-media-video {{
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        object-fit: cover;
     }}
     .message-media-name {{
         padding: 8px 10px 9px;
@@ -3767,12 +3992,19 @@ st.markdown(
         background: #f4f7fb;
     }}
     .admin-message-label {{
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px;
         margin-bottom: 6px;
         color: var(--brand-blue);
         font-size: .72rem;
         font-weight: 850;
-        line-height: 1;
-        text-transform: uppercase;
+        line-height: 1.2;
+    }}
+    .admin-message-sent {{
+        color: var(--muted);
+        font-weight: 700;
     }}
     .admin-message-original .message-body {{
         color: var(--ink);
@@ -3783,6 +4015,10 @@ st.markdown(
         grid-template-columns: minmax(0, 1fr);
         width: 100%;
         margin-top: 0;
+    }}
+    .admin-message-media > .message-media-grid.is-gallery {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
     }}
     .admin-message-media .message-media-item {{
         box-shadow: none;
@@ -6009,9 +6245,12 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
         replies_html = ""
         if replies:
             replies_html = '<div class="reply-list">'
-            for reply in replies:
+            for reply_index, reply in enumerate(replies):
                 reply_date = message_datetime(reply.get("CreatedAt", ""))
-                reply_attachments = message_attachments_html(reply.get("Attachments", []))
+                reply_attachments = message_attachments_html(
+                    reply.get("Attachments", []),
+                    f"{key_prefix}-{message_id}-reply-{reply_index}",
+                )
                 replies_html += (
                     '<div class="reply-bubble">'
                     f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
@@ -6021,7 +6260,10 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
                     '</div>'
                 )
             replies_html += "</div>"
-        message_attachments = message_attachments_html(message.get("Attachments", []))
+        message_attachments = message_attachments_html(
+            message.get("Attachments", []),
+            f"{key_prefix}-{message_id}",
+        )
         st.markdown(
             f"""
             <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
@@ -6074,9 +6316,154 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def calendar_label(event):
+    return f"{event.get('date', '')} - {event.get('event', '')}"
+
+
+def parse_calendar_dates(value):
+    clean_value = " ".join(str(value or "").split())
+    patterns = (
+        (r"^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$", "full"),
+        (r"^(\d{1,2})\s+([A-Za-z]+)\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$", "same_year"),
+        (r"^(\d{1,2})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$", "same_month"),
+    )
+    for pattern, range_type in patterns:
+        match = re.match(pattern, clean_value)
+        if not match:
+            continue
+        try:
+            if range_type == "full":
+                start = datetime.strptime(" ".join(match.group(1, 2, 3)), "%d %B %Y").date()
+                end = datetime.strptime(" ".join(match.group(4, 5, 6)), "%d %B %Y").date()
+            elif range_type == "same_year":
+                start = datetime.strptime(" ".join((match.group(1), match.group(2), match.group(5))), "%d %B %Y").date()
+                end = datetime.strptime(" ".join((match.group(3), match.group(4), match.group(5))), "%d %B %Y").date()
+            else:
+                start = datetime.strptime(" ".join((match.group(1), match.group(3), match.group(4))), "%d %B %Y").date()
+                end = datetime.strptime(" ".join((match.group(2), match.group(3), match.group(4))), "%d %B %Y").date()
+            return start, end
+        except ValueError:
+            break
+    try:
+        return datetime.strptime(clean_value, "%d %B %Y").date(), None
+    except ValueError:
+        return date.today(), None
+
+
+def format_calendar_dates(start_date, end_date=None):
+    if not start_date:
+        return ""
+    if not end_date or end_date == start_date:
+        return start_date.strftime("%d %B %Y").lstrip("0")
+    if start_date.year == end_date.year and start_date.month == end_date.month:
+        return f"{start_date.day}-{end_date.day} {end_date.strftime('%B %Y')}"
+    if start_date.year == end_date.year:
+        return f"{start_date.day} {start_date.strftime('%B')} - {end_date.day} {end_date.strftime('%B %Y')}"
+    return f"{start_date.day} {start_date.strftime('%B %Y')} - {end_date.day} {end_date.strftime('%B %Y')}"
+
+
+def render_calendar_editor(events):
+    notice = st.session_state.pop("calendar_notice", "")
+    if notice:
+        show_quick_notice(notice)
+
+    st.markdown(
+        '<div class="panel parents-panel calendar-editor-panel">'
+        '<div class="panel-title">Edit Calendar</div>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.form("add_calendar_event_form", clear_on_submit=True):
+        add_date = st.date_input("Date", value=None, format="DD/MM/YYYY")
+        add_end_date = st.date_input("End date (optional)", value=None, format="DD/MM/YYYY")
+        add_event = st.text_input("Calendar item", placeholder="Preschool re-opening")
+        add_tag = st.selectbox("Type", CALENDAR_TAGS, index=2)
+        add_submitted = st.form_submit_button("Add Calendar Item")
+
+    if add_submitted:
+        if not add_date or not add_event.strip():
+            st.warning("Please add the date and calendar item.")
+        elif add_end_date and add_end_date < add_date:
+            st.warning("The end date must be after the start date.")
+        else:
+            updated_events = [
+                *events,
+                {
+                    "id": uuid.uuid4().hex,
+                    "date": format_calendar_dates(add_date, add_end_date),
+                    "event": add_event.strip(),
+                    "tag": add_tag,
+                },
+            ]
+            if save_calendar_events(updated_events):
+                st.session_state["calendar_notice"] = "Calendar item added."
+                st.rerun()
+            else:
+                st.error("The calendar item was not saved permanently. Please check the GitHub data key and try again.")
+
+    if not events:
+        st.markdown('<div class="muted">No calendar items added yet.</div>', unsafe_allow_html=True)
+        return
+
+    calendar_options = {event["id"]: calendar_label(event) for event in events}
+    selected_id = st.selectbox(
+        "Edit existing item",
+        list(calendar_options.keys()),
+        format_func=lambda event_id: calendar_options.get(event_id, event_id),
+    )
+    selected_event = next((event for event in events if event.get("id") == selected_id), events[0])
+    selected_tag = selected_event.get("tag", "Event")
+    selected_tag_index = CALENDAR_TAGS.index(selected_tag) if selected_tag in CALENDAR_TAGS else 2
+    selected_start_date, selected_end_date = parse_calendar_dates(selected_event.get("date", ""))
+
+    with st.form(f"edit_calendar_event_form_{selected_id}"):
+        edited_date = st.date_input("Date", value=selected_start_date, format="DD/MM/YYYY")
+        edited_end_date = st.date_input("End date (optional)", value=selected_end_date, format="DD/MM/YYYY")
+        edited_event = st.text_input("Calendar item", value=selected_event.get("event", ""))
+        edited_tag = st.selectbox("Type", CALENDAR_TAGS, index=selected_tag_index)
+        save_col, delete_col = st.columns(2)
+        save_submitted = save_col.form_submit_button("Save Calendar Item")
+        delete_submitted = delete_col.form_submit_button("Delete Item")
+
+    if save_submitted:
+        if not edited_date or not edited_event.strip():
+            st.warning("Please add the date and calendar item.")
+        elif edited_end_date and edited_end_date < edited_date:
+            st.warning("The end date must be after the start date.")
+        else:
+            updated_events = []
+            for event in events:
+                if event.get("id") == selected_id:
+                    updated_events.append(
+                        {
+                            "id": selected_id,
+                            "date": format_calendar_dates(edited_date, edited_end_date),
+                            "event": edited_event.strip(),
+                            "tag": edited_tag,
+                        }
+                    )
+                else:
+                    updated_events.append(event)
+            if save_calendar_events(updated_events):
+                st.session_state["calendar_notice"] = "Calendar item updated."
+                st.rerun()
+            else:
+                st.error("The calendar item was not saved permanently. Please check the GitHub data key and try again.")
+
+    if delete_submitted:
+        updated_events = [event for event in events if event.get("id") != selected_id]
+        if save_calendar_events(updated_events):
+            st.session_state["calendar_notice"] = "Calendar item deleted."
+            st.rerun()
+        else:
+            st.error("The calendar item was not deleted permanently. Please check the GitHub data key and try again.")
+
+
 def render_calendar():
+    events = load_calendar_events()
     rows = []
-    for item in PRESCHOOL_CALENDAR_EVENTS:
+    for item in events:
         tag = item["tag"]
         tag_class = tag.lower()
         rows.append(
@@ -6107,6 +6494,8 @@ def render_calendar():
         "</div>"
     )
     st.markdown(calendar_html, unsafe_allow_html=True)
+    if st.session_state.get("role") == "Admin":
+        render_calendar_editor(events)
 
 
 def render_parent_dashboard():
@@ -6204,9 +6593,12 @@ def render_admin_message_item(
     replies_html = ""
     if replies:
         replies_html = '<div class="reply-list">'
-        for reply in replies:
+        for reply_index, reply in enumerate(replies):
             reply_date = message_datetime(reply.get("CreatedAt", ""))
-            reply_attachments = message_attachments_html(reply.get("Attachments", []))
+            reply_attachments = message_attachments_html(
+                reply.get("Attachments", []),
+                f"admin-{message_id or index}-reply-{reply_index}",
+            )
             replies_html += (
                 '<div class="reply-bubble">'
                 f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
@@ -6216,7 +6608,10 @@ def render_admin_message_item(
                 '</div>'
             )
         replies_html += "</div>"
-    message_attachments = message_attachments_html(message.get("Attachments", []))
+    message_attachments = message_attachments_html(
+        message.get("Attachments", []),
+        f"admin-{message_id or index}",
+    )
     media_class = " has-media" if message_attachments else ""
     media_html = f'<div class="admin-message-media">{message_attachments}</div>' if message_attachments else ""
     delete_key = f"delete_message_{message_id or index}"
@@ -6229,7 +6624,7 @@ def render_admin_message_item(
         f'{child_thumb_html(child)}'
         '<div class="admin-message-heading">'
         f'<div class="parent-name">{html.escape(child_name)}</div>'
-        f'<div class="admin-message-recipient">To {html.escape(parent_name)} &middot; {html.escape(sent_date or "Not recorded")}</div>'
+        f'<div class="admin-message-recipient">To {html.escape(parent_name)}</div>'
         '</div>'
         '</div>'
         '<div class="message-status-stack">'
@@ -6240,7 +6635,8 @@ def render_admin_message_item(
         f'<div class="admin-message-content{media_class}">'
         '<div class="admin-message-thread">'
         '<div class="admin-message-original">'
-        '<div class="admin-message-label">Message</div>'
+        '<div class="admin-message-label"><span>Me</span>'
+        f'<span class="admin-message-sent">&middot; {html.escape(sent_date or "Not recorded")}</span></div>'
         f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
         '</div>'
         f'{replies_html}'
