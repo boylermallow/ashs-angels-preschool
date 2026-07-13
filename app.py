@@ -1771,7 +1771,7 @@ def render_parent_push_control():
 
 
 def render_mobile_push_status_bell():
-    if st.session_state.get("role") not in {"Admin", "Parent"}:
+    if st.session_state.get("role") != "Admin":
         return
     server_push_on = has_push_subscription_for_user(
         st.session_state.get("email", ""),
@@ -5658,6 +5658,17 @@ def render_side_menu(role, selected_page):
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{nav_label(item)}</a>'
         for item in nav_items
     )
+    mobile_push_status_html = ""
+    if role == "Admin":
+        mobile_push_status_html = (
+            f'<a class="mobile-push-status is-off" id="mobile-push-status" href="{app_href("Settings")}" '
+            'target="_self" aria-label="Device notifications are off" title="Device notifications are off">'
+            '<svg viewBox="0 0 24 24" aria-hidden="true">'
+            '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>'
+            '<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>'
+            '</svg>'
+            '</a>'
+        )
     st.markdown(
         f"""
         <div class="mobile-menu">
@@ -5669,12 +5680,7 @@ def render_side_menu(role, selected_page):
           <a class="mobile-menu-logo-link" href="{app_href("Children")}" target="_self" aria-label="Go to children">
             <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
           </a>
-          <a class="mobile-push-status is-off" id="mobile-push-status" href="{app_href("Settings")}" target="_self" aria-label="Device notifications are off" title="Device notifications are off">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-          </a>
+          {mobile_push_status_html}
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
@@ -6542,7 +6548,6 @@ def render_parent_dashboard():
         )
         return
 
-    render_parent_push_control()
     messages = current_parent_messages()
     if messages:
         render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3, children_by_id=children_by_id)
@@ -6561,7 +6566,6 @@ def render_parent_messages():
             unsafe_allow_html=True,
         )
         return
-    render_parent_push_control()
     if not messages:
         st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
         return
@@ -6735,17 +6739,6 @@ def render_parent_settings():
 
     with settings_panel:
         st.markdown('<div class="settings-heading">Settings</div>', unsafe_allow_html=True)
-        try:
-            push_section = st.container(key="settings_push_section")
-        except TypeError:
-            push_section = st.container()
-        with push_section:
-            st.markdown(
-                '<div class="settings-section-title">Message notifications</div>'
-                '<div class="settings-section-copy">Turn on notifications on this device so you know when the preschool sends a new message.</div>',
-                unsafe_allow_html=True,
-            )
-            render_parent_push_control()
 
 
 def render_admin_messages():
