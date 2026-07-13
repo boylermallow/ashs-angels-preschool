@@ -11,6 +11,11 @@
     "salt": "286431b15951b3cfd8950f1dc70eb52e",
     "hash": "a0126339c3c763e159272ee98327249fa4ef3c83d360be3c113dbd1c71fd5a74",
     "Relationship": "Dad",
-    "Address": "Lr Quartertown, Mallow, Cork"
+    "Address": "Lr Quartertown, Mallow, Cork",
+    "ParentStatementSigned": true,
+    "ParentStatementSignature": "Liam O' Boyle",
+    "ParentStatementSignedAt": "2026-07-13T11:16:17",
+    "ParentStatementVersion": "Parent Statement 2026/2027",
+    "ParentStatementEmail": "youprint.ie@gmail.com"
   }
 ]
