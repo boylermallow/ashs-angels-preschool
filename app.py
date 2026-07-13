@@ -41,6 +41,7 @@ APP_DIR = Path(__file__).parent
 LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
 ICON_IMAGE = APP_DIR / "assets" / "ashs-angels-icon.svg"
 CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
+PARENT_STATEMENT_FILE = APP_DIR / "assets" / "parent-statement-2026.txt"
 USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
 PARENTS_FILE = APP_DIR / "parents.json"
@@ -63,6 +64,7 @@ MESSAGE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 MESSAGE_ATTACHMENT_MAX_COUNT = 4
 MESSAGE_ATTACHMENT_TYPES = ["png", "jpg", "jpeg", "webp", "mp4", "mov", "m4v", "webm"]
 CONTACT_RELATIONSHIPS = ["Mam", "Dad", "Guardian"]
+PARENT_STATEMENT_VERSION = "Parent Statement 2026/2027"
 PUSH_SW_URL = f"/component/{PUSH_COMPONENT_NAME}/sw.js"
 PUSH_SW_SCOPE = f"/component/{PUSH_COMPONENT_NAME}/"
 PUSH_ICON_URL = f"/component/{PUSH_COMPONENT_NAME}/icon.svg"
@@ -3989,6 +3991,43 @@ st.markdown(
         background: #203d86;
         color: #ffffff !important;
     }}
+    .statement-view {{
+        max-height: min(58vh, 620px);
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 16px;
+        margin: 14px 0 18px;
+    }}
+    .statement-view pre {{
+        margin: 0;
+        color: var(--ink);
+        font-family: inherit;
+        font-size: .94rem;
+        font-weight: 520;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }}
+    .statement-sign-card {{
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fffaf1;
+        padding: 16px;
+        margin-top: 14px;
+    }}
+    .statement-signed-note {{
+        border: 1px solid #b8e4c4;
+        border-radius: 8px;
+        background: #e9f8ed;
+        color: #14783a;
+        font-size: .98rem;
+        font-weight: 850;
+        line-height: 1.35;
+        padding: 14px 16px;
+        margin-top: 14px;
+    }}
     @media (max-width: 760px) {{
         .session-columns {{
             grid-template-columns: 1fr;
@@ -5742,6 +5781,43 @@ def current_parent_messages():
     ]
 
 
+def parent_statement_text():
+    try:
+        return PARENT_STATEMENT_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "The parent statement is not available in the app yet. Please contact the preschool."
+
+
+def parent_statement_signed(parent):
+    return bool(
+        parent
+        and parent.get("ParentStatementSignedAt")
+        and parent.get("ParentStatementVersion") == PARENT_STATEMENT_VERSION
+    )
+
+
+def parent_statement_signature_text(parent):
+    if not parent_statement_signed(parent):
+        return "Not signed"
+    signed_at = message_datetime(parent.get("ParentStatementSignedAt", ""))
+    signature = parent.get("ParentStatementSignature", "Parent")
+    return f"Signed by {signature} on {signed_at}"
+
+
+def save_parent_statement_signature(signature_name):
+    email = str(st.session_state.get("email", "")).strip().lower()
+    parents = load_parents()
+    parent = next((item for item in parents if item.get("Email", "").strip().lower() == email), None)
+    if not parent:
+        return False
+    parent["ParentStatementSigned"] = True
+    parent["ParentStatementSignature"] = signature_name.strip()
+    parent["ParentStatementSignedAt"] = datetime.now().isoformat(timespec="seconds")
+    parent["ParentStatementVersion"] = PARENT_STATEMENT_VERSION
+    parent["ParentStatementEmail"] = email
+    return save_parents(parents)
+
+
 def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None, children_by_id=None):
     sorted_messages = sorted(messages, key=message_activity_key, reverse=True)
     if limit:
@@ -6001,12 +6077,65 @@ def render_admin_message_item(
 
 
 def render_parent_forms():
+    parent = current_parent_record()
+    statement = parent_statement_text()
+    signed = parent_statement_signed(parent)
+    status_label = "Signed" if signed else "Needs signature"
+    status_class = "" if signed else "pending"
+
     st.markdown(
-        '<div class="panel parents-panel"><div class="panel-title">Forms</div>'
-        '<div class="parent-row"><div><div class="parent-name">Forms and notices</div>'
-        '<div class="parent-detail">There are no forms to complete right now.</div></div></div></div>',
+        f"""
+        <div class="panel parents-panel">
+          <div class="panel-title">Forms</div>
+          <div class="parent-row">
+            <div>
+              <div class="parent-name">{html.escape(PARENT_STATEMENT_VERSION)}</div>
+              <div class="parent-detail">Please read the statement below and sign it electronically.</div>
+            </div>
+            <div class="parent-status {status_class}">{status_label}</div>
+          </div>
+          <div class="statement-view"><pre>{html.escape(statement)}</pre></div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
+
+    if not parent:
+        st.warning("We could not find your parent registration yet.")
+        return
+
+    if signed:
+        st.markdown(
+            f'<div class="statement-signed-note">{html.escape(parent_statement_signature_text(parent))}</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.markdown(
+        '<div class="statement-sign-card"><div class="parent-name">Digital signature</div>'
+        '<div class="parent-detail">Typing your name and pressing Sign Statement will be recorded as your electronic signature.</div></div>',
+        unsafe_allow_html=True,
+    )
+    signature_name = st.text_input("Type your full name to sign", key="parent_statement_signature")
+    confirm_read = st.checkbox("I have read the Parent Statement.", key="parent_statement_confirm_read")
+    confirm_signature = st.checkbox(
+        "I understand that typing my name is my electronic signature.",
+        key="parent_statement_confirm_signature",
+    )
+    if st.button("Sign Statement", type="primary", width="stretch"):
+        clean_signature = str(signature_name or "").strip()
+        if not clean_signature:
+            st.warning("Please type your full name to sign.")
+        elif not confirm_read or not confirm_signature:
+            st.warning("Please tick both confirmation boxes before signing.")
+        elif save_parent_statement_signature(clean_signature):
+            st.session_state.pop("parent_statement_signature", None)
+            st.session_state.pop("parent_statement_confirm_read", None)
+            st.session_state.pop("parent_statement_confirm_signature", None)
+            st.success("Statement signed and saved.")
+            st.rerun()
+        else:
+            st.error("The signature was not saved permanently. Please check the GitHub data key and try again.")
 
 
 def render_parent_settings():
@@ -6251,6 +6380,7 @@ def render_parent_approvals():
             if child_heading_name != "No child assigned"
             else '<div class="parent-card-child-name">No child assigned</div>'
         )
+        statement_detail = parent_statement_signature_text(parent)
         recent_replies = replies_for_parent(parent.get("Email", ""))[:3]
         replies_html = ""
         if recent_replies:
@@ -6275,6 +6405,7 @@ def render_parent_approvals():
                   <div class="parent-detail"><strong>Email:</strong> {html.escape(parent.get("Email", ""))}</div>
                   <div class="parent-detail"><strong>Emergency 1:</strong> {html.escape(parent.get("EmergencyContact1", "") or "Not added")}</div>
                   <div class="parent-detail"><strong>Emergency 2:</strong> {html.escape(parent.get("EmergencyContact2", "") or "Not added")}</div>
+                  <div class="parent-detail"><strong>Statement:</strong> {html.escape(statement_detail)}</div>
                 </div>
                 {replies_html}
               </div>
