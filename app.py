@@ -747,19 +747,17 @@ def message_attachments_html(attachments):
         src = html.escape(attachment_source(attachment), quote=True)
         name = html.escape(str(attachment.get("FileName", "Attachment") or "Attachment"))
         mime_type = html.escape(str(attachment.get("MimeType", "") or ""), quote=True)
-        size = file_size_label(attachment.get("Size", ""))
-        meta = f'<div class="message-media-name">{name}{(" - " + html.escape(size)) if size else ""}</div>'
         if str(attachment.get("Kind", "")).lower() == "video" or str(attachment.get("MimeType", "")).startswith("video/"):
             items.append(
                 '<div class="message-media-item">'
                 f'<video class="message-media-video" controls preload="metadata"><source src="{src}" type="{mime_type}"></video>'
-                f'{meta}</div>'
+                '</div>'
             )
         else:
             items.append(
                 '<div class="message-media-item">'
                 f'<img class="message-media-image" src="{src}" alt="{name}">'
-                f'{meta}</div>'
+                '</div>'
             )
     return f'<div class="message-media-grid">{"".join(items)}</div>'
 
@@ -3644,26 +3642,8 @@ st.markdown(
         margin: 0 0 4px 16px !important;
     }}
     .admin-messages-list {{
-        display: block;
-    }}
-    .admin-messages-list div[data-testid="stHorizontalBlock"] {{
-        gap: 18px;
-        align-items: stretch;
-        margin-bottom: 18px;
-    }}
-    .admin-messages-list div[data-testid="column"] {{
-        min-width: 0;
-    }}
-    .admin-message-item {{
         display: grid;
-        gap: 0;
-        height: 100%;
-    }}
-    .admin-message-row {{
-        height: 100%;
-    }}
-    .admin-messages-list div[data-testid="stButton"] button {{
-        margin: 10px 0 18px 0 !important;
+        gap: 18px;
     }}
     .message-status-stack {{
         display: flex;
@@ -3712,6 +3692,189 @@ st.markdown(
         border-radius: 8px;
         background: #fffaf1;
         padding: 16px;
+    }}
+    .admin-message-row {{
+        display: block;
+        height: auto;
+        min-width: 0;
+        scroll-margin-top: 120px;
+    }}
+    .admin-message-layout {{
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }}
+    .admin-message-header {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #e2e8f0;
+    }}
+    .admin-message-header .message-title-line {{
+        min-height: 0;
+        margin: 0;
+    }}
+    .admin-message-heading {{
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+    }}
+    .admin-message-heading .parent-name {{
+        margin: 0;
+    }}
+    .admin-message-recipient {{
+        color: var(--muted);
+        font-size: .84rem;
+        font-weight: 650;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }}
+    .admin-message-header .message-status-stack {{
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-width: 0;
+    }}
+    .admin-message-header .parent-status,
+    .admin-message-header .read-badge {{
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: .8rem;
+    }}
+    .admin-message-content {{
+        display: block;
+        padding-top: 16px;
+        min-width: 0;
+    }}
+    .admin-message-content.has-media {{
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(210px, 290px);
+        gap: 20px;
+        align-items: start;
+    }}
+    .admin-message-thread,
+    .admin-message-media {{
+        min-width: 0;
+    }}
+    .admin-message-original {{
+        padding: 14px 16px;
+        border-left: 4px solid var(--brand-blue);
+        border-radius: 8px;
+        background: #f4f7fb;
+    }}
+    .admin-message-label {{
+        margin-bottom: 6px;
+        color: var(--brand-blue);
+        font-size: .72rem;
+        font-weight: 850;
+        line-height: 1;
+        text-transform: uppercase;
+    }}
+    .admin-message-original .message-body {{
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 520;
+    }}
+    .admin-message-media > .message-media-grid {{
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+        margin-top: 0;
+    }}
+    .admin-message-media .message-media-item {{
+        box-shadow: none;
+    }}
+    .admin-message-media .message-media-image,
+    .admin-message-media .message-media-video {{
+        max-height: 210px;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] {{
+        gap: 0;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-top: 3px solid var(--brand-blue);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(35,52,95,.07);
+        box-sizing: border-box;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] .admin-message-row {{
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] > div[data-testid="stElementContainer"]:has(.admin-message-row) {{
+        flex: 0 0 auto;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] > div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]) {{
+        width: 100%;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stButton"] {{
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+        margin-top: 12px;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stButton"] button {{
+        width: auto !important;
+        min-height: 34px !important;
+        margin: 0 !important;
+        padding: 6px 10px !important;
+        border: 1px solid #d7dde6 !important;
+        border-radius: 7px !important;
+        background: transparent !important;
+        color: var(--muted) !important;
+        box-shadow: none !important;
+        font-size: .78rem !important;
+        font-weight: 760 !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stButton"] button * {{
+        color: var(--muted) !important;
+        fill: var(--muted) !important;
+        font-size: .78rem !important;
+        font-weight: 760 !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stButton"] button:hover {{
+        border-color: #e8bdc4 !important;
+        background: #fff0f2 !important;
+        color: #a81526 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stButton"] button:hover * {{
+        color: #a81526 !important;
+        fill: #a81526 !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"]:has(.admin-message-row.is-target) {{
+        border-color: var(--brand-blue);
+        box-shadow: 0 0 0 4px rgba(47,79,163,.18), 0 14px 28px rgba(35,52,95,.12);
+        background: #f9fbff;
+    }}
+    @media (max-width: 760px) {{
+        .admin-message-header {{
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 12px;
+        }}
+        .admin-message-header .message-status-stack {{
+            justify-content: flex-start;
+        }}
+        .admin-message-content.has-media {{
+            grid-template-columns: minmax(0, 1fr);
+            gap: 14px;
+        }}
+        .admin-message-media .message-media-image,
+        .admin-message-media .message-media-video {{
+            max-height: 260px;
+        }}
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] {{
+            padding: 16px;
+        }}
     }}
     .message-anchor {{
         display: block;
@@ -4238,6 +4401,17 @@ st.markdown(
         background-color: #ffffff !important;
         caret-color: var(--brand-blue) !important;
         -webkit-text-fill-color: var(--ink) !important;
+        color-scheme: light !important;
+    }}
+    div[data-testid="stTextInput"] input:-webkit-autofill,
+    div[data-testid="stTextInput"] input:-webkit-autofill:hover,
+    div[data-testid="stTextInput"] input:-webkit-autofill:focus,
+    div[data-testid="stTextInput"] input:-webkit-autofill:active {{
+        background-color: #ffffff !important;
+        -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+        box-shadow: 0 0 0 1000px #ffffff inset !important;
+        -webkit-text-fill-color: var(--ink) !important;
+        caret-color: var(--brand-blue) !important;
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"]:has(input[type="password"]),
     div[data-testid="stTextInput"] div[data-baseweb="input"]:has(input[type="password"]) > div {{
@@ -6043,37 +6217,56 @@ def render_admin_message_item(
             )
         replies_html += "</div>"
     message_attachments = message_attachments_html(message.get("Attachments", []))
+    media_class = " has-media" if message_attachments else ""
+    media_html = f'<div class="admin-message-media">{message_attachments}</div>' if message_attachments else ""
     delete_key = f"delete_message_{message_id or index}"
-    st.markdown('<div class="admin-message-item">', unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
-        <div class="parent-row admin-message-row{target_class}">
-          <div>
-            <div class="message-title-line">
-              {child_thumb_html(child)}
-              <div class="parent-name">{html.escape(child_name)}</div>
-            </div>
-            <div class="parent-detail"><strong>To:</strong> {html.escape(parent_name)}</div>
-            <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date or "Not recorded")}</div>
-            <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
-            {message_attachments}
-            {replies_html}
-          </div>
-          <div class="message-status-stack">
-            <div class="parent-status">{'Replied' if replies else 'Sent'}</div>
-            <div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    message_card_html = (
+        f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
+        f'<div class="parent-row admin-message-row{target_class}">'
+        '<div class="admin-message-layout">'
+        '<div class="admin-message-header">'
+        '<div class="message-title-line">'
+        f'{child_thumb_html(child)}'
+        '<div class="admin-message-heading">'
+        f'<div class="parent-name">{html.escape(child_name)}</div>'
+        f'<div class="admin-message-recipient">To {html.escape(parent_name)} &middot; {html.escape(sent_date or "Not recorded")}</div>'
+        '</div>'
+        '</div>'
+        '<div class="message-status-stack">'
+        f'<div class="parent-status">{"Replied" if replies else "Sent"}</div>'
+        f'<div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>'
+        '</div>'
+        '</div>'
+        f'<div class="admin-message-content{media_class}">'
+        '<div class="admin-message-thread">'
+        '<div class="admin-message-original">'
+        '<div class="admin-message-label">Message</div>'
+        f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
+        '</div>'
+        f'{replies_html}'
+        '</div>'
+        f'{media_html}'
+        '</div>'
+        '</div>'
+        '</div>'
     )
-    if st.button("Delete Message", key=delete_key):
-        st.session_state["confirm_delete_message_id"] = message_id
-        st.rerun()
-    if st.session_state.get("confirm_delete_message_id") == message_id:
-        render_delete_message_dialog(message)
-    st.markdown("</div>", unsafe_allow_html=True)
+    try:
+        message_container = st.container(key=f"admin_message_card_{message_id or index}")
+    except TypeError:
+        message_container = st.container()
+    with message_container:
+        st.markdown(message_card_html, unsafe_allow_html=True)
+        if st.button(
+            "Delete",
+            key=delete_key,
+            type="tertiary",
+            icon=":material/delete:",
+            help="Delete message",
+        ):
+            st.session_state["confirm_delete_message_id"] = message_id
+            st.rerun()
+        if st.session_state.get("confirm_delete_message_id") == message_id:
+            render_delete_message_dialog(message)
 
 
 def render_parent_forms():
@@ -6178,7 +6371,7 @@ def render_admin_messages():
         '<div class="messages-title-row">'
         '<div class="panel-title">Messages</div>'
         f'<a class="create-message-button" href="{create_message_href}" target="_self">Create Message</a>'
-        '</div>',
+        '</div></div>',
         unsafe_allow_html=True,
     )
     deleted_message = st.session_state.pop("message_deleted_notice", "")
@@ -6188,26 +6381,19 @@ def render_admin_messages():
     if notification_sent:
         st.success(notification_sent)
     if not messages:
-        st.markdown('<div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel parents-panel"><div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
         return
 
-    st.markdown('<div class="parents-list admin-messages-list">', unsafe_allow_html=True)
-    for row_start in range(0, len(messages), 2):
-        columns = st.columns(2, gap="medium")
-        for offset, column in enumerate(columns):
-            message_index = row_start + offset
-            if message_index >= len(messages):
-                continue
-            with column:
-                render_admin_message_item(
-                    messages[message_index],
-                    message_index,
-                    target_message_id,
-                    children_by_id,
-                    children_by_name,
-                    parents_by_id,
-                    parents_by_email,
-                )
+    for message_index, message in enumerate(messages):
+        render_admin_message_item(
+            message,
+            message_index,
+            target_message_id,
+            children_by_id,
+            children_by_name,
+            parents_by_id,
+            parents_by_email,
+        )
     mark_parent_replies_seen(stored_messages)
     components.html(
         """
@@ -6228,7 +6414,6 @@ def render_admin_messages():
         """.replace("__TARGET_MESSAGE_ID__", json.dumps(target_anchor_id)),
         height=0,
     )
-    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 def render_admin_birthdays():
