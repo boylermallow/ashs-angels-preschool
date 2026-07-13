@@ -3978,6 +3978,17 @@ st.markdown(
         background: #fff1c7;
         color: #8a5200;
     }}
+    .parent-action-button {{
+        justify-content: center;
+        min-width: 92px;
+        background: var(--brand-blue);
+        color: #ffffff !important;
+        text-decoration: none !important;
+    }}
+    .parent-action-button:hover {{
+        background: #203d86;
+        color: #ffffff !important;
+    }}
     @media (max-width: 760px) {{
         .session-columns {{
             grid-template-columns: 1fr;
@@ -5858,6 +5869,19 @@ def render_parent_dashboard():
             unsafe_allow_html=True,
         )
         return
+
+    st.markdown(
+        f"""
+        <div class="parent-row">
+          <div>
+            <div class="parent-name">Preschool Calendar</div>
+            <div class="parent-detail">View key preschool dates and holidays for 2026/2027.</div>
+          </div>
+          <a class="parent-status parent-action-button" href="{app_href("Calendar")}" target="_self">Open</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     status = parent.get("Status", "Pending")
     child = children_by_id.get(parent.get("ChildID", ""))
