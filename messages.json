@@ -227,7 +227,8 @@
           }
         ],
         "CreatedAt": "2026-07-13T22:27:17",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-13T22:28:17"
       }
     ],
     "LastReplyAt": "2026-07-13T22:27:17"
