@@ -2,3 +2,4 @@ streamlit
 pillow
 numpy
 pywebpush
+google-auth
