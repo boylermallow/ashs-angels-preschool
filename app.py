@@ -3186,6 +3186,40 @@ st.markdown(
         gap: 16px;
         margin-bottom: 8px;
     }}
+    div.st-key-documents_page_panel,
+    div[data-testid="stVerticalBlock"].st-key-documents_page_panel {{
+        background: #ffffff !important;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 24px !important;
+        box-shadow: var(--shadow);
+    }}
+    div.st-key-documents_page_panel div[data-testid="stForm"],
+    div[data-testid="stVerticalBlock"].st-key-documents_page_panel div[data-testid="stForm"] {{
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 0 0 12px !important;
+    }}
+    .documents-page-heading {{
+        color: var(--brand-blue);
+        font-size: 1.35rem;
+        font-weight: 900;
+        line-height: 1.15;
+        margin-bottom: 6px;
+    }}
+    .documents-section-heading {{
+        color: var(--brand-blue);
+        font-size: 1.15rem;
+        font-weight: 900;
+        line-height: 1.2;
+        margin: 20px 0 4px;
+    }}
+    .documents-rule {{
+        border-top: 1px solid var(--line);
+        margin: 8px 0 2px;
+    }}
     .section-edit {{
         display: inline-flex;
         align-items: center;
@@ -6831,54 +6865,6 @@ def render_documents():
         if is_admin
         else [document for document in all_documents if document.get("Audience") == "Parents"]
     )
-    notice = st.session_state.pop("document_notice", "")
-    if notice:
-        st.success(notice)
-    data_save_warning = st.session_state.pop("data_save_warning", "")
-    if data_save_warning:
-        st.warning(data_save_warning)
-
-    st.markdown(
-        '<div class="section-header"><div>'
-        '<div class="panel-title">Documents</div>'
-        '<div class="muted">Preschool information and forms.</div>'
-        '</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    delete_document_id = str(st.query_params.get("delete_document", "") or "")
-    if is_admin and delete_document_id:
-        selected_document = next(
-            (document for document in all_documents if document.get("ID") == delete_document_id),
-            None,
-        )
-        if selected_document:
-            render_delete_document_dialog(selected_document)
-        else:
-            st.query_params.pop("delete_document", None)
-
-    if is_admin:
-        with st.container(border=True, key="document_upload_panel"):
-            st.markdown('<div class="section-title">Upload PDF</div>', unsafe_allow_html=True)
-            with st.form("document_upload_form", clear_on_submit=True):
-                upload_title = st.text_input("Document title", placeholder="e.g. September 2026")
-                upload_description = st.text_input("Description", placeholder="Optional")
-                upload_audience = st.selectbox("Section", DOCUMENT_AUDIENCES)
-                uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
-                upload_submitted = st.form_submit_button("Upload document", width="stretch")
-            if upload_submitted:
-                saved, error = save_uploaded_document(
-                    uploaded_pdf,
-                    upload_title,
-                    upload_description,
-                    upload_audience,
-                )
-                if saved:
-                    st.session_state["document_notice"] = "Document uploaded."
-                    st.rerun()
-                else:
-                    st.warning(error)
-
     def render_document_row(document):
         document_id = document.get("ID", "")
         pdf_bytes = document_bytes(document)
@@ -6935,25 +6921,73 @@ def render_documents():
             for audience in DOCUMENT_AUDIENCES
         ]
 
-    for audience, section_documents in document_sections:
-        visibility_text = (
-            "Visible to approved parent accounts."
-            if audience == "Parents"
-            else "Visible only to administrators."
-        )
+    notice = st.session_state.pop("document_notice", "")
+    data_save_warning = st.session_state.pop("data_save_warning", "")
+    delete_document_id = str(st.query_params.get("delete_document", "") or "")
+
+    with st.container(key="documents_page_panel"):
+        if notice:
+            st.success(notice)
+        if data_save_warning:
+            st.warning(data_save_warning)
+
         st.markdown(
-            f'<div class="section-title">{audience}</div>'
-            f'<div class="muted">{visibility_text}</div>',
+            '<div class="documents-page-heading">Documents</div>'
+            '<div class="muted">Preschool information and forms.</div>',
             unsafe_allow_html=True,
         )
-        if not section_documents:
+
+        if is_admin and delete_document_id:
+            selected_document = next(
+                (document for document in all_documents if document.get("ID") == delete_document_id),
+                None,
+            )
+            if selected_document:
+                render_delete_document_dialog(selected_document)
+            else:
+                st.query_params.pop("delete_document", None)
+
+        if is_admin:
+            st.markdown('<div class="documents-section-heading">Upload PDF</div>', unsafe_allow_html=True)
+            with st.form("document_upload_form", clear_on_submit=True):
+                upload_title = st.text_input("Document title", placeholder="e.g. September 2026")
+                upload_description = st.text_input("Description", placeholder="Optional")
+                upload_audience = st.selectbox("Section", DOCUMENT_AUDIENCES)
+                uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
+                upload_submitted = st.form_submit_button("Upload document", width="stretch")
+            if upload_submitted:
+                saved, error = save_uploaded_document(
+                    uploaded_pdf,
+                    upload_title,
+                    upload_description,
+                    upload_audience,
+                )
+                if saved:
+                    st.session_state["document_notice"] = "Document uploaded."
+                    st.rerun()
+                else:
+                    st.warning(error)
+            st.markdown('<div class="documents-rule"></div>', unsafe_allow_html=True)
+
+        for audience, section_documents in document_sections:
+            visibility_text = (
+                "Visible to approved parent accounts."
+                if audience == "Parents"
+                else "Visible only to administrators."
+            )
             st.markdown(
-                f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
+                f'<div class="documents-section-heading">{audience}</div>'
+                f'<div class="muted">{visibility_text}</div>',
                 unsafe_allow_html=True,
             )
-            continue
-        for document in section_documents:
-            render_document_row(document)
+            if not section_documents:
+                st.markdown(
+                    f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
+                    unsafe_allow_html=True,
+                )
+                continue
+            for document in section_documents:
+                render_document_row(document)
 
 
 def render_calendar():
