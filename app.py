@@ -39,7 +39,7 @@ except Exception:
 
 APP_DIR = Path(__file__).parent
 LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
-ICON_IMAGE = APP_DIR / "assets" / "ashs-angels-icon.svg"
+ICON_IMAGE = APP_DIR / "assets" / "ashs-angels-icon.png"
 CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
 CALENDAR_FILE = APP_DIR / "calendar.json"
 DOCUMENTS_FILE = APP_DIR / "documents.json"
@@ -105,10 +105,13 @@ DEFAULT_ADMIN_EMAIL = setting("ASH_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = setting("ASH_ADMIN_PASSWORD")
 APP_PUBLIC_URL = setting("APP_PUBLIC_URL", "https://ashs-angels-preschool.streamlit.app").rstrip("/")
 
+with Image.open(ICON_IMAGE) as icon_source:
+    PAGE_ICON = icon_source.copy()
+
 
 st.set_page_config(
     page_title="Ash's Angels Preschool App",
-    page_icon=str(ICON_IMAGE),
+    page_icon=PAGE_ICON,
     layout="wide",
 )
 
@@ -130,6 +133,31 @@ def asset_url(path):
     mime = "image/svg+xml" if suffix == ".svg" else "image/png"
     data = base64.b64encode(path.read_bytes()).decode("ascii")
     return f"data:{mime};base64,{data}"
+
+
+def render_browser_icon():
+    icon_url = asset_url(ICON_IMAGE)
+    components.html(
+        f"""
+        <script>
+        (() => {{
+          const doc = window.parent.document;
+          doc.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"]').forEach((link) => link.remove());
+          ["icon", "shortcut icon"].forEach((rel) => {{
+            const link = doc.createElement("link");
+            link.rel = rel;
+            link.type = "image/png";
+            link.href = "{icon_url}";
+            doc.head.appendChild(link);
+          }});
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+render_browser_icon()
 
 
 @st.cache_data(show_spinner=False)
