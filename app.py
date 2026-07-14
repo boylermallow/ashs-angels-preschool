@@ -3246,6 +3246,46 @@ st.markdown(
         border-top: 1px solid var(--line);
         margin: 8px 0 2px;
     }}
+    .document-file-summary {{
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        min-width: 0;
+    }}
+    .document-file-copy {{
+        min-width: 0;
+        padding-top: 2px;
+    }}
+    .document-pdf-icon {{
+        position: relative;
+        display: inline-flex;
+        flex: 0 0 46px;
+        align-items: flex-end;
+        justify-content: center;
+        width: 46px;
+        height: 54px;
+        padding: 0 0 7px;
+        overflow: hidden;
+        border: 1px solid #ad2530;
+        border-radius: 6px;
+        background: #cf3340;
+        color: #ffffff;
+        font-family: system-ui, sans-serif;
+        font-size: .72rem;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0;
+    }}
+    .document-pdf-icon::before {{
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 14px;
+        height: 14px;
+        background: #ffffff;
+        clip-path: polygon(0 0, 100% 0, 100% 100%);
+    }}
     .document-drag-marker,
     .document-drop-marker,
     .document-move-link {{
@@ -7231,13 +7271,17 @@ def render_documents():
         with st.container(border=True, key=f"document_row_{document_id}"):
             st.markdown(
                 drag_controls_html
+                + '<div class="document-file-summary">'
+                + '<div class="document-pdf-icon" role="img" aria-label="PDF document"><span aria-hidden="true">PDF</span></div>'
+                + '<div class="document-file-copy">'
                 + f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
                 + (
                     f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
                     if document.get("Description")
                     else ""
                 )
-                + f'<div class="parent-detail">{html.escape(" | ".join(detail_parts))}</div>',
+                + f'<div class="parent-detail">{html.escape(" | ".join(detail_parts))}</div>'
+                + '</div></div>',
                 unsafe_allow_html=True,
             )
             action_sizes = [1.1, 1.5, 1.1, 3.3] if is_admin else [1.1, 1.5, 4.4]
