@@ -2344,6 +2344,25 @@ def mark_messages_read(message_ids, parent_email):
         save_messages(messages)
 
 
+def set_parent_message_archived(message_id, parent_email, archived=True):
+    clean_email = str(parent_email or "").strip().lower()
+    if not message_id or not clean_email:
+        return False
+    messages = load_messages()
+    for message in messages:
+        if (
+            message.get("ID") == message_id
+            and message.get("ParentEmail", "").strip().lower() == clean_email
+        ):
+            message["ParentArchived"] = bool(archived)
+            if archived:
+                message["ParentArchivedAt"] = datetime.now().isoformat(timespec="seconds")
+            else:
+                message.pop("ParentArchivedAt", None)
+            return save_messages(messages)
+    return False
+
+
 def delete_message(message_id):
     messages = load_messages()
     kept_messages = [message for message in messages if message.get("ID") != message_id]
@@ -6823,7 +6842,14 @@ def save_parent_statement_signature(signature_name):
     return save_parents(parents)
 
 
-def render_parent_message_items(parent, messages, key_prefix="parent_message", limit=None, children_by_id=None):
+def render_parent_message_items(
+    parent,
+    messages,
+    key_prefix="parent_message",
+    limit=None,
+    children_by_id=None,
+    show_archive_controls=True,
+):
     sorted_messages = sorted(messages, key=message_activity_key, reverse=True)
     if limit:
         sorted_messages = sorted_messages[:limit]
@@ -6875,8 +6901,31 @@ def render_parent_message_items(parent, messages, key_prefix="parent_message", l
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Reply", key=f"{key_prefix}_open_reply_{message_id}"):
+        action_columns = st.columns([1, 1.35, 2.65], gap="small")
+        if action_columns[0].button(
+            "Reply",
+            key=f"{key_prefix}_open_reply_{message_id}",
+            width="stretch",
+        ):
             st.session_state[reply_open_key] = True
+        if show_archive_controls:
+            is_archived = bool(message.get("ParentArchived"))
+            archive_label = "Restore" if is_archived else "Archive"
+            archive_icon = ":material/unarchive:" if is_archived else ":material/archive:"
+            if action_columns[1].button(
+                archive_label,
+                icon=archive_icon,
+                key=f"{key_prefix}_archive_{message_id}",
+                width="stretch",
+            ):
+                if set_parent_message_archived(
+                    message_id,
+                    parent.get("Email", ""),
+                    archived=not is_archived,
+                ):
+                    st.rerun()
+                else:
+                    st.error("The message could not be updated. Please try again.")
         if st.session_state.get(reply_open_key):
             reply_media_key = f"{key_prefix}_reply_media_{message_id}"
             reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
@@ -7500,7 +7549,11 @@ def render_parent_dashboard():
         )
         return
 
-    messages = current_parent_messages()
+    messages = [
+        message
+        for message in current_parent_messages()
+        if not message.get("ParentArchived")
+    ]
     if messages:
         render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3, children_by_id=children_by_id)
         if len(messages) > 3:
