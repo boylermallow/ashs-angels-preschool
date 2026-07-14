@@ -185,7 +185,7 @@ def github_data_token():
     return ""
 
 
-def github_api_request(method, path, payload=None):
+def github_api_request(method, path, payload=None, warn=True):
     token = github_data_token()
     if not token:
         return None
@@ -206,11 +206,12 @@ def github_api_request(method, path, payload=None):
         with urlopen(request, timeout=12) as response:
             return json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
-        st.session_state["data_save_warning"] = (
-            "This change was saved for now, but not permanently. "
-            "The GitHub data key needs checking."
-        )
-        st.session_state["data_save_error"] = str(exc)
+        if warn:
+            st.session_state["data_save_warning"] = (
+                "This change was saved for now, but not permanently. "
+                "The GitHub data key needs checking."
+            )
+            st.session_state["data_save_error"] = str(exc)
         return None
 
 
@@ -277,6 +278,9 @@ def save_persistent_binary(path, file_bytes, message):
 
 
 def delete_persistent_binary(path, message):
+    path = str(path or "").strip()
+    if not path:
+        return True
     local_path = APP_DIR / path
     if not github_data_token():
         try:
