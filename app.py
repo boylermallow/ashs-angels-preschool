@@ -44,6 +44,7 @@ CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
 CALENDAR_FILE = APP_DIR / "calendar.json"
 DOCUMENTS_FILE = APP_DIR / "documents.json"
 DOCUMENTS_DIR = APP_DIR / "static" / "documents"
+DOCUMENT_AUDIENCES = ["Parents", "Private"]
 PARENT_STATEMENT_FILE = APP_DIR / "assets" / "parent-statement-2026.txt"
 USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
@@ -643,6 +644,9 @@ def normalize_document(item):
         size = int(item.get("Size") or item.get("size") or 0)
     except (TypeError, ValueError):
         size = 0
+    audience = str(item.get("Audience") or item.get("audience") or "Parents").strip().title()
+    if audience not in DOCUMENT_AUDIENCES:
+        audience = "Parents"
     return {
         "ID": document_id,
         "Title": title,
@@ -651,6 +655,7 @@ def normalize_document(item):
         "Path": path,
         "Size": size,
         "UploadedAt": str(item.get("UploadedAt") or item.get("uploaded_at") or "").strip(),
+        "Audience": audience,
     }
 
 
@@ -684,7 +689,7 @@ def document_open_url(document):
     return f"https://raw.githubusercontent.com/{DATA_REPOSITORY}/{DATA_BRANCH}/{quote(path)}" if path else ""
 
 
-def save_uploaded_document(uploaded_file, title, description=""):
+def save_uploaded_document(uploaded_file, title, description="", audience="Parents"):
     if uploaded_file is None:
         return False, "Please choose a PDF file."
     file_bytes = uploaded_file.getvalue()
@@ -694,6 +699,9 @@ def save_uploaded_document(uploaded_file, title, description=""):
         return False, "The selected file is not a valid PDF."
 
     clean_title = str(title or "").strip() or Path(uploaded_file.name).stem
+    clean_audience = str(audience or "Parents").strip().title()
+    if clean_audience not in DOCUMENT_AUDIENCES:
+        clean_audience = "Parents"
     file_name = Path(str(uploaded_file.name or f"{clean_title}.pdf")).name
     if not file_name.lower().endswith(".pdf"):
         file_name = f"{file_name}.pdf"
@@ -710,6 +718,7 @@ def save_uploaded_document(uploaded_file, title, description=""):
         "Path": path,
         "Size": len(file_bytes),
         "UploadedAt": datetime.now().isoformat(timespec="seconds"),
+        "Audience": clean_audience,
     }
     if not save_documents([document, *load_documents()]):
         return False, "The document details could not be saved permanently. Please check the GitHub data key and try again."
@@ -6816,7 +6825,12 @@ if hasattr(st, "dialog"):
 
 def render_documents():
     is_admin = st.session_state.get("role") == "Admin"
-    documents = load_documents()
+    all_documents = load_documents()
+    documents = (
+        all_documents
+        if is_admin
+        else [document for document in all_documents if document.get("Audience") == "Parents"]
+    )
     notice = st.session_state.pop("document_notice", "")
     if notice:
         st.success(notice)
@@ -6835,7 +6849,7 @@ def render_documents():
     delete_document_id = str(st.query_params.get("delete_document", "") or "")
     if is_admin and delete_document_id:
         selected_document = next(
-            (document for document in documents if document.get("ID") == delete_document_id),
+            (document for document in all_documents if document.get("ID") == delete_document_id),
             None,
         )
         if selected_document:
@@ -6849,22 +6863,23 @@ def render_documents():
             with st.form("document_upload_form", clear_on_submit=True):
                 upload_title = st.text_input("Document title", placeholder="e.g. September 2026")
                 upload_description = st.text_input("Description", placeholder="Optional")
+                upload_audience = st.selectbox("Section", DOCUMENT_AUDIENCES)
                 uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
                 upload_submitted = st.form_submit_button("Upload document", width="stretch")
             if upload_submitted:
-                saved, error = save_uploaded_document(uploaded_pdf, upload_title, upload_description)
+                saved, error = save_uploaded_document(
+                    uploaded_pdf,
+                    upload_title,
+                    upload_description,
+                    upload_audience,
+                )
                 if saved:
                     st.session_state["document_notice"] = "Document uploaded."
                     st.rerun()
                 else:
                     st.warning(error)
 
-    if not documents:
-        st.markdown('<div class="muted">No documents have been added yet.</div>', unsafe_allow_html=True)
-        return
-
-    st.markdown('<div class="section-title">Available documents</div>', unsafe_allow_html=True)
-    for document in documents:
+    def render_document_row(document):
         document_id = document.get("ID", "")
         pdf_bytes = document_bytes(document)
         open_url = document_open_url(document)
@@ -6912,6 +6927,33 @@ def render_documents():
             ):
                 st.query_params["delete_document"] = document_id
                 st.rerun()
+
+    document_sections = [("Parents", documents)]
+    if is_admin:
+        document_sections = [
+            (audience, [document for document in documents if document.get("Audience") == audience])
+            for audience in DOCUMENT_AUDIENCES
+        ]
+
+    for audience, section_documents in document_sections:
+        visibility_text = (
+            "Visible to approved parent accounts."
+            if audience == "Parents"
+            else "Visible only to administrators."
+        )
+        st.markdown(
+            f'<div class="section-title">{audience}</div>'
+            f'<div class="muted">{visibility_text}</div>',
+            unsafe_allow_html=True,
+        )
+        if not section_documents:
+            st.markdown(
+                f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
+                unsafe_allow_html=True,
+            )
+            continue
+        for document in section_documents:
+            render_document_row(document)
 
 
 def render_calendar():
