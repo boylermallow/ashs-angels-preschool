@@ -741,6 +741,28 @@ def delete_document(document_id):
     return True
 
 
+def move_document(document_id, audience):
+    clean_id = str(document_id or "").strip()
+    clean_audience = str(audience or "").strip().title()
+    if not clean_id or clean_audience not in DOCUMENT_AUDIENCES:
+        return False
+    documents = load_documents()
+    found = False
+    changed = False
+    updated_documents = []
+    for document in documents:
+        updated_document = dict(document)
+        if document.get("ID") == clean_id:
+            found = True
+            if document.get("Audience") != clean_audience:
+                updated_document["Audience"] = clean_audience
+                changed = True
+        updated_documents.append(updated_document)
+    if not found:
+        return False
+    return save_documents(updated_documents) if changed else True
+
+
 def load_children():
     children = load_persistent_json("children.json", [])
     return children if isinstance(children, list) else []
@@ -3223,6 +3245,69 @@ st.markdown(
     .documents-rule {{
         border-top: 1px solid var(--line);
         margin: 8px 0 2px;
+    }}
+    .document-drag-marker,
+    .document-drop-marker,
+    .document-move-link {{
+        display: none !important;
+    }}
+    .document-draggable-row {{
+        position: relative !important;
+        padding-right: 68px !important;
+        transition: border-color .16s ease, box-shadow .16s ease, opacity .16s ease !important;
+    }}
+    .document-draggable-row.is-dragging {{
+        opacity: .62;
+        border-color: var(--brand-blue) !important;
+    }}
+    .document-drag-handle {{
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border: 1px solid #cbdbea;
+        border-radius: 8px;
+        background: #eef6ff;
+        color: var(--brand-blue);
+        font-family: system-ui, sans-serif;
+        font-size: 1.35rem;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: -7px;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        box-shadow: none;
+    }}
+    .document-drag-handle:hover,
+    .document-drag-handle:focus-visible {{
+        border-color: var(--brand-blue);
+        background: #dceeff;
+        outline: none;
+    }}
+    .document-drag-handle:active {{
+        cursor: grabbing;
+    }}
+    .document-drop-zone {{
+        border: 2px dashed transparent;
+        border-radius: 8px;
+        padding: 0 12px 14px !important;
+        transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+    }}
+    body.document-is-dragging .document-drop-zone {{
+        border-color: #b9cfe5;
+        background: #f7fbff;
+    }}
+    body.document-is-dragging .document-drop-zone.is-drop-target {{
+        border-color: var(--brand-blue);
+        background: #e9f4ff;
+        box-shadow: 0 0 0 3px rgba(47,79,159,.12);
     }}
     .section-edit {{
         display: inline-flex;
@@ -6074,7 +6159,7 @@ def render_side_menu(role, selected_page):
             badge = f'<span class="menu-badge" aria-label="{message_badge_count} unseen message{"s" if message_badge_count != 1 else ""}">{badge_text}</span>'
         return f'<span>{html.escape(item)}</span>{badge}'
 
-    items_html = "\n".join(
+    items_html = "".join(
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{nav_label(item)}</a>'
         for item in nav_items
     )
@@ -6089,8 +6174,7 @@ def render_side_menu(role, selected_page):
             '</svg>'
             '</a>'
         )
-    st.markdown(
-        f"""
+    menu_html = f"""
         <div class="mobile-menu">
           <input class="mobile-menu-toggle" id="mobile-menu-toggle" type="checkbox" aria-label="Open navigation menu">
           <label class="mobile-menu-button" for="mobile-menu-toggle">
@@ -6116,7 +6200,9 @@ def render_side_menu(role, selected_page):
           <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
           <div class="rainbow-rule"></div>
         </div>
-        """,
+        """
+    st.markdown(
+        "".join(line.strip() for line in menu_html.splitlines()),
         unsafe_allow_html=True,
     )
     render_mobile_push_status_bell()
@@ -6923,8 +7009,196 @@ if hasattr(st, "dialog"):
     render_delete_document_dialog = st.dialog("Delete document")(render_delete_document_dialog)
 
 
+def render_document_drag_controls(documents):
+    records = [
+        {"id": str(document.get("ID", "")), "audience": str(document.get("Audience", "Parents"))}
+        for document in documents
+        if document.get("ID")
+    ]
+    records_json = json.dumps(records).replace("</", "<\\/")
+    components.html(
+        f"""
+        <script>
+        (() => {{
+          const parentWindow = window.parent;
+          const doc = parentWindow.document;
+          const records = {records_json};
+          let activeRecord = null;
+          let activeRow = null;
+          let activeZone = null;
+
+          const keyedAncestor = (marker, key) => {{
+            let node = marker;
+            const className = `st-key-${{key}}`;
+            while (node && node !== doc.body) {{
+              if (node.classList && node.classList.contains(className)) return node;
+              node = node.parentElement;
+            }}
+            return null;
+          }};
+
+          const clearDragState = () => {{
+            activeRow?.classList.remove("is-dragging");
+            activeZone?.classList.remove("is-drop-target");
+            doc.body?.classList.remove("document-is-dragging");
+            activeRecord = null;
+            activeRow = null;
+            activeZone = null;
+          }};
+
+          const destinationAt = (x, y) => {{
+            const element = doc.elementFromPoint(x, y);
+            return element?.closest(".document-drop-zone") || null;
+          }};
+
+          const showDestination = (zone) => {{
+            activeZone?.classList.remove("is-drop-target");
+            activeZone = zone;
+            if (activeZone && activeZone.dataset.audience !== activeRecord?.audience) {{
+              activeZone.classList.add("is-drop-target");
+            }}
+          }};
+
+          const moveTo = (zone) => {{
+            if (!activeRecord || !zone) return clearDragState();
+            const audience = zone.dataset.audience || "";
+            if (!audience || audience === activeRecord.audience) return clearDragState();
+            const moveLink = Array.from(doc.querySelectorAll(".document-move-link")).find(
+              (link) => link.dataset.documentId === activeRecord.id && link.dataset.audience === audience
+            );
+            clearDragState();
+            moveLink?.click();
+          }};
+
+          const bindZone = (audience) => {{
+            const marker = doc.querySelector(`.document-drop-marker[data-audience="${{audience}}"]`);
+            const zone = marker && keyedAncestor(marker, `document_section_${{audience.toLowerCase()}}`);
+            if (!zone) return;
+            zone.classList.add("document-drop-zone");
+            zone.dataset.audience = audience;
+            if (zone.dataset.documentDropBound === "true") return;
+            zone.dataset.documentDropBound = "true";
+            zone.addEventListener("dragover", (event) => {{
+              if (!activeRecord || activeRecord.audience === audience) return;
+              event.preventDefault();
+              showDestination(zone);
+            }});
+            zone.addEventListener("dragleave", (event) => {{
+              if (!zone.contains(event.relatedTarget)) zone.classList.remove("is-drop-target");
+            }});
+            zone.addEventListener("drop", (event) => {{
+              event.preventDefault();
+              moveTo(zone);
+            }});
+          }};
+
+          const bindRow = (record) => {{
+            const marker = doc.querySelector(`.document-drag-marker[data-document-id="${{record.id}}"]`);
+            const row = marker && keyedAncestor(marker, `document_row_${{record.id}}`);
+            if (!row) return;
+            row.classList.add("document-draggable-row");
+            if (row.querySelector(".document-drag-handle")) return;
+            const handle = doc.createElement("button");
+            const destination = record.audience === "Parents" ? "Private" : "Parents";
+            handle.type = "button";
+            handle.className = "document-drag-handle";
+            handle.draggable = false;
+            handle.title = `Move document to ${{destination}}`;
+            handle.setAttribute("aria-label", `Move document to ${{destination}}`);
+            handle.innerHTML = '<span aria-hidden="true">&#8942;&#8942;</span>';
+            row.insertBefore(handle, row.firstChild);
+
+            handle.addEventListener("dragstart", (event) => {{
+              activeRecord = record;
+              activeRow = row;
+              row.classList.add("is-dragging");
+              doc.body?.classList.add("document-is-dragging");
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", record.id);
+            }});
+            handle.addEventListener("dragend", clearDragState);
+            handle.addEventListener("mousedown", (event) => {{
+              activeRecord = record;
+              activeRow = row;
+              row.classList.add("is-dragging");
+              doc.body?.classList.add("document-is-dragging");
+              event.preventDefault();
+            }});
+            handle.addEventListener("keydown", (event) => {{
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              activeRecord = record;
+              activeRow = row;
+              const marker = doc.querySelector(`.document-drop-marker[data-audience="${{destination}}"]`);
+              moveTo(marker && keyedAncestor(marker, `document_section_${{destination.toLowerCase()}}`));
+            }});
+            handle.addEventListener("pointerdown", (event) => {{
+              if (event.pointerType === "mouse") return;
+              activeRecord = record;
+              activeRow = row;
+              row.classList.add("is-dragging");
+              doc.body?.classList.add("document-is-dragging");
+              handle.setPointerCapture(event.pointerId);
+              event.preventDefault();
+            }});
+            handle.addEventListener("pointermove", (event) => {{
+              if (!activeRecord || event.pointerType === "mouse") return;
+              showDestination(destinationAt(event.clientX, event.clientY));
+              event.preventDefault();
+            }});
+            handle.addEventListener("pointerup", (event) => {{
+              if (!activeRecord || event.pointerType === "mouse") return;
+              moveTo(destinationAt(event.clientX, event.clientY));
+            }});
+            handle.addEventListener("pointercancel", clearDragState);
+          }};
+
+          const install = () => {{
+            bindZone("Parents");
+            bindZone("Private");
+            records.forEach(bindRow);
+          }};
+          if (typeof parentWindow.__ashsDocumentMouseCleanup === "function") {{
+            parentWindow.__ashsDocumentMouseCleanup();
+          }}
+          const trackMouse = (event) => {{
+            if (activeRecord) showDestination(destinationAt(event.clientX, event.clientY));
+          }};
+          const releaseMouse = (event) => {{
+            if (activeRecord) moveTo(destinationAt(event.clientX, event.clientY));
+          }};
+          doc.addEventListener("mousemove", trackMouse);
+          doc.addEventListener("mouseup", releaseMouse);
+          parentWindow.__ashsDocumentMouseCleanup = () => {{
+            doc.removeEventListener("mousemove", trackMouse);
+            doc.removeEventListener("mouseup", releaseMouse);
+          }};
+          install();
+          [80, 240, 700].forEach((delay) => parentWindow.setTimeout(install, delay));
+          if (doc.body) {{
+            const observer = new MutationObserver(install);
+            observer.observe(doc.body, {{ childList: true, subtree: true }});
+            parentWindow.setTimeout(() => observer.disconnect(), 4000);
+          }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def render_documents():
     is_admin = st.session_state.get("role") == "Admin"
+    move_document_id = str(st.query_params.get("move_document", "") or "")
+    move_audience = str(st.query_params.get("document_audience", "") or "").title()
+    if is_admin and move_document_id:
+        for param in ("move_document", "document_audience"):
+            st.query_params.pop(param, None)
+        if move_document(move_document_id, move_audience):
+            st.session_state["document_notice"] = f"Document moved to {move_audience}."
+        else:
+            st.session_state["data_save_warning"] = "The document could not be moved permanently. Please try again."
+        st.rerun()
     all_documents = load_documents()
     documents = (
         all_documents
@@ -6940,9 +7214,24 @@ def render_documents():
             detail_parts.append(file_size_label(document.get("Size")))
         if document.get("UploadedAt"):
             detail_parts.append(f"Added {message_datetime(document.get('UploadedAt'))}")
+        drag_controls_html = ""
+        if is_admin:
+            move_destination = "Private" if document.get("Audience") == "Parents" else "Parents"
+            move_href = app_href(
+                "Documents",
+                move_document=document_id,
+                document_audience=move_destination,
+            )
+            drag_controls_html = (
+                f'<span class="document-drag-marker" data-document-id="{html.escape(document_id, quote=True)}" '
+                f'data-document-audience="{html.escape(document.get("Audience", "Parents"), quote=True)}"></span>'
+                f'<a class="document-move-link" data-document-id="{html.escape(document_id, quote=True)}" '
+                f'data-audience="{move_destination}" href="{html.escape(move_href, quote=True)}" target="_self" tabindex="-1"></a>'
+            )
         with st.container(border=True, key=f"document_row_{document_id}"):
             st.markdown(
-                f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
+                drag_controls_html
+                + f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
                 + (
                     f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
                     if document.get("Description")
@@ -7028,24 +7317,32 @@ def render_documents():
             st.markdown('<div class="documents-rule"></div>', unsafe_allow_html=True)
 
         for audience, section_documents in document_sections:
-            visibility_text = (
-                "Visible to approved parent accounts."
-                if audience == "Parents"
-                else "Visible only to administrators."
-            )
-            st.markdown(
-                f'<div class="documents-section-heading">{audience}</div>'
-                f'<div class="muted">{visibility_text}</div>',
-                unsafe_allow_html=True,
-            )
-            if not section_documents:
+            with st.container(key=f"document_section_{audience.lower()}"):
+                visibility_text = (
+                    "Visible to approved parent accounts."
+                    if audience == "Parents"
+                    else "Visible only to administrators."
+                )
                 st.markdown(
-                    f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
+                    (
+                        f'<span class="document-drop-marker" data-audience="{audience}"></span>'
+                        if is_admin
+                        else ""
+                    )
+                    + f'<div class="documents-section-heading">{audience}</div>'
+                    + f'<div class="muted">{visibility_text}</div>',
                     unsafe_allow_html=True,
                 )
-                continue
-            for document in section_documents:
-                render_document_row(document)
+                if not section_documents:
+                    st.markdown(
+                        f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
+                        unsafe_allow_html=True,
+                    )
+                for document in section_documents:
+                    render_document_row(document)
+
+        if is_admin:
+            render_document_drag_controls(documents)
 
 
 def render_calendar():
@@ -7603,7 +7900,7 @@ if saved_login_token:
 login_placeholder = st.empty()
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "move_document", "document_audience", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
         st.query_params.pop(protected_param, None)
     with login_placeholder.container():
         render_login(login_placeholder)
