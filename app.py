@@ -4945,11 +4945,12 @@ st.markdown(
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"] button,
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] {{
-        background: #ffffff !important;
-        background-color: #ffffff !important;
+        background: #e9f4ff !important;
+        background-color: #e9f4ff !important;
         color: var(--brand-blue) !important;
         -webkit-text-fill-color: var(--brand-blue) !important;
         border: 0 !important;
+        border-left: 1px solid #d9e5ef !important;
         box-shadow: none !important;
         display: inline-grid !important;
         place-items: center !important;
@@ -4963,6 +4964,12 @@ st.markdown(
         font-size: 0 !important;
         line-height: 0 !important;
         text-indent: -9999px !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button:hover,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"]:hover {{
+        background: #dceefe !important;
+        background-color: #dceefe !important;
+        color: var(--brand-blue) !important;
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"] button *,
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] * {{
@@ -5000,6 +5007,13 @@ st.markdown(
         border-radius: 999px !important;
         background: var(--brand-blue) !important;
         transform: translate(-50%, -50%) !important;
+    }}
+    div[data-testid="stTextInput"] div[data-baseweb="input"] button[aria-label*="Hide password"]::after,
+    div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"][aria-label*="Hide password"]::after {{
+        width: 25px !important;
+        height: 2px !important;
+        border-radius: 999px !important;
+        transform: translate(-50%, -50%) rotate(45deg) !important;
     }}
     div[data-testid="stTextInput"] div[data-baseweb="input"] button svg,
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] svg {{
