@@ -4797,6 +4797,42 @@ st.markdown(
         color: #ffffff !important;
         fill: #ffffff !important;
     }}
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a,
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button,
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button {{
+        min-height: 40px !important;
+        height: 40px !important;
+        padding: 0 12px !important;
+        border: 1px solid #d9e5ef !important;
+        border-radius: 8px !important;
+        background: #ffffff !important;
+        color: var(--brand-blue) !important;
+        box-shadow: none !important;
+        font-size: .88rem !important;
+        font-weight: 780 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a *,
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button *,
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button * {{
+        color: var(--brand-blue) !important;
+        fill: var(--brand-blue) !important;
+        background: transparent !important;
+        font-size: .88rem !important;
+        font-weight: 780 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a:hover,
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button:hover,
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button:hover {{
+        background: #eef6fc !important;
+        border-color: #a8c4dd !important;
+        color: var(--brand-blue) !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }}
     @media (max-width: 760px) {{
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
             display: grid !important;
@@ -6874,28 +6910,27 @@ def render_documents():
             detail_parts.append(file_size_label(document.get("Size")))
         if document.get("UploadedAt"):
             detail_parts.append(f"Added {message_datetime(document.get('UploadedAt'))}")
-        column_sizes = [4.2, 1.4, 1.8, 1.5] if is_admin else [4.5, 1.4, 1.8]
         with st.container(border=True, key=f"document_row_{document_id}"):
-            columns = st.columns(column_sizes, vertical_alignment="center")
-            with columns[0]:
-                st.markdown(
-                    f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
-                    + (
-                        f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
-                        if document.get("Description")
-                        else ""
-                    )
-                    + f'<div class="parent-detail">{html.escape(" | ".join(detail_parts))}</div>',
-                    unsafe_allow_html=True,
+            st.markdown(
+                f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
+                + (
+                    f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
+                    if document.get("Description")
+                    else ""
                 )
-            columns[1].link_button(
+                + f'<div class="parent-detail">{html.escape(" | ".join(detail_parts))}</div>',
+                unsafe_allow_html=True,
+            )
+            action_sizes = [1.1, 1.5, 1.1, 3.3] if is_admin else [1.1, 1.5, 4.4]
+            actions = st.columns(action_sizes, vertical_alignment="center")
+            actions[0].link_button(
                 "Open",
                 open_url,
                 icon=":material/open_in_new:",
                 width="stretch",
                 disabled=not bool(open_url),
             )
-            columns[2].download_button(
+            actions[1].download_button(
                 "Download",
                 data=pdf_bytes,
                 file_name=document.get("FileName", "document.pdf"),
@@ -6905,7 +6940,7 @@ def render_documents():
                 disabled=not bool(pdf_bytes),
                 key=f"download_document_{document_id}",
             )
-            if is_admin and columns[3].button(
+            if is_admin and actions[2].button(
                 "Delete",
                 icon=":material/delete:",
                 key=f"delete_document_{document_id}",
@@ -6954,7 +6989,7 @@ def render_documents():
                 upload_description = st.text_input("Description", placeholder="Optional")
                 upload_audience = st.selectbox("Section", DOCUMENT_AUDIENCES)
                 uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
-                upload_submitted = st.form_submit_button("Upload document", width="stretch")
+                upload_submitted = st.form_submit_button("Upload document")
             if upload_submitted:
                 saved, error = save_uploaded_document(
                     uploaded_pdf,
