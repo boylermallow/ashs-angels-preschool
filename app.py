@@ -5592,6 +5592,27 @@ def render_session_message_dialog(session_name, children, parents):
         return
 
     with st.form(key=f"session_message_form_{session_key}", clear_on_submit=False):
+        st.markdown("**Recipients**")
+        recipient_selections = []
+        recipient_state_keys = []
+        recipient_columns = st.columns(2) if len(targets) > 1 else [st.container()]
+        for index, (child, parent) in enumerate(targets):
+            parent_name = str(parent.get("FirstName") or parent.get("Email") or "Parent").strip()
+            child_name = str(child.get("Name") or "Child").strip()
+            recipient_identity = str(parent.get("ID") or parent.get("Email") or index)
+            recipient_key = (
+                f"session_recipient_{session_key}_"
+                f"{hashlib.sha256(recipient_identity.encode('utf-8')).hexdigest()[:12]}"
+            )
+            recipient_state_keys.append(recipient_key)
+            with recipient_columns[index % len(recipient_columns)]:
+                is_selected = st.checkbox(
+                    f"{parent_name} - {child_name}",
+                    value=True,
+                    key=recipient_key,
+                )
+            recipient_selections.append(((child, parent), is_selected))
+
         message_body = st.text_area(
             "Message",
             placeholder="Write your message here...",
@@ -5616,20 +5637,23 @@ def render_session_message_dialog(session_name, children, parents):
             )
         send_col, cancel_col = st.columns(2)
         send_message = send_col.form_submit_button(
-            f"Send to {parent_count} parent{'s' if parent_count != 1 else ''}",
+            "Send to selected parents",
             width="stretch",
         )
         cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
 
+    selected_targets = [target for target, is_selected in recipient_selections if is_selected]
     if send_message:
-        if not str(message_body or "").strip() and not media_files:
+        if not selected_targets:
+            st.warning("Select at least one parent.")
+        elif not str(message_body or "").strip() and not media_files:
             st.warning("Please add a message, photo, or video first.")
         else:
             attachments, attachment_error = prepare_message_attachments(media_files)
             if attachment_error:
                 st.warning(attachment_error)
             else:
-                sent_count = send_session_parent_notifications(targets, message_body, attachments)
+                sent_count = send_session_parent_notifications(selected_targets, message_body, attachments)
                 if sent_count:
                     st.session_state["notification_sent"] = (
                         f"Message sent to {sent_count} {session_name.lower()} "
@@ -5637,6 +5661,8 @@ def render_session_message_dialog(session_name, children, parents):
                     )
                     st.session_state.pop(message_key, None)
                     st.session_state.pop(media_key, None)
+                    for recipient_key in recipient_state_keys:
+                        st.session_state.pop(recipient_key, None)
                     st.query_params.pop("message_session", None)
                     st.rerun()
                 else:
@@ -5645,6 +5671,8 @@ def render_session_message_dialog(session_name, children, parents):
     if cancel_message:
         st.session_state.pop(message_key, None)
         st.session_state.pop(media_key, None)
+        for recipient_key in recipient_state_keys:
+            st.session_state.pop(recipient_key, None)
         st.query_params.pop("message_session", None)
         st.rerun()
 
