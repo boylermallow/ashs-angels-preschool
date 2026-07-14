@@ -4813,6 +4813,9 @@ st.markdown(
         line-height: 1 !important;
         white-space: nowrap !important;
     }}
+    div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stHorizontalBlock"] {{
+        gap: 24px !important;
+    }}
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a *,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button *,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button * {{
@@ -6927,7 +6930,6 @@ def render_documents():
                 "Open",
                 open_url,
                 icon=":material/open_in_new:",
-                width="stretch",
                 disabled=not bool(open_url),
             )
             actions[1].download_button(
@@ -6936,7 +6938,6 @@ def render_documents():
                 file_name=document.get("FileName", "document.pdf"),
                 mime="application/pdf",
                 icon=":material/download:",
-                width="stretch",
                 disabled=not bool(pdf_bytes),
                 key=f"download_document_{document_id}",
             )
@@ -6944,7 +6945,6 @@ def render_documents():
                 "Delete",
                 icon=":material/delete:",
                 key=f"delete_document_{document_id}",
-                width="stretch",
             ):
                 st.query_params["delete_document"] = document_id
                 st.rerun()
