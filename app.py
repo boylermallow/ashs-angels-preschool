@@ -5611,7 +5611,7 @@ st.markdown(
 )
 
 
-def render_sign_in_dialog(selected_role):
+def render_sign_in_dialog(selected_role, login_placeholder=None):
     if selected_role == "ParentRegister":
         st.markdown('<div class="panel-title">Parent Registration</div>', unsafe_allow_html=True)
         first_name = st.text_input("Parent first name")
@@ -5717,9 +5717,17 @@ def render_sign_in_dialog(selected_role):
             st.session_state["logged_in"] = True
             st.session_state["role"] = account["role"]
             st.session_state["email"] = account["email"]
-            st.query_params["auth"] = make_auth_token(account)
             st.session_state.pop("login_role", None)
-            st.query_params.pop("login_role", None)
+            st.session_state.pop(f"{selected_role}_login_email", None)
+            st.session_state.pop(f"{selected_role}_login_password", None)
+            if login_placeholder is not None:
+                login_placeholder.empty()
+            st.query_params.from_dict(
+                {
+                    "auth": make_auth_token(account),
+                    "app_page": "Children" if account["role"] == "Admin" else "Dashboard",
+                }
+            )
             st.rerun()
         else:
             st.error("Those login details do not match an account for this role.")
@@ -6007,7 +6015,7 @@ if hasattr(st, "dialog"):
     render_create_message_dialog = st.dialog("Create message")(render_create_message_dialog)
 
 
-def render_login():
+def render_login(login_placeholder=None):
     selected_role = st.query_params.get("login_role") or st.session_state.get("login_role")
     if selected_role not in {"Parent", "ParentRegister", "ParentForgot", "Admin"}:
         selected_role = None
@@ -6048,7 +6056,7 @@ def render_login():
 
     st.session_state["login_role"] = selected_role
     with st.container(key="login_form_card"):
-        render_sign_in_dialog(selected_role)
+        render_sign_in_dialog(selected_role, login_placeholder)
 
 
 def render_side_menu(role, selected_page):
@@ -7592,11 +7600,16 @@ saved_login_token = sync_saved_login()
 if saved_login_token:
     render_saved_login_bridge(saved_login_token)
 
+login_placeholder = st.empty()
+
 if not st.session_state.get("logged_in"):
     for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
         st.query_params.pop(protected_param, None)
-    render_login()
+    with login_placeholder.container():
+        render_login(login_placeholder)
     st.stop()
+
+login_placeholder.empty()
 
 
 current_role = st.session_state.get("role", "Parent")
