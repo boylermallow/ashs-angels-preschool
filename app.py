@@ -3251,6 +3251,11 @@ st.markdown(
         color: var(--brand-blue);
         font-weight: 900;
     }}
+    @media (min-width: 761px) {{
+        .admin-push-setup-alert {{
+            display: none;
+        }}
+    }}
     .admin-new-message-link {{
         text-decoration: none;
         cursor: pointer;
