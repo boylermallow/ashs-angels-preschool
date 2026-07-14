@@ -2045,6 +2045,66 @@ def send_parent_notification(child, parent, message_body, attachments=None):
     return saved
 
 
+def session_parent_targets(session_name, children, parents):
+    session_children = sorted(
+        [child for child in children if clean_session_name(child.get("Session")) == session_name],
+        key=lambda child: str(child.get("Name", "")).lower(),
+    )
+    approved_by_child = {}
+    for parent in parents:
+        child_id = parent.get("ChildID", "")
+        if parent.get("Status") == "Approved" and child_id:
+            approved_by_child.setdefault(child_id, []).append(parent)
+
+    targets = []
+    seen_parents = set()
+    for child in session_children:
+        for parent in approved_by_child.get(child.get("ID", ""), []):
+            parent_key = str(parent.get("Email") or parent.get("ID") or "").strip().lower()
+            if not parent_key or parent_key in seen_parents:
+                continue
+            seen_parents.add(parent_key)
+            targets.append((child, parent))
+    return targets
+
+
+def send_session_parent_notifications(targets, message_body, attachments=None):
+    if not targets:
+        return 0
+    messages = load_messages()
+    created_at = datetime.now().isoformat(timespec="seconds")
+    new_messages = []
+    for child, parent in targets:
+        new_messages.append(
+            {
+                "ID": uuid.uuid4().hex,
+                "Type": "Notification",
+                "ChildID": child.get("ID", ""),
+                "ChildName": child.get("Name", ""),
+                "ChildThumbnail": child.get("Thumbnail", ""),
+                "ParentID": parent.get("ID", ""),
+                "ParentName": parent.get("FirstName", ""),
+                "ParentEmail": parent.get("Email", ""),
+                "Message": str(message_body or "").strip(),
+                "Attachments": attachments or [],
+                "CreatedAt": created_at,
+                "Status": "Sent",
+                "Read": False,
+            }
+        )
+    if not save_messages([*messages, *new_messages]):
+        return 0
+
+    web_sender = globals().get("send_web_push_to_parent")
+    fcm_sender = globals().get("send_fcm_to_parent")
+    for message in new_messages:
+        if callable(web_sender):
+            web_sender(message)
+        if callable(fcm_sender):
+            fcm_sender(message)
+    return len(new_messages)
+
+
 def add_parent_reply(message_id, parent, reply_body, attachments=None):
     clean_reply = str(reply_body or "").strip()
     attachments = attachments or []
@@ -3033,6 +3093,32 @@ st.markdown(
     }}
     .session-heading .session-title {{
         margin: 0;
+    }}
+    .session-actions {{
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 0 0 auto;
+    }}
+    .message-session-link {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        border: 1px solid var(--brand-blue);
+        border-radius: 8px;
+        padding: 0 12px;
+        background: #ffffff;
+        color: var(--brand-blue) !important;
+        font-size: .82rem;
+        font-weight: 900;
+        line-height: 1;
+        text-decoration: none !important;
+        white-space: nowrap;
+    }}
+    .message-session-link:hover {{
+        background: var(--brand-blue);
+        color: #ffffff !important;
     }}
     .children-panel {{
         padding-top: 10px;
@@ -5481,8 +5567,92 @@ def render_message_dialog(child, parent):
         st.rerun()
 
 
+def render_session_message_dialog(session_name, children, parents):
+    targets = session_parent_targets(session_name, children, parents)
+    session_key = re.sub(r"[^a-z0-9]+", "_", session_name.lower()).strip("_")
+    message_key = f"session_message_body_{session_key}"
+    media_key = f"session_message_media_{session_key}"
+    parent_count = len(targets)
+
+    st.markdown(
+        f'<div class="panel-title">Message all {html.escape(session_name)} parents</div>'
+        f'<div class="muted">This will send a separate message to {parent_count} approved '
+        f'parent{"s" if parent_count != 1 else ""}.</div>',
+        unsafe_allow_html=True,
+    )
+    if not targets:
+        st.markdown(
+            '<div class="status"><span class="status-dot"></span>'
+            '<div>No approved parents are assigned to this session yet.</div></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Close", key=f"close_session_message_{session_key}", width="stretch"):
+            st.query_params.pop("message_session", None)
+            st.rerun()
+        return
+
+    with st.form(key=f"session_message_form_{session_key}", clear_on_submit=False):
+        message_body = st.text_area(
+            "Message",
+            placeholder="Write your message here...",
+            height=150,
+            key=message_key,
+        )
+        media_files = st.file_uploader(
+            "Photos or videos",
+            type=MESSAGE_ATTACHMENT_TYPES,
+            accept_multiple_files=True,
+            key=media_key,
+            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
+        )
+        if media_files:
+            st.markdown(
+                '<div class="media-note">'
+                + html.escape(
+                    f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
+                )
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+        send_col, cancel_col = st.columns(2)
+        send_message = send_col.form_submit_button(
+            f"Send to {parent_count} parent{'s' if parent_count != 1 else ''}",
+            width="stretch",
+        )
+        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+
+    if send_message:
+        if not str(message_body or "").strip() and not media_files:
+            st.warning("Please add a message, photo, or video first.")
+        else:
+            attachments, attachment_error = prepare_message_attachments(media_files)
+            if attachment_error:
+                st.warning(attachment_error)
+            else:
+                sent_count = send_session_parent_notifications(targets, message_body, attachments)
+                if sent_count:
+                    st.session_state["notification_sent"] = (
+                        f"Message sent to {sent_count} {session_name.lower()} "
+                        f"parent{'s' if sent_count != 1 else ''}."
+                    )
+                    st.session_state.pop(message_key, None)
+                    st.session_state.pop(media_key, None)
+                    st.query_params.pop("message_session", None)
+                    st.rerun()
+                else:
+                    st.error("The messages were not saved permanently. Please check the GitHub data key and try again.")
+
+    if cancel_message:
+        st.session_state.pop(message_key, None)
+        st.session_state.pop(media_key, None)
+        st.query_params.pop("message_session", None)
+        st.rerun()
+
+
+
 if hasattr(st, "dialog"):
     render_message_dialog = st.dialog("Send parent message")(render_message_dialog)
+    render_session_message_dialog = st.dialog("Message session parents")(render_session_message_dialog)
 
 
 def render_create_message_dialog():
@@ -5760,6 +5930,7 @@ def render_admin_children():
     edit_child_id = st.query_params.get("edit_child")
     delete_child_id = st.query_params.get("delete_child")
     message_child_id = st.query_params.get("message_child")
+    message_session_name = st.query_params.get("message_session")
 
     if delete_child_id:
         if delete_child_and_clear_parent_links(delete_child_id):
@@ -5782,6 +5953,12 @@ def render_admin_children():
                 '<div class="status"><span class="status-dot"></span><div>No approved parent is assigned to this child yet.</div></div>',
                 unsafe_allow_html=True,
             )
+
+    if message_session_name:
+        if message_session_name in SESSIONS:
+            render_session_message_dialog(message_session_name, children, parents)
+        else:
+            st.query_params.pop("message_session", None)
 
     if edit_child_id:
         editing_child = next((child for child in children if child.get("ID") == edit_child_id), None)
@@ -5966,11 +6143,16 @@ def render_admin_children():
         for session_name in SESSIONS:
             session_children = [child for child in children if clean_session_name(child.get("Session")) == session_name]
             add_child_href = app_href("Children", add_child=1)
+            message_session_href = app_href("Children", message_session=session_name)
             sections_html.append(
                 '<div class="session-group">'
                 '<div class="session-heading">'
                 f'<div class="session-title">{html.escape(session_name)}</div>'
+                '<div class="session-actions">'
+                f'<a class="message-session-link" href="{message_session_href}" target="_self" '
+                f'aria-label="Message all {html.escape(session_name)} parents">Message all</a>'
                 f'<a class="add-child-icon" href="{add_child_href}" target="_self" aria-label="Add child" title="Add child">+</a>'
+                '</div>'
                 '</div>'
                 '<div class="child-list">'
             )
@@ -7003,7 +7185,7 @@ if saved_login_token:
     render_saved_login_bridge(saved_login_token)
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "mobile_menu", "add_child", "create_message"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
         st.query_params.pop(protected_param, None)
     render_login()
     st.stop()
@@ -7037,7 +7219,7 @@ with content_col:
     if current_role == "Admin":
         admin_interaction_open = any(
             st.query_params.get(param)
-            for param in ("message_child", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "create_message")
+            for param in ("message_child", "message_session", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "create_message")
         )
         if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
