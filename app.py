@@ -1408,24 +1408,8 @@ def render_admin_push_control():
         show_quick_notice(notice)
     config = web_push_config()
     if not config["has_public_key"]:
-        st.markdown(
-            '<div class="admin-new-message-alert admin-push-setup-alert">'
-            '<span class="admin-new-message-dot"></span>'
-            '<div><strong>Push notifications need to be switched on.</strong><br>'
-            'Add the push notification keys in Streamlit secrets, then enable this device.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
         return
     if not config["has_sender"]:
-        st.markdown(
-            '<div class="admin-new-message-alert admin-push-setup-alert">'
-            '<span class="admin-new-message-dot"></span>'
-            '<div><strong>Push sending is not ready yet.</strong><br>'
-            'The app needs the private push key before it can send notifications.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
         return
     components.html(
         f"""
@@ -3250,11 +3234,6 @@ st.markdown(
     .admin-new-message-alert strong {{
         color: var(--brand-blue);
         font-weight: 900;
-    }}
-    @media (min-width: 761px) {{
-        .admin-push-setup-alert {{
-            display: none;
-        }}
     }}
     .admin-new-message-link {{
         text-decoration: none;
