@@ -6989,11 +6989,7 @@ def render_documents():
         if data_save_warning:
             st.warning(data_save_warning)
 
-        st.markdown(
-            '<div class="documents-page-heading">Documents</div>'
-            '<div class="muted">Preschool information and forms.</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div class="documents-page-heading">Documents</div>', unsafe_allow_html=True)
 
         if is_admin and delete_document_id:
             selected_document = next(
@@ -7008,8 +7004,8 @@ def render_documents():
         if is_admin:
             st.markdown('<div class="documents-section-heading">Upload PDF</div>', unsafe_allow_html=True)
             with st.form("document_upload_form", clear_on_submit=True):
-                upload_title = st.text_input("Document title", placeholder="e.g. September 2026")
-                upload_description = st.text_input("Description", placeholder="Optional")
+                upload_title = st.text_input("Document title")
+                upload_description = st.text_input("Description")
                 upload_audience = st.selectbox("Section", DOCUMENT_AUDIENCES)
                 uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
                 upload_submitted = st.form_submit_button("Upload document")
