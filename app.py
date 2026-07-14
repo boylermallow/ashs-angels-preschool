@@ -7393,21 +7393,18 @@ def render_documents():
 
         for audience, section_documents in document_sections:
             with st.container(key=f"document_section_{audience.lower()}"):
-                visibility_text = (
-                    "Visible to approved parent accounts."
-                    if audience == "Parents"
-                    else "Visible only to administrators."
-                )
-                st.markdown(
-                    (
-                        f'<span class="document-drop-marker" data-audience="{audience}"></span>'
-                        if is_admin
-                        else ""
+                if is_admin:
+                    visibility_text = (
+                        "Visible to approved parent accounts."
+                        if audience == "Parents"
+                        else "Visible only to administrators."
                     )
-                    + f'<div class="documents-section-heading">{audience}</div>'
-                    + f'<div class="muted">{visibility_text}</div>',
-                    unsafe_allow_html=True,
-                )
+                    st.markdown(
+                        f'<span class="document-drop-marker" data-audience="{audience}"></span>'
+                        + f'<div class="documents-section-heading">{audience}</div>'
+                        + f'<div class="muted">{visibility_text}</div>',
+                        unsafe_allow_html=True,
+                    )
                 if not section_documents:
                     st.markdown(
                         f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
