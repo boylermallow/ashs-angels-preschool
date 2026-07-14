@@ -3274,6 +3274,9 @@ st.markdown(
         border-top: 1px solid var(--line);
         margin: 8px 0 2px;
     }}
+    .documents-bottom-space {{
+        height: 32px;
+    }}
     .document-file-summary {{
         display: flex;
         align-items: flex-start;
@@ -7415,6 +7418,7 @@ def render_documents():
 
         if is_admin:
             render_document_drag_controls(documents)
+        st.markdown('<div class="documents-bottom-space" aria-hidden="true"></div>', unsafe_allow_html=True)
 
 
 def render_calendar():
