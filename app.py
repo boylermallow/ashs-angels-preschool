@@ -42,6 +42,8 @@ LOGO_IMAGE = APP_DIR / "assets" / "ashs-angels-logo.png"
 ICON_IMAGE = APP_DIR / "assets" / "ashs-angels-icon.svg"
 CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
 CALENDAR_FILE = APP_DIR / "calendar.json"
+DOCUMENTS_FILE = APP_DIR / "documents.json"
+DOCUMENTS_DIR = APP_DIR / "static" / "documents"
 PARENT_STATEMENT_FILE = APP_DIR / "assets" / "parent-statement-2026.txt"
 USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
@@ -65,6 +67,7 @@ DATA_BRANCH = "main"
 MESSAGE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 MESSAGE_ATTACHMENT_MAX_COUNT = 4
 MESSAGE_ATTACHMENT_TYPES = ["png", "jpg", "jpeg", "webp", "mp4", "mov", "m4v", "webm"]
+DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
 CONTACT_RELATIONSHIPS = ["Mam", "Dad", "Guardian"]
 PARENT_STATEMENT_VERSION = "Parent Statement 2026/2027"
 PUSH_SW_URL = f"/component/{PUSH_COMPONENT_NAME}/sw.js"
@@ -270,6 +273,34 @@ def save_persistent_binary(path, file_bytes, message):
         "branch": DATA_BRANCH,
     }
     return bool(github_api_request("PUT", path, payload))
+
+
+def delete_persistent_binary(path, message):
+    local_path = APP_DIR / path
+    if not github_data_token():
+        try:
+            local_path.unlink(missing_ok=True)
+        except OSError:
+            return False
+        st.session_state["data_save_warning"] = (
+            "This file was deleted for now, but permanent saving is not switched on yet."
+        )
+        return True
+
+    remote = github_api_request("GET", path, warn=False)
+    if remote and remote.get("sha"):
+        result = github_api_request(
+            "DELETE",
+            path,
+            {"message": message, "sha": remote["sha"], "branch": DATA_BRANCH},
+        )
+        if not result:
+            return False
+    try:
+        local_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return True
 
 
 def hash_password(password, salt=None):
@@ -597,6 +628,104 @@ def load_calendar_events():
 def save_calendar_events(events):
     normalized_events = [event for event in (normalize_calendar_event(item) for item in events) if event]
     return save_persistent_json(CALENDAR_FILE.name, normalized_events, "Update calendar", allow_create=True)
+
+
+def normalize_document(item):
+    if not isinstance(item, dict):
+        return None
+    document_id = str(item.get("ID") or item.get("id") or "").strip()
+    title = str(item.get("Title") or item.get("title") or "").strip()
+    file_name = Path(str(item.get("FileName") or item.get("file_name") or "document.pdf")).name
+    path = str(item.get("Path") or item.get("path") or "").strip()
+    if not document_id or not title or not path or not path.lower().endswith(".pdf"):
+        return None
+    try:
+        size = int(item.get("Size") or item.get("size") or 0)
+    except (TypeError, ValueError):
+        size = 0
+    return {
+        "ID": document_id,
+        "Title": title,
+        "Description": str(item.get("Description") or item.get("description") or "").strip(),
+        "FileName": file_name if file_name.lower().endswith(".pdf") else f"{file_name}.pdf",
+        "Path": path,
+        "Size": size,
+        "UploadedAt": str(item.get("UploadedAt") or item.get("uploaded_at") or "").strip(),
+    }
+
+
+def load_documents():
+    stored_documents = load_persistent_json(DOCUMENTS_FILE.name, [])
+    if not isinstance(stored_documents, list):
+        return []
+    documents = [document for document in (normalize_document(item) for item in stored_documents) if document]
+    return sorted(documents, key=lambda document: document.get("UploadedAt", ""), reverse=True)
+
+
+def save_documents(documents):
+    normalized = [document for document in (normalize_document(item) for item in documents) if document]
+    return save_persistent_json(DOCUMENTS_FILE.name, normalized, "Update documents", allow_create=True)
+
+
+def document_bytes(document):
+    path = str(document.get("Path", "") or "")
+    if not path:
+        return b""
+    try:
+        return (APP_DIR / path).read_bytes()
+    except OSError:
+        return b""
+
+
+def document_open_url(document):
+    path = str(document.get("Path", "") or "")
+    if path.startswith("static/"):
+        return f"/app/static/{quote(path.removeprefix('static/'))}"
+    return f"https://raw.githubusercontent.com/{DATA_REPOSITORY}/{DATA_BRANCH}/{quote(path)}" if path else ""
+
+
+def save_uploaded_document(uploaded_file, title, description=""):
+    if uploaded_file is None:
+        return False, "Please choose a PDF file."
+    file_bytes = uploaded_file.getvalue()
+    if len(file_bytes) > DOCUMENT_MAX_BYTES:
+        return False, f"Please keep the PDF under {file_size_label(DOCUMENT_MAX_BYTES)}."
+    if not file_bytes.startswith(b"%PDF-"):
+        return False, "The selected file is not a valid PDF."
+
+    clean_title = str(title or "").strip() or Path(uploaded_file.name).stem
+    file_name = Path(str(uploaded_file.name or f"{clean_title}.pdf")).name
+    if not file_name.lower().endswith(".pdf"):
+        file_name = f"{file_name}.pdf"
+    document_id = uuid.uuid4().hex
+    path = f"static/documents/{document_id}.pdf"
+    if not save_persistent_binary(path, file_bytes, "Add document"):
+        return False, "The PDF could not be saved permanently. Please check the GitHub data key and try again."
+
+    document = {
+        "ID": document_id,
+        "Title": clean_title,
+        "Description": str(description or "").strip(),
+        "FileName": file_name,
+        "Path": path,
+        "Size": len(file_bytes),
+        "UploadedAt": datetime.now().isoformat(timespec="seconds"),
+    }
+    if not save_documents([document, *load_documents()]):
+        return False, "The document details could not be saved permanently. Please check the GitHub data key and try again."
+    return True, ""
+
+
+def delete_document(document_id):
+    documents = load_documents()
+    document = next((item for item in documents if item.get("ID") == document_id), None)
+    if not document:
+        return False
+    remaining = [item for item in documents if item.get("ID") != document_id]
+    if not save_documents(remaining):
+        return False
+    delete_persistent_binary(document.get("Path", ""), "Delete document")
+    return True
 
 
 def load_children():
@@ -5826,7 +5955,7 @@ def render_login():
 
 
 def render_side_menu(role, selected_page):
-    nav_items = ["Children", "Parents", "Messages", "Calendar", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Calendar", "Forms", "Settings"]
+    nav_items = ["Children", "Parents", "Messages", "Documents", "Calendar", "Birthdays", "Settings"] if role == "Admin" else ["Dashboard", "Messages", "Documents", "Calendar", "Forms", "Settings"]
     message_badge_count = admin_unseen_message_count() if role == "Admin" else parent_unseen_message_count()
 
     def nav_label(item):
@@ -6660,6 +6789,131 @@ def render_calendar_editor(events):
             st.error("The calendar item was not deleted permanently. Please check the GitHub data key and try again.")
 
 
+def render_delete_document_dialog(document):
+    document_id = document.get("ID", "")
+    title = document.get("Title", "this document")
+    st.markdown(
+        f'<div class="panel-title">Delete document</div>'
+        f'<div class="muted">Delete {html.escape(title)} from the app?</div>',
+        unsafe_allow_html=True,
+    )
+    confirm_col, cancel_col = st.columns(2)
+    if confirm_col.button("Delete document", key=f"confirm_delete_document_{document_id}", width="stretch"):
+        if delete_document(document_id):
+            st.session_state["document_notice"] = "Document deleted."
+            st.query_params.pop("delete_document", None)
+            st.rerun()
+        else:
+            st.error("The document was not deleted permanently. Please check the GitHub data key and try again.")
+    if cancel_col.button("Cancel", key=f"cancel_delete_document_{document_id}", width="stretch"):
+        st.query_params.pop("delete_document", None)
+        st.rerun()
+
+
+if hasattr(st, "dialog"):
+    render_delete_document_dialog = st.dialog("Delete document")(render_delete_document_dialog)
+
+
+def render_documents():
+    is_admin = st.session_state.get("role") == "Admin"
+    documents = load_documents()
+    notice = st.session_state.pop("document_notice", "")
+    if notice:
+        st.success(notice)
+    data_save_warning = st.session_state.pop("data_save_warning", "")
+    if data_save_warning:
+        st.warning(data_save_warning)
+
+    st.markdown(
+        '<div class="section-header"><div>'
+        '<div class="panel-title">Documents</div>'
+        '<div class="muted">Preschool information and forms.</div>'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    delete_document_id = str(st.query_params.get("delete_document", "") or "")
+    if is_admin and delete_document_id:
+        selected_document = next(
+            (document for document in documents if document.get("ID") == delete_document_id),
+            None,
+        )
+        if selected_document:
+            render_delete_document_dialog(selected_document)
+        else:
+            st.query_params.pop("delete_document", None)
+
+    if is_admin:
+        with st.container(border=True, key="document_upload_panel"):
+            st.markdown('<div class="section-title">Upload PDF</div>', unsafe_allow_html=True)
+            with st.form("document_upload_form", clear_on_submit=True):
+                upload_title = st.text_input("Document title", placeholder="e.g. September 2026")
+                upload_description = st.text_input("Description", placeholder="Optional")
+                uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
+                upload_submitted = st.form_submit_button("Upload document", width="stretch")
+            if upload_submitted:
+                saved, error = save_uploaded_document(uploaded_pdf, upload_title, upload_description)
+                if saved:
+                    st.session_state["document_notice"] = "Document uploaded."
+                    st.rerun()
+                else:
+                    st.warning(error)
+
+    if not documents:
+        st.markdown('<div class="muted">No documents have been added yet.</div>', unsafe_allow_html=True)
+        return
+
+    st.markdown('<div class="section-title">Available documents</div>', unsafe_allow_html=True)
+    for document in documents:
+        document_id = document.get("ID", "")
+        pdf_bytes = document_bytes(document)
+        open_url = document_open_url(document)
+        detail_parts = ["PDF"]
+        if document.get("Size"):
+            detail_parts.append(file_size_label(document.get("Size")))
+        if document.get("UploadedAt"):
+            detail_parts.append(f"Added {message_datetime(document.get('UploadedAt'))}")
+        column_sizes = [4.2, 1.4, 1.8, 1.5] if is_admin else [4.5, 1.4, 1.8]
+        with st.container(border=True, key=f"document_row_{document_id}"):
+            columns = st.columns(column_sizes, vertical_alignment="center")
+            with columns[0]:
+                st.markdown(
+                    f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
+                    + (
+                        f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
+                        if document.get("Description")
+                        else ""
+                    )
+                    + f'<div class="parent-detail">{html.escape(" | ".join(detail_parts))}</div>',
+                    unsafe_allow_html=True,
+                )
+            columns[1].link_button(
+                "Open",
+                open_url,
+                icon=":material/open_in_new:",
+                width="stretch",
+                disabled=not bool(open_url),
+            )
+            columns[2].download_button(
+                "Download",
+                data=pdf_bytes,
+                file_name=document.get("FileName", "document.pdf"),
+                mime="application/pdf",
+                icon=":material/download:",
+                width="stretch",
+                disabled=not bool(pdf_bytes),
+                key=f"download_document_{document_id}",
+            )
+            if is_admin and columns[3].button(
+                "Delete",
+                icon=":material/delete:",
+                key=f"delete_document_{document_id}",
+                width="stretch",
+            ):
+                st.query_params["delete_document"] = document_id
+                st.rerun()
+
+
 def render_calendar():
     events = load_calendar_events()
     rows = []
@@ -7213,7 +7467,7 @@ if saved_login_token:
     render_saved_login_bridge(saved_login_token)
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
         st.query_params.pop(protected_param, None)
     render_login()
     st.stop()
@@ -7226,7 +7480,7 @@ if current_role in {"Admin", "Parent"}:
 selected_page = st.query_params.get("app_page", "Children" if current_role == "Admin" else "Dashboard")
 if current_role == "Admin" and selected_page == "Dashboard":
     selected_page = "Children"
-valid_pages = {"Children", "Parents", "Messages", "Calendar", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Calendar", "Forms", "Settings"}
+valid_pages = {"Children", "Parents", "Messages", "Documents", "Calendar", "Birthdays", "Settings"} if current_role == "Admin" else {"Dashboard", "Messages", "Documents", "Calendar", "Forms", "Settings"}
 if selected_page not in valid_pages:
     selected_page = "Children" if current_role == "Admin" else "Dashboard"
 if current_role == "Admin" and st.query_params.get("add_child"):
@@ -7237,6 +7491,8 @@ if st.query_params.get("edit_child"):
     selected_page = "Children"
 if st.query_params.get("edit_parent"):
     selected_page = "Parents"
+if current_role == "Admin" and st.query_params.get("delete_document"):
+    selected_page = "Documents"
 
 menu_col, content_col = st.columns([0.26, 0.74], gap="large")
 
@@ -7247,7 +7503,7 @@ with content_col:
     if current_role == "Admin":
         admin_interaction_open = any(
             st.query_params.get(param)
-            for param in ("message_child", "message_session", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "create_message")
+            for param in ("message_child", "message_session", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "create_message")
         )
         if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
@@ -7255,6 +7511,8 @@ with content_col:
             render_parent_approvals()
         elif selected_page == "Messages":
             render_admin_messages()
+        elif selected_page == "Documents":
+            render_documents()
         elif selected_page == "Calendar":
             render_calendar()
         elif selected_page == "Birthdays":
@@ -7266,6 +7524,8 @@ with content_col:
     else:
         if selected_page == "Messages":
             render_parent_messages()
+        elif selected_page == "Documents":
+            render_documents()
         elif selected_page == "Calendar":
             render_calendar()
         elif selected_page == "Forms":
