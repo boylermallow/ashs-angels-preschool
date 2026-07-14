@@ -4815,6 +4815,7 @@ st.markdown(
     }}
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stHorizontalBlock"] {{
         gap: 24px !important;
+        margin-top: 20px !important;
     }}
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a *,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button *,
