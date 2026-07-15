@@ -5312,6 +5312,89 @@ st.markdown(
     div[data-testid="stTextInput"] div[data-baseweb="input"] [role="button"] svg {{
         display: none !important;
     }}
+    div[data-testid="stTextInputRootElement"]:has(input[type="password"]) {{
+        min-height: 48px !important;
+        overflow: hidden !important;
+        border: 2px solid #d9e5ef !important;
+        border-radius: 8px !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+    }}
+    div[data-testid="stTextInputRootElement"]:has(input[type="password"]) input[type="password"],
+    div[data-testid="stTextInputRootElement"]:has(input[type="password"]) input[type="text"] {{
+        min-height: 44px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        padding-right: 12px !important;
+        box-shadow: none !important;
+    }}
+    div[data-testid="stTextInput"]:has(input[type="password"]) button[aria-label*="password"],
+    div[data-testid="stTextInput"]:has(input[type="text"]) button[aria-label*="password"] {{
+        position: relative !important;
+        align-self: stretch !important;
+        display: inline-grid !important;
+        flex: 0 0 48px !important;
+        place-items: center !important;
+        width: 48px !important;
+        min-width: 48px !important;
+        min-height: 44px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        border: 0 !important;
+        border-left: 1px solid #d9e5ef !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        color: var(--brand-blue) !important;
+        box-shadow: none !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        text-indent: -9999px !important;
+    }}
+    div[data-testid="stTextInput"]:has(input[type="password"]) button[aria-label*="password"]:hover,
+    div[data-testid="stTextInput"]:has(input[type="text"]) button[aria-label*="password"]:hover {{
+        background: #eef6ff !important;
+    }}
+    div[data-testid="stTextInput"]:has(input[type="password"]) button[aria-label*="password"] *,
+    div[data-testid="stTextInput"]:has(input[type="text"]) button[aria-label*="password"] * {{
+        display: none !important;
+        opacity: 0 !important;
+    }}
+    div[data-testid="stTextInput"]:has(input[type="password"]) button[aria-label*="password"]::before,
+    div[data-testid="stTextInput"]:has(input[type="text"]) button[aria-label*="password"]::before {{
+        content: "" !important;
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        display: block !important;
+        width: 22px !important;
+        height: 14px !important;
+        border: 2px solid var(--brand-blue) !important;
+        border-radius: 50% / 65% !important;
+        box-sizing: border-box !important;
+        transform: translate(-50%, -50%) !important;
+        text-indent: 0 !important;
+    }}
+    div[data-testid="stTextInput"]:has(input[type="password"]) button[aria-label*="password"]::after,
+    div[data-testid="stTextInput"]:has(input[type="text"]) button[aria-label*="password"]::after {{
+        content: "" !important;
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        display: block !important;
+        width: 6px !important;
+        height: 6px !important;
+        border-radius: 999px !important;
+        background: var(--brand-blue) !important;
+        transform: translate(-50%, -50%) !important;
+    }}
+    div[data-testid="stTextInput"]:has(input[type="text"]) button[aria-label^="Hide password"]::after {{
+        width: 25px !important;
+        height: 2px !important;
+        border-radius: 999px !important;
+        transform: translate(-50%, -50%) rotate(45deg) !important;
+    }}
     div[data-testid="stTextArea"] textarea {{
         position: relative !important;
         z-index: 2 !important;
