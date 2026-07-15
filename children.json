@@ -144,6 +144,15 @@
     "DOB": "2023-10-27",
     "Session": "Morning Session",
     "Thumbnail": "",
-    "Guardians": []
+    "Guardians": [
+      {
+        "Name": "Sarah Murphy",
+        "Relationship": "Mam",
+        "Email": "sarahkateshananan.ss@gmail.com",
+        "Phone": "0872771242",
+        "Address": "12 Cois Tobair Dromahane Mallow",
+        "Invited": false
+      }
+    ]
   }
 ]
