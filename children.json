@@ -178,6 +178,15 @@
     "DOB": "2023-10-03",
     "Session": "Morning Session",
     "Thumbnail": "",
-    "Guardians": []
+    "Guardians": [
+      {
+        "Name": "Deirdre O'Mahony",
+        "Relationship": "Guardian",
+        "Email": "Scarteen2026@gmail.com",
+        "Phone": "0862589371",
+        "Address": "",
+        "Invited": false
+      }
+    ]
   }
 ]
