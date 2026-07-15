@@ -20,6 +20,7 @@ from urllib.error import HTTPError, URLError
 import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
+from cryptography.fernet import Fernet, InvalidToken
 from PIL import Image, ImageDraw, ImageFilter
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.utils import ImageReader
@@ -332,6 +333,33 @@ def load_persistent_binary(path):
         local_path.write_bytes(file_bytes)
         return file_bytes
     except (OSError, ValueError, TypeError):
+        return b""
+
+
+def signed_form_cipher():
+    encryption_secret = setting("SIGNED_FORMS_ENCRYPTION_KEY") or github_data_token()
+    if not encryption_secret:
+        return None
+    key = base64.urlsafe_b64encode(hashlib.sha256(encryption_secret.encode("utf-8")).digest())
+    return Fernet(key)
+
+
+def encrypt_signed_form(file_bytes):
+    cipher = signed_form_cipher()
+    return cipher.encrypt(file_bytes) if cipher and file_bytes else b""
+
+
+def load_signed_parent_statement(parent):
+    encrypted_path = str((parent or {}).get("ParentStatementSignedPdfPath") or "").strip()
+    if not encrypted_path or not encrypted_path.endswith(".signed"):
+        return b""
+    encrypted_bytes = load_persistent_binary(encrypted_path)
+    cipher = signed_form_cipher()
+    if not encrypted_bytes or not cipher:
+        return b""
+    try:
+        return cipher.decrypt(encrypted_bytes)
+    except InvalidToken:
         return b""
 
 
@@ -7034,8 +7062,9 @@ def save_parent_statement_signature(signature_name, signature_data_url, child):
         record_id,
     )
     parent_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(parent.get("ID") or "parent")) or "parent"
-    signed_path = f"static/signed_forms/{parent_id}-{record_id.lower()}.pdf"
-    if not save_persistent_binary(signed_path, signed_pdf, "Save signed parent statement"):
+    signed_path = f"static/signed_forms/{parent_id}-{record_id.lower()}.signed"
+    encrypted_pdf = encrypt_signed_form(signed_pdf)
+    if not encrypted_pdf or not save_persistent_binary(signed_path, encrypted_pdf, "Save encrypted parent statement"):
         return False
 
     parent["ParentStatementSigned"] = True
@@ -7925,7 +7954,7 @@ def render_parent_forms():
     )
     st.image(statement_pages[selected_page], width="stretch")
 
-    signed_pdf = load_persistent_binary(parent.get("ParentStatementSignedPdfPath", "")) if signed else b""
+    signed_pdf = load_signed_parent_statement(parent) if signed else b""
 
     if signed:
         st.markdown(
@@ -8257,7 +8286,7 @@ def render_parent_approvals():
             unsafe_allow_html=True,
         )
         if parent_statement_signed(parent):
-            signed_pdf = load_persistent_binary(parent.get("ParentStatementSignedPdfPath", ""))
+            signed_pdf = load_signed_parent_statement(parent)
             if signed_pdf:
                 signature_page = signature_page_from_signed_pdf(signed_pdf)
                 parent_file_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(parent.get("ID") or "parent")) or "parent"

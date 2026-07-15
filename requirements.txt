@@ -3,5 +3,6 @@ pillow
 numpy
 pywebpush
 google-auth
+cryptography==42.0.8
 pypdf
 reportlab
