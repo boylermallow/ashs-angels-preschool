@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Signature pad</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: transparent; }
+      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .pad-wrap { position: relative; width: 100%; padding-bottom: 52px; }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 180px;
+        border: 2px solid #cfe0ef;
+        border-radius: 8px;
+        background: #ffffff;
+        cursor: crosshair;
+        touch-action: none;
+      }
+      .line {
+        position: absolute;
+        left: 7%;
+        right: 7%;
+        top: 143px;
+        height: 1px;
+        background: #b7c5d5;
+        pointer-events: none;
+      }
+      button {
+        position: absolute;
+        right: 0;
+        bottom: 4px;
+        min-height: 38px;
+        border: 1px solid #cfe0ef;
+        border-radius: 7px;
+        padding: 0 16px;
+        background: #ffffff;
+        color: #294999;
+        font: inherit;
+        font-weight: 750;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pad-wrap">
+      <canvas id="signature" width="1000" height="280" aria-label="Draw your signature"></canvas>
+      <div class="line"></div>
+      <button id="clear" type="button">Clear signature</button>
+    </div>
+    <script>
+      const canvas = document.getElementById("signature");
+      const context = canvas.getContext("2d");
+      const clearButton = document.getElementById("clear");
+      let drawing = false;
+      let hasSignature = false;
+
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.strokeStyle = "#172b57";
+      context.lineWidth = 6;
+
+      function send(type, extra = {}) {
+        window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, "*");
+      }
+
+      function point(event) {
+        const bounds = canvas.getBoundingClientRect();
+        return {
+          x: (event.clientX - bounds.left) * (canvas.width / bounds.width),
+          y: (event.clientY - bounds.top) * (canvas.height / bounds.height),
+        };
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        drawing = true;
+        hasSignature = true;
+        canvas.setPointerCapture(event.pointerId);
+        const current = point(event);
+        context.beginPath();
+        context.moveTo(current.x, current.y);
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (!drawing) return;
+        event.preventDefault();
+        const current = point(event);
+        context.lineTo(current.x, current.y);
+        context.stroke();
+      });
+
+      function finish(event) {
+        if (!drawing) return;
+        event.preventDefault();
+        drawing = false;
+        context.closePath();
+        send("streamlit:setComponentValue", {
+          value: hasSignature ? canvas.toDataURL("image/png") : "",
+          dataType: "json",
+        });
+      }
+
+      canvas.addEventListener("pointerup", finish);
+      canvas.addEventListener("pointercancel", finish);
+
+      clearButton.addEventListener("click", () => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        hasSignature = false;
+        send("streamlit:setComponentValue", { value: "", dataType: "json" });
+      });
+
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === "streamlit:render") {
+          send("streamlit:setFrameHeight", { height: 236 });
+        }
+      });
+
+      send("streamlit:componentReady", { apiVersion: 1 });
+      send("streamlit:setFrameHeight", { height: 236 });
+    </script>
+  </body>
+</html>

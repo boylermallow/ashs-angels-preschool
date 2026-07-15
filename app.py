@@ -12,6 +12,7 @@ from collections import deque
 from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -20,6 +21,9 @@ import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageFilter
+from pypdf import PdfReader, PdfWriter
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas as pdf_canvas
 
 try:
     from pywebpush import WebPushException, webpush
@@ -45,7 +49,8 @@ CALENDAR_FILE = APP_DIR / "calendar.json"
 DOCUMENTS_FILE = APP_DIR / "documents.json"
 DOCUMENTS_DIR = APP_DIR / "static" / "documents"
 DOCUMENT_AUDIENCES = ["Parents", "Private"]
-PARENT_STATEMENT_FILE = APP_DIR / "assets" / "parent-statement-2026.txt"
+PARENT_STATEMENT_PDF = APP_DIR / "assets" / "parent-statement-2026.pdf"
+PARENT_STATEMENT_PAGES_DIR = APP_DIR / "assets" / "parent-statement-pages"
 USERS_FILE = APP_DIR / "users.json"
 CHILDREN_FILE = APP_DIR / "children.json"
 PARENTS_FILE = APP_DIR / "parents.json"
@@ -54,6 +59,7 @@ PUSH_SUBSCRIPTIONS_FILE = APP_DIR / "push_subscriptions.json"
 CHILDREN_DIR = APP_DIR / "assets" / "children"
 MESSAGES_DIR = APP_DIR / "assets" / "messages"
 PUSH_COMPONENT_DIR = APP_DIR / "push_component"
+SIGNATURE_COMPONENT_DIR = APP_DIR / "signature_component"
 PUSH_COMPONENT_NAME = f"{Path(__file__).stem}.ashs_angels_push"
 SESSIONS = ["Morning Session", "Afternoon Session"]
 CALENDAR_TAGS = ["Open", "Closed", "Event"]
@@ -116,6 +122,7 @@ st.set_page_config(
 )
 
 PUSH_COMPONENT = components.declare_component("ashs_angels_push", path=str(PUSH_COMPONENT_DIR))
+SIGNATURE_COMPONENT = components.declare_component("ashs_angels_signature", path=str(SIGNATURE_COMPONENT_DIR))
 
 
 def asset_url(path):
@@ -303,6 +310,29 @@ def save_persistent_binary(path, file_bytes, message):
         "branch": DATA_BRANCH,
     }
     return bool(github_api_request("PUT", path, payload))
+
+
+def load_persistent_binary(path):
+    clean_path = str(path or "").strip()
+    if not clean_path:
+        return b""
+    local_path = APP_DIR / clean_path
+    try:
+        if local_path.exists():
+            return local_path.read_bytes()
+    except OSError:
+        pass
+    remote = github_api_request("GET", clean_path, warn=False)
+    if not remote or "content" not in remote:
+        return b""
+    try:
+        encoded = "".join(str(remote["content"]).split())
+        file_bytes = base64.b64decode(encoded)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        local_path.write_bytes(file_bytes)
+        return file_bytes
+    except (OSError, ValueError, TypeError):
+        return b""
 
 
 def delete_persistent_binary(path, message):
@@ -4837,6 +4867,9 @@ st.markdown(
         padding: 16px;
         margin-top: 14px;
     }}
+    .signature-pad-label {{
+        margin: 18px 0 8px;
+    }}
     .statement-signed-note {{
         border: 1px solid #b8e4c4;
         border-radius: 8px;
@@ -6805,11 +6838,18 @@ def current_parent_messages():
     ]
 
 
-def parent_statement_text():
+def parent_statement_pdf_bytes():
     try:
-        return PARENT_STATEMENT_FILE.read_text(encoding="utf-8").strip()
+        return PARENT_STATEMENT_PDF.read_bytes()
     except OSError:
-        return "The parent statement is not available in the app yet. Please contact the preschool."
+        return b""
+
+
+def parent_statement_page_paths():
+    return sorted(
+        PARENT_STATEMENT_PAGES_DIR.glob("page-*.jpg"),
+        key=lambda path: int(path.stem.rsplit("-", 1)[-1]),
+    )
 
 
 def parent_statement_signed(parent):
@@ -6817,28 +6857,196 @@ def parent_statement_signed(parent):
         parent
         and parent.get("ParentStatementSignedAt")
         and parent.get("ParentStatementVersion") == PARENT_STATEMENT_VERSION
+        and parent.get("ParentStatementSignedPdfPath")
     )
 
 
 def parent_statement_signature_text(parent):
     if not parent_statement_signed(parent):
-        return "Not signed"
+        return "Needs PDF signature"
     signed_at = message_datetime(parent.get("ParentStatementSignedAt", ""))
     signature = parent.get("ParentStatementSignature", "Parent")
     return f"Signed by {signature} on {signed_at}"
 
 
-def save_parent_statement_signature(signature_name):
+def decode_drawn_signature(signature_data_url):
+    encoded = str(signature_data_url or "").strip()
+    if not encoded.startswith("data:image/png;base64,"):
+        return b""
+    try:
+        signature_bytes = base64.b64decode(encoded.split(",", 1)[1], validate=True)
+        if not signature_bytes or len(signature_bytes) > 2 * 1024 * 1024:
+            return b""
+        signature_image = Image.open(BytesIO(signature_bytes)).convert("RGBA")
+        bounds = signature_image.getchannel("A").getbbox()
+        if not bounds:
+            return b""
+        left, top, right, bottom = bounds
+        padding = 10
+        signature_image = signature_image.crop(
+            (
+                max(0, left - padding),
+                max(0, top - padding),
+                min(signature_image.width, right + padding),
+                min(signature_image.height, bottom + padding),
+            )
+        )
+        output = BytesIO()
+        signature_image.save(output, format="PNG", optimize=True)
+        return output.getvalue()
+    except (ValueError, TypeError, OSError):
+        return b""
+
+
+def draw_pdf_value(canvas, value, x, y, max_width, font_size=8.5, bold=False):
+    text = " ".join(str(value or "").split())
+    font_name = "Helvetica-Bold" if bold else "Helvetica"
+    while text and canvas.stringWidth(text, font_name, font_size) > max_width:
+        text = text[:-1].rstrip()
+    if text != " ".join(str(value or "").split()):
+        text = f"{text.rstrip('.')}..."
+    canvas.setFont(font_name, font_size)
+    canvas.drawString(x, y, text)
+
+
+def draw_signature_image(canvas, signature_bytes, x, y, max_width, max_height):
+    with Image.open(BytesIO(signature_bytes)) as signature_image:
+        width, height = signature_image.size
+    scale = min(max_width / max(width, 1), max_height / max(height, 1))
+    draw_width = width * scale
+    draw_height = height * scale
+    canvas.drawImage(
+        ImageReader(BytesIO(signature_bytes)),
+        x,
+        y + ((max_height - draw_height) / 2),
+        width=draw_width,
+        height=draw_height,
+        mask="auto",
+        preserveAspectRatio=True,
+    )
+
+
+def build_signed_parent_statement_pdf(original_pdf, signature_bytes, signer_name, signer_email, child_name, signed_at, record_id):
+    reader = PdfReader(BytesIO(original_pdf))
+    if not reader.pages:
+        raise ValueError("The parent statement PDF has no pages.")
+    signature_page = reader.pages[-1]
+    page_width = float(signature_page.mediabox.width)
+    page_height = float(signature_page.mediabox.height)
+    overlay_buffer = BytesIO()
+    overlay = pdf_canvas.Canvas(overlay_buffer, pagesize=(page_width, page_height))
+    overlay.setFillColorRGB(0.11, 0.20, 0.38)
+
+    child_parts = str(child_name or "").strip().split()
+    child_first_name = child_parts[0] if child_parts else ""
+    child_family_name = " ".join(child_parts[1:])
+    draw_pdf_value(overlay, child_first_name, 55, 595, 220, 8.5)
+    draw_pdf_value(overlay, child_family_name, 292, 595, 220, 8.5)
+
+    draw_signature_image(overlay, signature_bytes, 299, 274, 205, 13)
+    draw_pdf_value(overlay, signer_name.upper(), 299, 257, 215, 8.2)
+    draw_pdf_value(overlay, signed_at.strftime("%d/%m/%Y"), 299, 239, 215, 8.2)
+
+    box_x, box_y, box_width, box_height = 50, 78, 473, 134
+    overlay.setStrokeColorRGB(0.18, 0.33, 0.65)
+    overlay.setFillColorRGB(0.96, 0.98, 1.0)
+    overlay.roundRect(box_x, box_y, box_width, box_height, 7, stroke=1, fill=1)
+    overlay.setFillColorRGB(0.11, 0.20, 0.38)
+    overlay.setFont("Helvetica-Bold", 11)
+    overlay.drawString(box_x + 14, box_y + box_height - 20, "Digital signature record")
+    overlay.setFont("Helvetica", 7.2)
+    overlay.drawString(box_x + 14, box_y + box_height - 33, "Signed electronically by the parent/guardian in Ash's Angels Preschool App.")
+
+    field_x = box_x + 14
+    value_x = box_x + 67
+    field_y = box_y + 78
+    for label, value in (
+        ("Signer", signer_name),
+        ("Email", signer_email),
+        ("Child", child_name),
+        ("Signed", signed_at.strftime("%d/%m/%Y %H:%M %Z")),
+        ("Record ID", record_id),
+    ):
+        overlay.setFont("Helvetica-Bold", 7.4)
+        overlay.drawString(field_x, field_y, f"{label}:")
+        draw_pdf_value(overlay, value, value_x, field_y, 200, 7.4)
+        field_y -= 14
+
+    signature_x = box_x + 292
+    overlay.setFont("Helvetica-Bold", 7.4)
+    overlay.drawString(signature_x, box_y + 79, "Drawn signature")
+    draw_signature_image(overlay, signature_bytes, signature_x, box_y + 28, 155, 44)
+    overlay.setStrokeColorRGB(0.42, 0.50, 0.61)
+    overlay.line(signature_x, box_y + 25, signature_x + 155, box_y + 25)
+    overlay.setFont("Helvetica", 6.8)
+    overlay.setFillColorRGB(0.35, 0.42, 0.50)
+    overlay.drawString(box_x + 14, box_y + 9, "Keep this page with the preschool's signed parent statement records.")
+    overlay.save()
+
+    overlay_buffer.seek(0)
+    signature_page.merge_page(PdfReader(overlay_buffer).pages[0])
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+    writer.add_metadata(
+        {
+            "/Title": f"{PARENT_STATEMENT_VERSION} - Signed",
+            "/Author": "Ash's Angels Preschool",
+            "/Subject": f"Digitally signed parent statement record {record_id}",
+        }
+    )
+    signed_buffer = BytesIO()
+    writer.write(signed_buffer)
+    return signed_buffer.getvalue()
+
+
+@st.cache_data(show_spinner=False)
+def signature_page_from_signed_pdf(signed_pdf):
+    reader = PdfReader(BytesIO(signed_pdf))
+    if not reader.pages:
+        return b""
+    writer = PdfWriter()
+    writer.add_page(reader.pages[-1])
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def save_parent_statement_signature(signature_name, signature_data_url, child):
     email = str(st.session_state.get("email", "")).strip().lower()
     parents = load_parents()
     parent = next((item for item in parents if item.get("Email", "").strip().lower() == email), None)
-    if not parent:
+    original_pdf = parent_statement_pdf_bytes()
+    signature_bytes = decode_drawn_signature(signature_data_url)
+    if not parent or not original_pdf or not signature_bytes:
         return False
+
+    signed_at = datetime.now(ZoneInfo("Europe/Dublin"))
+    record_id = uuid.uuid4().hex[:12].upper()
+    child_name = str((child or {}).get("Name") or parent.get("ChildName") or "Not recorded").strip()
+    signed_pdf = build_signed_parent_statement_pdf(
+        original_pdf,
+        signature_bytes,
+        signature_name.strip(),
+        email,
+        child_name,
+        signed_at,
+        record_id,
+    )
+    parent_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(parent.get("ID") or "parent")) or "parent"
+    signed_path = f"static/signed_forms/{parent_id}-{record_id.lower()}.pdf"
+    if not save_persistent_binary(signed_path, signed_pdf, "Save signed parent statement"):
+        return False
+
     parent["ParentStatementSigned"] = True
     parent["ParentStatementSignature"] = signature_name.strip()
-    parent["ParentStatementSignedAt"] = datetime.now().isoformat(timespec="seconds")
+    parent["ParentStatementSignedAt"] = signed_at.isoformat(timespec="seconds")
     parent["ParentStatementVersion"] = PARENT_STATEMENT_VERSION
     parent["ParentStatementEmail"] = email
+    parent["ParentStatementSignedPdfPath"] = signed_path
+    parent["ParentStatementSignedPdfSize"] = len(signed_pdf)
+    parent["ParentStatementRecordID"] = record_id
+    parent["ParentStatementSignatureType"] = "Drawn"
     return save_parents(parents)
 
 
@@ -7676,7 +7884,7 @@ def render_admin_message_item(
 
 def render_parent_forms():
     parent = current_parent_record()
-    statement = parent_statement_text()
+    statement_pdf = parent_statement_pdf_bytes()
     signed = parent_statement_signed(parent)
     status_label = "Signed" if signed else "Needs signature"
     status_class = "" if signed else "pending"
@@ -7688,11 +7896,10 @@ def render_parent_forms():
           <div class="parent-row">
             <div>
               <div class="parent-name">{html.escape(PARENT_STATEMENT_VERSION)}</div>
-              <div class="parent-detail">Please read the statement below and sign it electronically.</div>
+              <div class="parent-detail">Read and sign the official PDF.</div>
             </div>
             <div class="parent-status {status_class}">{status_label}</div>
           </div>
-          <div class="statement-view"><pre>{html.escape(statement)}</pre></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -7702,38 +7909,91 @@ def render_parent_forms():
         st.warning("We could not find your parent registration yet.")
         return
 
+    if not statement_pdf:
+        st.error("The Parent Statement PDF is not available yet. Please contact the preschool.")
+        return
+
+    statement_pages = parent_statement_page_paths()
+    if not statement_pages:
+        st.error("The Parent Statement pages are not available yet. Please contact the preschool.")
+        return
+    selected_page = st.selectbox(
+        "Statement page",
+        range(len(statement_pages)),
+        format_func=lambda page_index: f"Page {page_index + 1} of {len(statement_pages)}",
+        key="parent_statement_page",
+    )
+    st.image(statement_pages[selected_page], width="stretch")
+
+    signed_pdf = load_persistent_binary(parent.get("ParentStatementSignedPdfPath", "")) if signed else b""
+
     if signed:
         st.markdown(
             f'<div class="statement-signed-note">{html.escape(parent_statement_signature_text(parent))}</div>',
             unsafe_allow_html=True,
         )
+        if signed_pdf:
+            signature_page = signature_page_from_signed_pdf(signed_pdf)
+            full_copy, signature_copy = st.columns(2, gap="small")
+            full_copy.download_button(
+                "Signed PDF",
+                data=signed_pdf,
+                file_name="parent-statement-2026-2027-signed.pdf",
+                mime="application/pdf",
+                icon=":material/download:",
+                width="stretch",
+            )
+            signature_copy.download_button(
+                "Signature page",
+                data=signature_page,
+                file_name="parent-statement-signature-page.pdf",
+                mime="application/pdf",
+                icon=":material/print:",
+                width="stretch",
+            )
         return
 
-    st.markdown(
-        '<div class="statement-sign-card"><div class="parent-name">Digital signature</div>'
-        '<div class="parent-detail">Typing your name and pressing Sign Statement will be recorded as your electronic signature.</div></div>',
-        unsafe_allow_html=True,
+    st.download_button(
+        "Download unsigned PDF",
+        data=statement_pdf,
+        file_name="parent-statement-2026-2027.pdf",
+        mime="application/pdf",
+        icon=":material/download:",
+        width="stretch",
     )
-    signature_name = st.text_input("Type your full name to sign", key="parent_statement_signature")
-    confirm_read = st.checkbox("I have read the Parent Statement.", key="parent_statement_confirm_read")
-    confirm_signature = st.checkbox(
-        "I understand that typing my name is my electronic signature.",
-        key="parent_statement_confirm_signature",
+    signature_name = st.text_input(
+        "Parent/guardian full name",
+        value=str(parent.get("FirstName") or ""),
+        key="parent_statement_signature",
     )
-    if st.button("Sign Statement", type="primary", width="stretch"):
+    st.markdown('<div class="parent-name signature-pad-label">Draw your signature</div>', unsafe_allow_html=True)
+    signature_data = SIGNATURE_COMPONENT(default="", key="parent_statement_signature_pad")
+    confirm_read = st.checkbox(
+        "I have read the Parent Statement and agree that the signature above is my electronic signature.",
+        key="parent_statement_confirm_read",
+    )
+    if st.button("Sign and create PDF", type="primary", width="stretch"):
         clean_signature = str(signature_name or "").strip()
         if not clean_signature:
-            st.warning("Please type your full name to sign.")
-        elif not confirm_read or not confirm_signature:
-            st.warning("Please tick both confirmation boxes before signing.")
-        elif save_parent_statement_signature(clean_signature):
-            st.session_state.pop("parent_statement_signature", None)
-            st.session_state.pop("parent_statement_confirm_read", None)
-            st.session_state.pop("parent_statement_confirm_signature", None)
-            st.success("Statement signed and saved.")
-            st.rerun()
+            st.warning("Please enter your full name.")
+        elif not decode_drawn_signature(signature_data):
+            st.warning("Please draw your signature in the box.")
+        elif not confirm_read:
+            st.warning("Please confirm that you have read and agree to the statement.")
         else:
-            st.error("The signature was not saved permanently. Please check the GitHub data key and try again.")
+            children_by_id = {child.get("ID", ""): child for child in load_children()}
+            child = children_by_id.get(parent.get("ChildID", ""), {"Name": parent.get("ChildName", "")})
+            try:
+                saved = save_parent_statement_signature(clean_signature, signature_data, child)
+            except Exception:
+                saved = False
+            if saved:
+                st.session_state.pop("parent_statement_signature", None)
+                st.session_state.pop("parent_statement_confirm_read", None)
+                st.success("Your signed PDF has been saved.")
+                st.rerun()
+            else:
+                st.error("The signed PDF could not be saved. Please try again or contact the preschool.")
 
 
 def render_parent_settings():
@@ -7996,6 +8256,30 @@ def render_parent_approvals():
             """,
             unsafe_allow_html=True,
         )
+        if parent_statement_signed(parent):
+            signed_pdf = load_persistent_binary(parent.get("ParentStatementSignedPdfPath", ""))
+            if signed_pdf:
+                signature_page = signature_page_from_signed_pdf(signed_pdf)
+                parent_file_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(parent.get("ID") or "parent")) or "parent"
+                signed_copy, print_copy, spacer = st.columns([1, 1.25, 2.75], gap="small")
+                signed_copy.download_button(
+                    "Signed PDF",
+                    data=signed_pdf,
+                    file_name=f"parent-statement-{parent_file_id}-signed.pdf",
+                    mime="application/pdf",
+                    icon=":material/download:",
+                    key=f"admin_signed_statement_{parent_file_id}",
+                    width="stretch",
+                )
+                print_copy.download_button(
+                    "Print signature page",
+                    data=signature_page,
+                    file_name=f"parent-statement-{parent_file_id}-signature-page.pdf",
+                    mime="application/pdf",
+                    icon=":material/print:",
+                    key=f"admin_signature_page_{parent_file_id}",
+                    width="stretch",
+                )
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 

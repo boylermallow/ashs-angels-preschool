@@ -3,3 +3,5 @@ pillow
 numpy
 pywebpush
 google-auth
+pypdf
+reportlab
