@@ -113,6 +113,29 @@ DEFAULT_ADMIN_PASSWORD = setting("ASH_ADMIN_PASSWORD")
 APP_PUBLIC_URL = setting("APP_PUBLIC_URL", "https://ashs-angels-preschool.streamlit.app").rstrip("/")
 PRIVACY_POLICY_URL = f"{APP_PUBLIC_URL}/?public_page=privacy"
 ACCOUNT_DELETION_URL = f"{APP_PUBLIC_URL}/?public_page=delete-account"
+PLAY_REVIEW_EMAIL = "play-review@ashsangels.com"
+PLAY_REVIEW_ACCOUNT = {
+    "email": PLAY_REVIEW_EMAIL,
+    "role": "Parent",
+    "salt": "2a91c0989a959c8e43a6e46c890c065c",
+    "hash": "36324deeab65a3cabd404dbd58c3275db4024987eb3f57b06f37fa7c555b3afc",
+}
+PLAY_REVIEW_PARENT = {
+    "ID": "google-play-review-parent",
+    "FirstName": "Play Reviewer",
+    "Relationship": "Guardian",
+    "Email": PLAY_REVIEW_EMAIL,
+    "Status": "Approved",
+    "ChildID": "google-play-demo-child",
+    "ChildName": "Demo Child",
+}
+PLAY_REVIEW_CHILD = {
+    "ID": "google-play-demo-child",
+    "Name": "Demo Child",
+    "DOB": "2022-01-01",
+    "Session": "Morning Session",
+    "Thumbnail": "",
+}
 
 with Image.open(ICON_IMAGE) as icon_source:
     PAGE_ICON = icon_source.copy()
@@ -454,6 +477,8 @@ def parent_account(email):
     clean_email = str(email or "").strip().lower()
     if not clean_email:
         return None
+    if clean_email == PLAY_REVIEW_EMAIL:
+        return {**PLAY_REVIEW_ACCOUNT, "status": "Approved", "parent": PLAY_REVIEW_PARENT}
     parent = next((item for item in load_parents() if item.get("Email", "").strip().lower() == clean_email), None)
     if not parent or not parent.get("salt") or not parent.get("hash"):
         return None
@@ -7013,6 +7038,8 @@ def render_admin_settings():
 
 def current_parent_record():
     email = str(st.session_state.get("email", "")).strip().lower()
+    if email == PLAY_REVIEW_EMAIL:
+        return PLAY_REVIEW_PARENT.copy()
     return next((parent for parent in load_parents() if parent.get("Email", "").strip().lower() == email), None)
 
 
@@ -7957,6 +7984,8 @@ def render_parent_dashboard():
     parent = current_parent_record()
     children = load_children()
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
+    if str(st.session_state.get("email", "")).strip().lower() == PLAY_REVIEW_EMAIL:
+        children_by_id[PLAY_REVIEW_CHILD["ID"]] = PLAY_REVIEW_CHILD
     if not parent:
         st.markdown(
             '<div class="panel parents-panel"><div class="muted">We could not find your parent registration yet.</div></div>',
