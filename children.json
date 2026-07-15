@@ -205,6 +205,15 @@
     "DOB": "2022-09-28",
     "Session": "Morning Session",
     "Thumbnail": "",
-    "Guardians": []
+    "Guardians": [
+      {
+        "Name": "Andrea Sabolova",
+        "Relationship": "Mam",
+        "Email": "andrrea.davidova14@gmail.com",
+        "Phone": "0892181916",
+        "Address": "4 Harkaway Cottages, Castletownroche",
+        "Invited": false
+      }
+    ]
   }
 ]
