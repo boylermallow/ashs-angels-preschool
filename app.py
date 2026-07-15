@@ -7708,11 +7708,6 @@ def render_documents():
         document_id = document.get("ID", "")
         pdf_bytes = document_bytes(document)
         open_url = document_open_url(document)
-        detail_parts = ["PDF"]
-        if document.get("Size"):
-            detail_parts.append(file_size_label(document.get("Size")))
-        if document.get("UploadedAt"):
-            detail_parts.append(f"Added {message_datetime(document.get('UploadedAt'))}")
         drag_controls_html = ""
         if is_admin:
             current_audience = str(document.get("Audience") or "Parents")
@@ -7741,12 +7736,6 @@ def render_documents():
                 + '</div>'
                 + '<div class="document-file-copy">'
                 + f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
-                + (
-                    f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
-                    if document.get("Description")
-                    else ""
-                )
-                + f'<div class="parent-detail">{html.escape(" | ".join(detail_parts))}</div>'
                 + '</div></div>',
                 unsafe_allow_html=True,
             )
