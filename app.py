@@ -111,8 +111,12 @@ def setting(name, fallback=""):
 DEFAULT_ADMIN_EMAIL = setting("ASH_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = setting("ASH_ADMIN_PASSWORD")
 APP_PUBLIC_URL = setting("APP_PUBLIC_URL", "https://ashs-angels-preschool.streamlit.app").rstrip("/")
-PRIVACY_POLICY_URL = f"{APP_PUBLIC_URL}/?public_page=privacy"
-ACCOUNT_DELETION_URL = f"{APP_PUBLIC_URL}/?public_page=delete-account"
+PUBLIC_LEGAL_BASE_URL = setting(
+    "PUBLIC_LEGAL_BASE_URL",
+    "https://github.com/boylermallow/ashs-angels-preschool/blob/main",
+).rstrip("/")
+PRIVACY_POLICY_URL = f"{PUBLIC_LEGAL_BASE_URL}/PRIVACY_POLICY.md"
+ACCOUNT_DELETION_URL = f"{PUBLIC_LEGAL_BASE_URL}/ACCOUNT_DELETION.md"
 PLAY_REVIEW_EMAIL = "play-review@ashsangels.com"
 PLAY_REVIEW_ACCOUNT = {
     "email": PLAY_REVIEW_EMAIL,
