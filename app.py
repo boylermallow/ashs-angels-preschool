@@ -49,7 +49,7 @@ CALENDAR_PDF = APP_DIR / "assets" / "preschool-calendar-2026-2027.pdf"
 CALENDAR_FILE = APP_DIR / "calendar.json"
 DOCUMENTS_FILE = APP_DIR / "documents.json"
 DOCUMENTS_DIR = APP_DIR / "static" / "documents"
-DOCUMENT_AUDIENCES = ["Parents", "Private"]
+DOCUMENT_AUDIENCES = ["Important", "Parents", "Private"]
 PARENT_STATEMENT_PDF = APP_DIR / "assets" / "parent-statement-2026.pdf"
 PARENT_STATEMENT_PAGES_DIR = APP_DIR / "assets" / "parent-statement-pages"
 USERS_FILE = APP_DIR / "users.json"
@@ -3462,19 +3462,53 @@ st.markdown(
         cursor: grabbing;
     }}
     .document-drop-zone {{
-        border: 2px dashed transparent;
+        position: relative;
+        min-height: 156px;
+        margin: 14px 0;
+        border: 2px dashed #a9c2dc;
         border-radius: 8px;
-        padding: 0 12px 14px !important;
+        padding: 18px 18px 22px !important;
+        background: #f7fbff;
+        box-shadow: 0 7px 18px rgba(31, 64, 119, .07);
         transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
     }}
+    .document-drop-zone[data-audience="Important"] {{
+        border-color: #e3b54d;
+        background: #fffaf0;
+    }}
+    .document-drop-zone[data-audience="Parents"] {{
+        border-color: #8fb7db;
+        background: #f5faff;
+    }}
+    .document-drop-zone[data-audience="Private"] {{
+        border-color: #b9c2cc;
+        background: #f8f9fb;
+    }}
+    .document-drop-zone > div:first-of-type .documents-section-heading {{
+        margin-top: 0;
+    }}
     body.document-is-dragging .document-drop-zone {{
-        border-color: #b9cfe5;
-        background: #f7fbff;
+        border-color: #779fc6;
+        background: #edf6ff;
+        box-shadow: 0 0 0 3px rgba(47,79,159,.08);
     }}
     body.document-is-dragging .document-drop-zone.is-drop-target {{
         border-color: var(--brand-blue);
-        background: #e9f4ff;
-        box-shadow: 0 0 0 3px rgba(47,79,159,.12);
+        background: #dfefff;
+        box-shadow: 0 0 0 4px rgba(47,79,159,.16), 0 12px 28px rgba(31,64,119,.12);
+    }}
+    .parent-important-heading {{
+        color: var(--brand-blue);
+        font-size: 1.15rem;
+        font-weight: 900;
+        line-height: 1.2;
+        margin: 22px 0 10px;
+    }}
+    .parent-important-document {{
+        border-color: #e3b54d;
+        background: #fffaf0;
+        box-shadow: 0 5px 14px rgba(119, 84, 18, .07);
+        margin-bottom: 10px;
     }}
     .section-edit {{
         display: inline-flex;
@@ -7392,6 +7426,7 @@ def render_document_drag_controls(documents):
         if document.get("ID")
     ]
     records_json = json.dumps(records).replace("</", "<\\/")
+    audiences_json = json.dumps(DOCUMENT_AUDIENCES).replace("</", "<\\/")
     components.html(
         f"""
         <script>
@@ -7399,6 +7434,7 @@ def render_document_drag_controls(documents):
           const parentWindow = window.parent;
           const doc = parentWindow.document;
           const records = {records_json};
+          const audiences = {audiences_json};
           let activeRecord = null;
           let activeRow = null;
           let activeZone = null;
@@ -7475,12 +7511,13 @@ def render_document_drag_controls(documents):
             row.classList.add("document-draggable-row");
             if (row.querySelector(".document-drag-handle")) return;
             const handle = doc.createElement("button");
-            const destination = record.audience === "Parents" ? "Private" : "Parents";
+            const currentIndex = audiences.indexOf(record.audience);
+            const keyboardDestination = audiences[(currentIndex + 1) % audiences.length];
             handle.type = "button";
             handle.className = "document-drag-handle";
             handle.draggable = false;
-            handle.title = `Move document to ${{destination}}`;
-            handle.setAttribute("aria-label", `Move document to ${{destination}}`);
+            handle.title = "Drag document to another section";
+            handle.setAttribute("aria-label", `Move document to ${{keyboardDestination}}`);
             handle.innerHTML = '<span aria-hidden="true">&#8942;&#8942;</span>';
             row.insertBefore(handle, row.firstChild);
 
@@ -7505,8 +7542,8 @@ def render_document_drag_controls(documents):
               event.preventDefault();
               activeRecord = record;
               activeRow = row;
-              const marker = doc.querySelector(`.document-drop-marker[data-audience="${{destination}}"]`);
-              moveTo(marker && keyedAncestor(marker, `document_section_${{destination.toLowerCase()}}`));
+              const marker = doc.querySelector(`.document-drop-marker[data-audience="${{keyboardDestination}}"]`);
+              moveTo(marker && keyedAncestor(marker, `document_section_${{keyboardDestination.toLowerCase()}}`));
             }});
             handle.addEventListener("pointerdown", (event) => {{
               if (event.pointerType === "mouse") return;
@@ -7530,8 +7567,7 @@ def render_document_drag_controls(documents):
           }};
 
           const install = () => {{
-            bindZone("Parents");
-            bindZone("Private");
+            audiences.forEach(bindZone);
             records.forEach(bindRow);
           }};
           if (typeof parentWindow.__ashsDocumentMouseCleanup === "function") {{
@@ -7579,7 +7615,11 @@ def render_documents():
     documents = (
         all_documents
         if is_admin
-        else [document for document in all_documents if document.get("Audience") == "Parents"]
+        else [
+            document
+            for document in all_documents
+            if document.get("Audience") in {"Important", "Parents"}
+        ]
     )
     def render_document_row(document):
         document_id = document.get("ID", "")
@@ -7592,17 +7632,20 @@ def render_documents():
             detail_parts.append(f"Added {message_datetime(document.get('UploadedAt'))}")
         drag_controls_html = ""
         if is_admin:
-            move_destination = "Private" if document.get("Audience") == "Parents" else "Parents"
-            move_href = app_href(
-                "Documents",
-                move_document=document_id,
-                document_audience=move_destination,
+            current_audience = str(document.get("Audience") or "Parents")
+            move_links_html = "".join(
+                (
+                    f'<a class="document-move-link" data-document-id="{html.escape(document_id, quote=True)}" '
+                    f'data-audience="{destination}" href="{html.escape(app_href("Documents", move_document=document_id, document_audience=destination), quote=True)}" '
+                    'target="_self" tabindex="-1"></a>'
+                )
+                for destination in DOCUMENT_AUDIENCES
+                if destination != current_audience
             )
             drag_controls_html = (
                 f'<span class="document-drag-marker" data-document-id="{html.escape(document_id, quote=True)}" '
-                f'data-document-audience="{html.escape(document.get("Audience", "Parents"), quote=True)}"></span>'
-                f'<a class="document-move-link" data-document-id="{html.escape(document_id, quote=True)}" '
-                f'data-audience="{move_destination}" href="{html.escape(move_href, quote=True)}" target="_self" tabindex="-1"></a>'
+                f'data-document-audience="{html.escape(current_audience, quote=True)}"></span>'
+                + move_links_html
             )
         with st.container(border=True, key=f"document_row_{document_id}"):
             file_name = Path(str(document.get("FileName") or "document.pdf")).name
@@ -7649,12 +7692,11 @@ def render_documents():
                 st.query_params["delete_document"] = document_id
                 st.rerun()
 
-    document_sections = [("Parents", documents)]
-    if is_admin:
-        document_sections = [
-            (audience, [document for document in documents if document.get("Audience") == audience])
-            for audience in DOCUMENT_AUDIENCES
-        ]
+    document_sections = [
+        (audience, [document for document in documents if document.get("Audience") == audience])
+        for audience in DOCUMENT_AUDIENCES
+        if is_admin or any(document.get("Audience") == audience for document in documents)
+    ]
 
     notice = st.session_state.pop("document_notice", "")
     data_save_warning = st.session_state.pop("data_save_warning", "")
@@ -7683,7 +7725,11 @@ def render_documents():
             with st.form("document_upload_form", clear_on_submit=True):
                 upload_title = st.text_input("Document title")
                 upload_description = st.text_input("Description")
-                upload_audience = st.selectbox("Section", DOCUMENT_AUDIENCES)
+                upload_audience = st.selectbox(
+                    "Section",
+                    DOCUMENT_AUDIENCES,
+                    index=DOCUMENT_AUDIENCES.index("Parents"),
+                )
                 uploaded_pdf = st.file_uploader("PDF file", type=["pdf"])
                 upload_submitted = st.form_submit_button("Upload document")
             if upload_submitted:
@@ -7702,18 +7748,21 @@ def render_documents():
 
         for audience, section_documents in document_sections:
             with st.container(key=f"document_section_{audience.lower()}"):
+                section_heading = f'<div class="documents-section-heading">{audience}</div>'
                 if is_admin:
-                    visibility_text = (
-                        "Visible to approved parent accounts."
-                        if audience == "Parents"
-                        else "Visible only to administrators."
-                    )
+                    visibility_text = {
+                        "Important": "Shown to parents on their home dashboard and documents page.",
+                        "Parents": "Visible to approved parent accounts.",
+                        "Private": "Visible only to administrators.",
+                    }[audience]
                     st.markdown(
                         f'<span class="document-drop-marker" data-audience="{audience}"></span>'
-                        + f'<div class="documents-section-heading">{audience}</div>'
+                        + section_heading
                         + f'<div class="muted">{visibility_text}</div>',
                         unsafe_allow_html=True,
                     )
+                else:
+                    st.markdown(section_heading, unsafe_allow_html=True)
                 if not section_documents:
                     st.markdown(
                         f'<div class="muted">No {audience.lower()} documents have been added yet.</div>',
@@ -7765,6 +7814,44 @@ def render_calendar():
         render_calendar_editor(events)
 
 
+def render_parent_important_documents():
+    important_documents = [
+        document
+        for document in load_documents()
+        if document.get("Audience") == "Important"
+    ]
+    if not important_documents:
+        return
+
+    st.markdown(
+        '<div class="parent-important-heading">Important documents</div>',
+        unsafe_allow_html=True,
+    )
+    for document in important_documents:
+        file_name = Path(str(document.get("FileName") or "document.pdf")).name
+        open_url = document_open_url(document)
+        description_html = (
+            f'<div class="parent-detail">{html.escape(document.get("Description", ""))}</div>'
+            if document.get("Description")
+            else ""
+        )
+        st.markdown(
+            '<div class="parent-row parent-important-document">'
+            + '<div class="document-file-summary">'
+            + '<div class="document-file-visual">'
+            + '<div class="document-pdf-icon" role="img" aria-label="PDF document"><span aria-hidden="true">PDF</span></div>'
+            + f'<div class="document-file-name" title="{html.escape(file_name, quote=True)}">{html.escape(file_name)}</div>'
+            + '</div>'
+            + '<div class="document-file-copy">'
+            + f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
+            + description_html
+            + '</div></div>'
+            + f'<a class="parent-status parent-action-button" href="{html.escape(open_url, quote=True)}" target="_blank" rel="noopener">Open</a>'
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def render_parent_dashboard():
     parent = current_parent_record()
     children = load_children()
@@ -7808,6 +7895,8 @@ def render_parent_dashboard():
             unsafe_allow_html=True,
         )
         return
+
+    render_parent_important_documents()
 
     messages = [
         message
