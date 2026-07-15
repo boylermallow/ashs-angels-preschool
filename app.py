@@ -3364,6 +3364,25 @@ st.markdown(
         min-width: 0;
         padding-top: 2px;
     }}
+    .document-file-visual {{
+        display: flex;
+        flex: 0 0 116px;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }}
+    .document-file-name {{
+        width: 100%;
+        color: var(--muted);
+        font-family: system-ui, sans-serif;
+        font-size: .76rem;
+        font-weight: 800;
+        line-height: 1.25;
+        letter-spacing: 0;
+        overflow-wrap: anywhere;
+        text-align: center;
+    }}
     .document-pdf-icon {{
         position: relative;
         display: inline-flex;
@@ -7586,10 +7605,14 @@ def render_documents():
                 f'data-audience="{move_destination}" href="{html.escape(move_href, quote=True)}" target="_self" tabindex="-1"></a>'
             )
         with st.container(border=True, key=f"document_row_{document_id}"):
+            file_name = Path(str(document.get("FileName") or "document.pdf")).name
             st.markdown(
                 drag_controls_html
                 + '<div class="document-file-summary">'
+                + '<div class="document-file-visual">'
                 + '<div class="document-pdf-icon" role="img" aria-label="PDF document"><span aria-hidden="true">PDF</span></div>'
+                + f'<div class="document-file-name" title="{html.escape(file_name, quote=True)}">{html.escape(file_name)}</div>'
+                + '</div>'
                 + '<div class="document-file-copy">'
                 + f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
                 + (
