@@ -161,6 +161,15 @@
     "DOB": "2022-05-25",
     "Session": "Morning Session",
     "Thumbnail": "",
-    "Guardians": []
+    "Guardians": [
+      {
+        "Name": "Grace Chacko",
+        "Relationship": "Guardian",
+        "Email": "gracechacko22@gmail.com",
+        "Phone": "0892237005",
+        "Address": "",
+        "Invited": false
+      }
+    ]
   }
 ]
