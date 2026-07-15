@@ -3413,6 +3413,21 @@ st.markdown(
         background: #ffffff;
         clip-path: polygon(0 0, 100% 0, 100% 100%);
     }}
+    .document-pdf-icon.document-drag-source {{
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        transition: transform .16s ease, box-shadow .16s ease;
+    }}
+    .document-pdf-icon.document-drag-source:hover,
+    .document-pdf-icon.document-drag-source:focus-visible {{
+        outline: none;
+        transform: translateY(-2px);
+        box-shadow: 0 0 0 3px rgba(41, 73, 153, .2);
+    }}
+    .document-pdf-icon.document-drag-source:active {{
+        cursor: grabbing;
+    }}
     .document-drag-marker,
     .document-drop-marker,
     .document-move-link {{
@@ -7592,61 +7607,67 @@ def render_document_drag_controls(documents):
             const row = marker && keyedAncestor(marker, `document_row_${{record.id}}`);
             if (!row) return;
             row.classList.add("document-draggable-row");
-            if (row.querySelector(".document-drag-handle")) return;
-            const handle = doc.createElement("button");
             const currentIndex = audiences.indexOf(record.audience);
             const keyboardDestination = audiences[(currentIndex + 1) % audiences.length];
-            handle.type = "button";
-            handle.className = "document-drag-handle";
-            handle.draggable = false;
-            handle.title = "Drag document to another section";
+            let handle = row.querySelector(".document-drag-handle");
+            if (!handle) {{
+              handle = doc.createElement("button");
+              handle.type = "button";
+              handle.className = "document-drag-handle";
+              handle.innerHTML = '<span aria-hidden="true">&#8942;&#8942;</span>';
+              row.insertBefore(handle, row.firstChild);
+            }}
             handle.setAttribute("aria-label", `Move document to ${{keyboardDestination}}`);
-            handle.innerHTML = '<span aria-hidden="true">&#8942;&#8942;</span>';
-            row.insertBefore(handle, row.firstChild);
+            const pdfIcon = row.querySelector(".document-pdf-icon");
+            if (pdfIcon) {{
+              pdfIcon.setAttribute("role", "button");
+              pdfIcon.setAttribute("tabindex", "0");
+              pdfIcon.setAttribute("aria-label", `Move PDF document to ${{keyboardDestination}}`);
+            }}
 
-            handle.addEventListener("dragstart", (event) => {{
-              activeRecord = record;
-              activeRow = row;
-              row.classList.add("is-dragging");
-              doc.body?.classList.add("document-is-dragging");
-              event.dataTransfer.effectAllowed = "move";
-              event.dataTransfer.setData("text/plain", record.id);
-            }});
-            handle.addEventListener("dragend", clearDragState);
-            handle.addEventListener("mousedown", (event) => {{
-              activeRecord = record;
-              activeRow = row;
-              row.classList.add("is-dragging");
-              doc.body?.classList.add("document-is-dragging");
-              event.preventDefault();
-            }});
-            handle.addEventListener("keydown", (event) => {{
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              activeRecord = record;
-              activeRow = row;
-              const marker = doc.querySelector(`.document-drop-marker[data-audience="${{keyboardDestination}}"]`);
-              moveTo(marker && keyedAncestor(marker, `document_section_${{keyboardDestination.toLowerCase()}}`));
-            }});
-            handle.addEventListener("pointerdown", (event) => {{
-              if (event.pointerType === "mouse") return;
-              activeRecord = record;
-              activeRow = row;
-              row.classList.add("is-dragging");
-              doc.body?.classList.add("document-is-dragging");
-              handle.setPointerCapture(event.pointerId);
-              event.preventDefault();
-            }});
-            handle.addEventListener("pointermove", (event) => {{
-              if (!activeRecord || event.pointerType === "mouse") return;
-              showDestination(destinationAt(event.clientX, event.clientY));
-              event.preventDefault();
-            }});
-            handle.addEventListener("pointerup", (event) => {{
-              if (!activeRecord || event.pointerType === "mouse") return;
-              moveTo(destinationAt(event.clientX, event.clientY));
-            }});
-            handle.addEventListener("pointercancel", clearDragState);
+            const bindDragSource = (source) => {{
+              if (!source || source.dataset.documentDragBound === "true") return;
+              source.dataset.documentDragBound = "true";
+              source.classList.add("document-drag-source");
+              source.draggable = false;
+              source.title = "Drag document to another section";
+              source.addEventListener("mousedown", (event) => {{
+                activeRecord = record;
+                activeRow = row;
+                row.classList.add("is-dragging");
+                doc.body?.classList.add("document-is-dragging");
+                event.preventDefault();
+              }});
+              source.addEventListener("keydown", (event) => {{
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                activeRecord = record;
+                activeRow = row;
+                const marker = doc.querySelector(`.document-drop-marker[data-audience="${{keyboardDestination}}"]`);
+                moveTo(marker && keyedAncestor(marker, `document_section_${{keyboardDestination.toLowerCase()}}`));
+              }});
+              source.addEventListener("pointerdown", (event) => {{
+                if (event.pointerType === "mouse") return;
+                activeRecord = record;
+                activeRow = row;
+                row.classList.add("is-dragging");
+                doc.body?.classList.add("document-is-dragging");
+                source.setPointerCapture(event.pointerId);
+                event.preventDefault();
+              }});
+              source.addEventListener("pointermove", (event) => {{
+                if (!activeRecord || event.pointerType === "mouse") return;
+                showDestination(destinationAt(event.clientX, event.clientY));
+                event.preventDefault();
+              }});
+              source.addEventListener("pointerup", (event) => {{
+                if (!activeRecord || event.pointerType === "mouse") return;
+                moveTo(destinationAt(event.clientX, event.clientY));
+              }});
+              source.addEventListener("pointercancel", clearDragState);
+            }};
+            bindDragSource(handle);
+            bindDragSource(pdfIcon);
           }};
 
           const install = () => {{
