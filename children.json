@@ -103,7 +103,16 @@
     "DOB": "2023-03-27",
     "Session": "Morning Session",
     "Thumbnail": "",
-    "Guardians": []
+    "Guardians": [
+      {
+        "Name": "Caroline Murphy",
+        "Relationship": "Mam",
+        "Email": "murphy.caroline01@gmail.com",
+        "Phone": "",
+        "Address": "",
+        "Invited": false
+      }
+    ]
   },
   {
     "ID": "d95b8b6203e747f98a8af21564600c2e",
