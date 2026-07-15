@@ -111,6 +111,8 @@ def setting(name, fallback=""):
 DEFAULT_ADMIN_EMAIL = setting("ASH_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = setting("ASH_ADMIN_PASSWORD")
 APP_PUBLIC_URL = setting("APP_PUBLIC_URL", "https://ashs-angels-preschool.streamlit.app").rstrip("/")
+PRIVACY_POLICY_URL = f"{APP_PUBLIC_URL}/?public_page=privacy"
+ACCOUNT_DELETION_URL = f"{APP_PUBLIC_URL}/?public_page=delete-account"
 
 with Image.open(ICON_IMAGE) as icon_source:
     PAGE_ICON = icon_source.copy()
@@ -3537,6 +3539,12 @@ st.markdown(
         font-weight: 900;
         padding: 0 16px;
         text-decoration: none !important;
+    }}
+    .settings-support-links {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
     }}
     .add-child-icon {{
         display: inline-flex;
@@ -8238,6 +8246,121 @@ def render_parent_settings():
 
     with settings_panel:
         st.markdown('<div class="settings-heading">Settings</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="settings-support-links">'
+            f'<a class="section-edit" href="{PRIVACY_POLICY_URL}" target="_blank">Privacy policy</a>'
+            f'<a class="section-edit" href="{ACCOUNT_DELETION_URL}" target="_blank">Request account deletion</a>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def public_page_styles():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] { display: none !important; }
+        .stApp { background: #f5f8fc !important; }
+        .block-container { width: min(900px, calc(100% - 32px)) !important; max-width: 900px !important; padding: 48px 0 72px !important; }
+        .public-page { color: #1f315e; font-family: system-ui, sans-serif; letter-spacing: 0; }
+        .public-page-header { display: flex; align-items: center; gap: 18px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #d8e1ed; }
+        .public-page-logo { width: 92px; height: 92px; object-fit: contain; }
+        .public-page h1 { margin: 0; color: #294999; font-family: system-ui, sans-serif; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; letter-spacing: 0; }
+        .public-page h2 { margin: 34px 0 10px; color: #294999; font-family: system-ui, sans-serif; font-size: 1.35rem; line-height: 1.25; letter-spacing: 0; }
+        .public-page p, .public-page li { color: #43536e; font-size: 1rem; line-height: 1.65; letter-spacing: 0; }
+        .public-page ul { margin: 8px 0 0; padding-left: 24px; }
+        .public-page-meta { margin-top: 7px; color: #687892; font-size: .95rem; }
+        .public-page-action { display: inline-flex; align-items: center; min-height: 48px; margin: 12px 0 8px; padding: 0 20px; border-radius: 6px; background: #294999; color: #ffffff !important; font-weight: 800; text-decoration: none !important; }
+        .public-page-note { margin-top: 24px; padding: 18px 20px; border-left: 4px solid #294999; background: #eaf3fd; }
+        @media (max-width: 600px) {
+            .block-container { width: min(100% - 24px, 900px) !important; padding-top: 28px !important; }
+            .public-page-header { align-items: flex-start; }
+            .public-page-logo { width: 70px; height: 70px; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_public_privacy_policy():
+    public_page_styles()
+    st.markdown(
+        f"""
+        <main class="public-page">
+          <header class="public-page-header">
+            <img class="public-page-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
+            <div><h1>Privacy Policy</h1><div class="public-page-meta">Ash's Angels Preschool App &middot; Last updated 15 July 2026</div></div>
+          </header>
+          <p>Ash's Angels Preschool provides this app to approved parents, guardians and preschool administrators. This policy explains how personal data is used when you register for or use the app.</p>
+          <h2>Who is responsible for your data</h2>
+          <p>Ash's Angels Preschool is the data controller. Privacy questions can be sent to <a href="mailto:childcare@ashsangels.com">childcare@ashsangels.com</a>.</p>
+          <h2>Information we collect</h2>
+          <ul>
+            <li>Parent and guardian account and contact information, including name, email address, postal address, phone numbers, relationship and password credentials.</li>
+            <li>Child information required to provide the preschool service, including name, date of birth, session and photographs.</li>
+            <li>Messages, replies, photographs, videos and other attachments sent through the app.</li>
+            <li>Documents, acknowledgements and electronic signatures submitted through the app.</li>
+            <li>Notification tokens and limited technical information needed to deliver app notifications and keep the service secure.</li>
+          </ul>
+          <h2>How we use information</h2>
+          <ul>
+            <li>To authenticate users and connect approved parents or guardians with their child's information.</li>
+            <li>To provide preschool messages, documents, calendars, forms and notifications.</li>
+            <li>To administer the preschool service, maintain records, respond to requests and protect the security of the app.</li>
+            <li>To meet safeguarding, regulatory and legal obligations that apply to the preschool.</li>
+          </ul>
+          <h2>Legal basis</h2>
+          <p>We process data where it is necessary to provide the preschool service, comply with legal obligations, protect legitimate preschool and safeguarding interests, or where consent has been provided when required.</p>
+          <h2>Service providers and sharing</h2>
+          <p>We do not sell personal data and we do not use it for advertising. Data may be processed by service providers acting for the preschool, including Streamlit for app hosting, GitHub for app data and file storage, and Google Firebase for Android notifications. Information may also be disclosed where required by law or for safeguarding.</p>
+          <h2>Security</h2>
+          <p>We use access controls, encrypted network connections and password hashing to protect information. No online service can guarantee absolute security, and access should only be made from a device you control.</p>
+          <h2>Retention</h2>
+          <p>Information is kept while an account is active and for as long as needed for the preschool service, safeguarding, administration and legal requirements. Account information and associated app data that is not required to be retained will be deleted following a verified request. Signed forms or other records may be retained where the preschool has a legal or regulatory obligation to keep them.</p>
+          <h2>Your rights</h2>
+          <p>You may ask for access to, correction of, restriction of or deletion of your personal data. You may also object to certain processing or withdraw consent where processing relies on consent. Contact <a href="mailto:childcare@ashsangels.com">childcare@ashsangels.com</a>. You may raise a concern with Ireland's Data Protection Commission at <a href="https://www.dataprotection.ie/" target="_blank" rel="noopener">dataprotection.ie</a>.</p>
+          <h2>Children's information</h2>
+          <p>The app is intended for use by adult parents, guardians and administrators, not by children. Child information is managed by the preschool and approved adults for the purpose of providing the preschool service.</p>
+          <h2>Account and data deletion</h2>
+          <p>Parents and guardians can request deletion from the Settings page in the app or by using the public request page below.</p>
+          <a class="public-page-action" href="{ACCOUNT_DELETION_URL}">Request account deletion</a>
+          <h2>Changes to this policy</h2>
+          <p>We may update this policy when the app or legal requirements change. The latest version will remain available at this address.</p>
+        </main>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_public_account_deletion():
+    public_page_styles()
+    deletion_subject = quote("Ash's Angels app account deletion request")
+    st.markdown(
+        f"""
+        <main class="public-page">
+          <header class="public-page-header">
+            <img class="public-page-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
+            <div><h1>Account Deletion</h1><div class="public-page-meta">Ash's Angels Preschool App</div></div>
+          </header>
+          <p>You can request deletion of your Ash's Angels Preschool App account and associated app data at any time.</p>
+          <h2>How to request deletion</h2>
+          <ol>
+            <li>Email us from the address registered to your app account.</li>
+            <li>Include your full name and your child's name so that we can verify the correct account.</li>
+            <li>We will confirm the request and normally complete it within 30 days.</li>
+          </ol>
+          <a class="public-page-action" href="mailto:childcare@ashsangels.com?subject={deletion_subject}">Email deletion request</a>
+          <div class="public-page-note">
+            <p><strong>What will be deleted:</strong> your app login, parent or guardian contact details, notification registration and associated messages or uploaded app content that is not required to be retained.</p>
+            <p><strong>What may be retained:</strong> signed forms, safeguarding records or other information that Ash's Angels Preschool must keep for legal or regulatory reasons. Any retained information will remain protected and will not be used for unrelated purposes.</p>
+          </div>
+          <h2>Contact</h2>
+          <p>For questions about deletion, email <a href="mailto:childcare@ashsangels.com">childcare@ashsangels.com</a>. Read the <a href="{PRIVACY_POLICY_URL}">Privacy Policy</a> for more information.</p>
+        </main>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_admin_messages():
@@ -8516,6 +8639,15 @@ def render_parent_approvals():
                 )
 
     st.markdown("</div></div>", unsafe_allow_html=True)
+
+
+public_page = str(st.query_params.get("public_page", "") or "").strip().lower()
+if public_page == "privacy":
+    render_public_privacy_policy()
+    st.stop()
+if public_page in {"delete-account", "account-deletion"}:
+    render_public_account_deletion()
+    st.stop()
 
 
 if st.query_params.get("sign_out"):
