@@ -231,6 +231,8 @@
         "AdminReadAt": "2026-07-13T22:28:17"
       }
     ],
-    "LastReplyAt": "2026-07-13T22:27:17"
+    "LastReplyAt": "2026-07-13T22:27:17",
+    "ParentArchived": true,
+    "ParentArchivedAt": "2026-07-16T10:34:48"
   }
 ]
