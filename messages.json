@@ -271,7 +271,8 @@
         "Message": "Testing reply",
         "Attachments": [],
         "CreatedAt": "2026-07-16T23:12:06",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-16T23:12:35"
       }
     ],
     "LastReplyAt": "2026-07-16T23:12:06"
