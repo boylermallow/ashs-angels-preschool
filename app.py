@@ -1602,6 +1602,7 @@ def parent_message_push_payload(message):
         "badge": PUSH_ICON_URL,
         "tag": f"parent-message-{message.get('ID', '')}",
     }
+    return push_payload
 
 
 def send_web_push_to_parent(message):
