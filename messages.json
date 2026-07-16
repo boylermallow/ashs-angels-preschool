@@ -259,8 +259,21 @@
       }
     ],
     "CreatedAt": "2026-07-16T23:09:40",
-    "Status": "Sent",
+    "Status": "Replied",
     "Read": true,
-    "ReadAt": "2026-07-16T23:11:41"
+    "ReadAt": "2026-07-16T23:11:41",
+    "Replies": [
+      {
+        "ID": "a1f7cdb8f5dd4a778c30584d4f7c431e",
+        "From": "Parent",
+        "ParentID": "62919d5ce8e24a2fbc5c14fbe11f4900",
+        "ParentName": "Liam O' Boyle",
+        "Message": "Testing reply",
+        "Attachments": [],
+        "CreatedAt": "2026-07-16T23:12:06",
+        "AdminRead": false
+      }
+    ],
+    "LastReplyAt": "2026-07-16T23:12:06"
   }
 ]
