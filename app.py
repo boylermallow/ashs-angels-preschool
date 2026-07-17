@@ -6241,7 +6241,7 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
         relationship = st.selectbox("Relationship to child", CONTACT_RELATIONSHIPS, index=relationship_index("Guardian"))
         email = st.text_input("Email address")
         emergency_contact_1 = st.text_input("Emergency contact 1 phone")
-        emergency_contact_2 = st.text_input("Emergency contact 2 phone")
+        emergency_contact_2 = st.text_input("Emergency contact 2 phone (optional)")
         password = st.text_input("Create password")
         confirm_password = st.text_input("Confirm password")
         if st.button("Register Parent", type="primary", width="stretch"):
@@ -6252,8 +6252,8 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
             clean_emergency_2 = str(emergency_contact_2 or "").strip()
             clean_password = str(password or "").strip()
             clean_confirm_password = str(confirm_password or "").strip()
-            if not clean_name or not clean_email or not clean_emergency_1 or not clean_emergency_2 or not clean_password:
-                st.warning("Please add the parent's first name, email address, both emergency contacts, and a password.")
+            if not clean_name or not clean_email or not clean_emergency_1 or not clean_password:
+                st.warning("Please add the parent's first name, email address, emergency contact 1 phone, and a password.")
             elif clean_password != clean_confirm_password:
                 st.warning("The two passwords do not match.")
             else:
