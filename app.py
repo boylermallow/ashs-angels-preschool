@@ -8342,8 +8342,8 @@ def render_parent_dashboard():
     ]
     if messages:
         unread_count = sum(1 for message in messages if not message.get("Read"))
-        message_heading = f"New messages ({unread_count})" if unread_count else "Latest messages"
-        st.markdown(f'<div class="section-title">{message_heading}</div>', unsafe_allow_html=True)
+        if unread_count:
+            st.markdown(f'<div class="section-title">New messages ({unread_count})</div>', unsafe_allow_html=True)
         render_parent_message_items(
             parent,
             messages,
