@@ -362,7 +362,30 @@
       }
     ],
     "CreatedAt": "2026-07-17T23:23:06",
-    "Status": "Sent",
-    "Read": false
+    "Status": "Replied",
+    "Read": false,
+    "Replies": [
+      {
+        "ID": "6669d9c926cf4e8488b7f621e9da7692",
+        "From": "Parent",
+        "ParentID": "62919d5ce8e24a2fbc5c14fbe11f4900",
+        "ParentName": "Liam O' Boyle",
+        "Message": "Admin notifications?",
+        "Attachments": [
+          {
+            "ID": "50cdd321ddd4451facd4e7980c5b5eaa",
+            "Kind": "image",
+            "FileName": "1000085971.jpg",
+            "MimeType": "image/jpeg",
+            "Size": 2425932,
+            "Path": "assets/messages/2026/07/849951bf87fa444187ca84661e851453.jpg",
+            "Url": "https://raw.githubusercontent.com/boylermallow/ashs-angels-preschool/main/assets/messages/2026/07/849951bf87fa444187ca84661e851453.jpg"
+          }
+        ],
+        "CreatedAt": "2026-07-17T23:28:04",
+        "AdminRead": false
+      }
+    ],
+    "LastReplyAt": "2026-07-17T23:28:04"
   }
 ]
