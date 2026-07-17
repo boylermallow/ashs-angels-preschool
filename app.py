@@ -1202,16 +1202,18 @@ def firebase_secret(*names):
         if value:
             return value
     try:
-        firebase_settings = st.secrets.get("firebase", {})
-        for name in names:
-            nested_name = (
-                name.lower()
-                .replace("firebase_", "")
-                .replace("google_application_credentials_", "")
-            )
-            value = str(firebase_settings.get(nested_name, "")).strip()
-            if value:
-                return value
+        for section_name in ("firebase", "push"):
+            firebase_settings = st.secrets.get(section_name, {})
+            for name in names:
+                nested_name = (
+                    name.lower()
+                    .replace("firebase_", "")
+                    .replace("google_application_credentials_", "")
+                )
+                for candidate in (name, name.lower(), nested_name):
+                    value = str(firebase_settings.get(candidate, "")).strip()
+                    if value:
+                        return value
     except Exception:
         pass
     return ""
