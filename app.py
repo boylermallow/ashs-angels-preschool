@@ -4663,6 +4663,21 @@ st.markdown(
         color: var(--muted);
         font-weight: 700;
     }}
+    .admin-message-thread .reply-meta {{
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+        color: var(--brand-blue);
+        font-size: .72rem;
+        font-weight: 850;
+        line-height: 1.2;
+    }}
+    .admin-message-thread .reply-date {{
+        color: var(--muted);
+        font-weight: 700;
+    }}
     .admin-message-original .message-body {{
         color: var(--ink);
         font-size: 1rem;
@@ -8315,10 +8330,15 @@ def render_admin_message_item(
                 reply.get("Attachments", []),
                 f"admin-{message_id or index}-reply-{reply_index}",
             )
+            reply_date_html = (
+                f'<span class="reply-date">&middot; {html.escape(reply_date)}</span>'
+                if reply_date
+                else ""
+            )
             replies_html += (
                 f'<div class="reply-bubble{reply_class}">'
-                f'<div class="reply-meta">{html.escape(reply_author_label(reply, "Admin"))}'
-                f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
+                f'<div class="reply-meta"><span>{html.escape(reply_author_label(reply, "Admin"))}</span>'
+                f'{reply_date_html}</div>'
                 f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                 f'{reply_attachments}'
                 '</div>'
