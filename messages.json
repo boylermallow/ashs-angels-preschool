@@ -172,7 +172,20 @@
       }
     ],
     "CreatedAt": "2026-07-17T22:07:48",
-    "Status": "Sent",
-    "Read": false
+    "Status": "Replied",
+    "Read": false,
+    "Replies": [
+      {
+        "ID": "79a145ee1f4f4e178204610391807805",
+        "From": "Parent",
+        "ParentID": "eae98a1c123043aab80052870ccd47f3",
+        "ParentName": "Asha",
+        "Message": "Brilliant",
+        "Attachments": [],
+        "CreatedAt": "2026-07-17T22:09:45",
+        "AdminRead": false
+      }
+    ],
+    "LastReplyAt": "2026-07-17T22:09:45"
   }
 ]
