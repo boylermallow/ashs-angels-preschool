@@ -6094,7 +6094,7 @@ st.markdown(
         .app-top {{ align-items: flex-start; }}
         .top-logo {{ width: 96px; height: 66px; }}
         .quick-grid {{ grid-template-columns: 1fr; }}
-        .parent-message-list {{
+        .parent-message-card.is-first {{
             margin-top: -30px;
         }}
         .parent-row {{
@@ -7547,6 +7547,7 @@ def render_parent_message_items(
     limit=None,
     children_by_id=None,
     show_archive_controls=True,
+    show_summary=True,
     mark_as_read=True,
     unread_first=False,
 ):
@@ -7563,13 +7564,13 @@ def render_parent_message_items(
     if mark_as_read:
         mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
     target_message_id = str(st.query_params.get("message_id", "") or "")
-    st.markdown('<div class="parents-list parent-message-list">', unsafe_allow_html=True)
-    for message in sorted_messages:
+    for message_index, message in enumerate(sorted_messages):
         message_id = message.get("ID", "")
         sent_date = message_datetime(message.get("CreatedAt", ""))
         is_unread = not bool(message.get("Read"))
         anchor_id = message_anchor_id(message_id)
         target_class = " is-target" if target_message_id and message_id == target_message_id else ""
+        first_class = " is-first" if message_index == 0 else ""
         reply_key = f"{key_prefix}_reply_body_{message_id}"
         reply_open_key = f"{key_prefix}_reply_open_{message_id}"
         replies = message.get("Replies", [])
@@ -7609,12 +7610,17 @@ def render_parent_message_items(
             if status_label
             else ""
         )
-        message_card_html = (
-            f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
-            f'<div class="parent-row{target_class}">'
-            '<div>'
+        summary_html = (
             f'<div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>'
             f'<div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date)}</div>'
+            if show_summary
+            else ""
+        )
+        message_card_html = (
+            f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
+            f'<div class="parent-row parent-message-card{first_class}{target_class}">'
+            '<div>'
+            f'{summary_html}'
             '<div class="parent-message-thread">'
             '<div class="reply-bubble is-admin">'
             f'<div class="reply-meta"><span>Preschool</span><span class="reply-date">&middot; {html.escape(sent_date)}</span></div>'
@@ -7684,7 +7690,6 @@ def render_parent_message_items(
                 st.session_state.pop(reply_media_key, None)
                 st.session_state.pop(reply_open_key, None)
                 st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def calendar_label(event):
@@ -8372,6 +8377,7 @@ def render_parent_dashboard():
             key_prefix="dashboard_message",
             limit=3,
             children_by_id=children_by_id,
+            show_summary=False,
             mark_as_read=False,
             unread_first=True,
         )
