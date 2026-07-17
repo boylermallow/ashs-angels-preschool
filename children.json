@@ -232,5 +232,22 @@
         "Invited": false
       }
     ]
+  },
+  {
+    "ID": "59353f061fe2403e9c5317bc7aaa6d05",
+    "Name": "Pinocchio Pleisch",
+    "DOB": "2026-07-14",
+    "Session": "Morning Session",
+    "Thumbnail": "",
+    "Guardians": [
+      {
+        "Name": "Pinochio",
+        "Relationship": "Mam",
+        "Email": "noneofyourbusiness@zoomail.org",
+        "Phone": "007",
+        "Address": "Castlepark",
+        "Invited": true
+      }
+    ]
   }
 ]
