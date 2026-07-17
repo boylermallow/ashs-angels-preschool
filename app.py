@@ -7602,27 +7602,27 @@ def render_parent_message_items(
             message.get("Attachments", []),
             f"{key_prefix}-{message_id}",
         )
-        st.markdown(
-            f"""
-            <span id="{html.escape(anchor_id)}" class="message-anchor"></span>
-            <div class="parent-row{target_class}">
-              <div>
-                <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
-                <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date)}</div>
-                <div class="parent-message-thread">
-                  <div class="reply-bubble is-admin">
-                    <div class="reply-meta"><span>Preschool</span><span class="reply-date">&middot; {html.escape(sent_date)}</span></div>
-                    <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
-                  </div>
-                  {message_attachments}
-                  {replies_html}
-                </div>
-              </div>
-              <div class="parent-status{' is-new' if is_unread else ''}">{'New' if is_unread else ('Replied' if replies else 'Message')}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        status_class = " is-new" if is_unread else ""
+        status_label = "New" if is_unread else ("Replied" if replies else "Message")
+        message_card_html = (
+            f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
+            f'<div class="parent-row{target_class}">'
+            '<div>'
+            f'<div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>'
+            f'<div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date)}</div>'
+            '<div class="parent-message-thread">'
+            '<div class="reply-bubble is-admin">'
+            f'<div class="reply-meta"><span>Preschool</span><span class="reply-date">&middot; {html.escape(sent_date)}</span></div>'
+            f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
+            '</div>'
+            f'{message_attachments}'
+            f'{replies_html}'
+            '</div>'
+            '</div>'
+            f'<div class="parent-status{status_class}">{status_label}</div>'
+            '</div>'
         )
+        st.markdown(message_card_html, unsafe_allow_html=True)
         action_columns = st.columns([1, 1.35, 2.65], gap="small")
         if action_columns[0].button(
             "Reply",
