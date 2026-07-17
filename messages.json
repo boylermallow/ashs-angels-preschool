@@ -88,7 +88,7 @@
     ],
     "CreatedAt": "2026-07-17T08:44:49",
     "Status": "Replied",
-    "Read": false,
+    "Read": true,
     "Replies": [
       {
         "ID": "3d80c1dbdfc04a138a8abec5838ebdf5",
@@ -121,6 +121,7 @@
       }
     ],
     "LastReplyAt": "2026-07-17T10:35:37",
-    "ParentArchived": false
+    "ParentArchived": false,
+    "ReadAt": "2026-07-17T10:35:44"
   }
 ]
