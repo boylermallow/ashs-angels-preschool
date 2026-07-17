@@ -1483,11 +1483,28 @@ def send_fcm_to_entries(entries, payload):
         token = str(entry.get("FCMToken", "")).strip()
         if not token:
             continue
+        data_payload = fcm_data_payload(payload)
+        notification_title = data_payload.get("title", "Ash's Angels")
+        notification_body = data_payload.get("body", "You have a new preschool message.")
+        notification_tag = data_payload.get("tag", "ashs-angels-message")
         body = {
             "message": {
                 "token": token,
-                "data": fcm_data_payload(payload),
-                "android": {"priority": "HIGH"},
+                "data": data_payload,
+                "notification": {
+                    "title": notification_title,
+                    "body": notification_body,
+                },
+                "android": {
+                    "priority": "HIGH",
+                    "ttl": "86400s",
+                    "notification": {
+                        "channel_id": "messages",
+                        "icon": "ic_notification",
+                        "sound": "default",
+                        "tag": notification_tag,
+                    },
+                },
             }
         }
         request = Request(
@@ -4964,6 +4981,10 @@ st.markdown(
         background: #fff1c7;
         color: #8a5200;
     }}
+    .parent-status.is-new {{
+        background: #fff1c7;
+        color: #8a5200;
+    }}
     .parent-action-button {{
         justify-content: center;
         min-width: 92px;
@@ -7277,15 +7298,26 @@ def render_parent_message_items(
     limit=None,
     children_by_id=None,
     show_archive_controls=True,
+    mark_as_read=True,
+    unread_first=False,
 ):
-    sorted_messages = sorted(messages, key=message_activity_key, reverse=True)
+    if unread_first:
+        sorted_messages = sorted(
+            messages,
+            key=lambda message: (not bool(message.get("Read")), message_activity_key(message)),
+            reverse=True,
+        )
+    else:
+        sorted_messages = sorted(messages, key=message_activity_key, reverse=True)
     if limit:
         sorted_messages = sorted_messages[:limit]
-    mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
+    if mark_as_read:
+        mark_messages_read([message.get("ID", "") for message in sorted_messages], parent.get("Email", ""))
     target_message_id = str(st.query_params.get("message_id", "") or "")
     st.markdown('<div class="parents-list parent-message-list">', unsafe_allow_html=True)
     for message in sorted_messages:
         message_id = message.get("ID", "")
+        is_unread = not bool(message.get("Read"))
         anchor_id = message_anchor_id(message_id)
         target_class = " is-target" if target_message_id and message_id == target_message_id else ""
         reply_key = f"{key_prefix}_reply_body_{message_id}"
@@ -7324,7 +7356,7 @@ def render_parent_message_items(
                 {message_attachments}
                 {replies_html}
               </div>
-              <div class="parent-status">{'Replied' if replies else 'Message'}</div>
+              <div class="parent-status{' is-new' if is_unread else ''}">{'New' if is_unread else ('Replied' if replies else 'Message')}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -8039,11 +8071,37 @@ def render_parent_dashboard():
         if not message.get("ParentArchived")
     ]
     if messages:
-        render_parent_message_items(parent, messages, key_prefix="dashboard_message", limit=3, children_by_id=children_by_id)
+        unread_count = sum(1 for message in messages if not message.get("Read"))
+        message_heading = f"New messages ({unread_count})" if unread_count else "Latest messages"
+        st.markdown(f'<div class="section-title">{message_heading}</div>', unsafe_allow_html=True)
+        render_parent_message_items(
+            parent,
+            messages,
+            key_prefix="dashboard_message",
+            limit=3,
+            children_by_id=children_by_id,
+            mark_as_read=False,
+            unread_first=True,
+        )
         if len(messages) > 3:
             st.markdown(f'<a class="menu-item" href="{app_href("Messages")}" target="_self">View all messages</a>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="parent-row"><div><div class="parent-name">Messages</div><div class="parent-detail">No messages yet.</div></div></div>', unsafe_allow_html=True)
+    reply_is_open = any(
+        key.startswith("dashboard_message_reply_open_") and bool(value)
+        for key, value in st.session_state.items()
+    )
+    if not reply_is_open:
+        components.html(
+            """
+            <script>
+            setTimeout(() => {
+              try { window.parent.location.reload(); } catch (error) {}
+            }, 45000);
+            </script>
+            """,
+            height=0,
+        )
 
 
 def render_parent_messages():
