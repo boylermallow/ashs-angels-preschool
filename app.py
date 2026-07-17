@@ -2173,9 +2173,6 @@ def render_admin_message_notification(messages=None):
             try {
               window.parent.document.title = "Ash's Angels Preschool App";
             } catch (error) {}
-            setTimeout(() => {
-              try { window.parent.location.reload(); } catch (error) {}
-            }, 45000);
             </script>
             """,
             height=0,
@@ -2286,9 +2283,6 @@ def render_admin_message_notification(messages=None):
 
         setTitle();
         updatePermissionState();
-        setTimeout(() => {{
-          try {{ window.parent.location.reload(); }} catch (error) {{}}
-        }}, 45000);
         </script>
         """,
         height=48,
@@ -9098,7 +9092,7 @@ with menu_col:
 
 with content_col:
     if current_role == "Admin":
-        admin_interaction_open = any(
+        admin_interaction_open = bool(st.session_state.get("show_add_child")) or any(
             st.query_params.get(param)
             for param in ("message_child", "message_session", "reply_message", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "create_message")
         )
