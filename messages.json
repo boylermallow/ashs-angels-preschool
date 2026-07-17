@@ -250,7 +250,8 @@
         "Message": "Sure sure?",
         "Attachments": [],
         "CreatedAt": "2026-07-17T22:58:47",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-17T23:02:22"
       }
     ],
     "LastReplyAt": "2026-07-17T22:58:47",
