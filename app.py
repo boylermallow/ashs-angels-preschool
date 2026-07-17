@@ -9286,8 +9286,9 @@ if st.query_params.get("sign_out"):
     render_saved_login_bridge(clear=True)
     st.stop()
 
-is_login_flow = bool(st.query_params.get("login_role"))
-render_saved_login_bridge(restore=not is_login_flow)
+# Android can reopen the app on a role-specific login URL. Still allow the
+# saved token to restore so parents do not have to log in every time.
+render_saved_login_bridge(restore=True)
 restore_saved_login()
 
 if st.session_state.pop("saved_login_invalid", False):
