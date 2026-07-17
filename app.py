@@ -2590,6 +2590,30 @@ def show_quick_notice(message):
         )
 
 
+def show_sent_confirmation(message):
+    clean_message = str(message or "").strip()
+    if not clean_message:
+        return
+    lower_message = clean_message.lower()
+    title = "Message sent" if ("message" in lower_message or "reply" in lower_message) else "Done"
+    st.markdown(
+        '<div class="sent-confirmation">'
+        '<div class="sent-confirmation-icon">&#10003;</div>'
+        '<div>'
+        f'<div class="sent-confirmation-title">{html.escape(title)}</div>'
+        f'<div class="sent-confirmation-copy">{html.escape(clean_message)}</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def show_pending_sent_confirmation():
+    notice = st.session_state.pop("notification_sent", "")
+    if notice:
+        show_sent_confirmation(notice)
+
+
 def child_thumb_html(child):
     thumb = child.get("Thumbnail") or ""
     if thumb:
@@ -3881,6 +3905,44 @@ st.markdown(
     @keyframes quickToastFade {{
         0%, 72% {{ opacity: 1; }}
         100% {{ opacity: 0; pointer-events: none; }}
+    }}
+    .sent-confirmation {{
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin: 0 0 18px;
+        padding: 16px 18px;
+        border: 2px solid rgba(31, 111, 68, .28);
+        border-radius: 8px;
+        background: #d9f2df;
+        box-shadow: 0 12px 28px rgba(35, 52, 95, .12);
+    }}
+    .sent-confirmation-icon {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 38px;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        background: #20b963;
+        color: #fff;
+        font-size: 1.3rem;
+        font-weight: 950;
+        line-height: 1;
+    }}
+    .sent-confirmation-title {{
+        color: #0b773f;
+        font-size: 1.1rem;
+        font-weight: 950;
+        line-height: 1.1;
+        margin-bottom: 4px;
+    }}
+    .sent-confirmation-copy {{
+        color: var(--ink);
+        font-size: .98rem;
+        font-weight: 760;
+        line-height: 1.35;
     }}
     .admin-new-message-alert {{
         display: flex;
@@ -6857,9 +6919,7 @@ def render_admin_children():
         for parent in parents
         if parent.get("ChildID") and parent.get("Status") == "Approved"
     }
-    notification_sent = st.session_state.pop("notification_sent", "")
-    if notification_sent:
-        st.success(notification_sent)
+    show_pending_sent_confirmation()
     child_added_message = st.session_state.pop("child_added_message", "")
     if child_added_message:
         show_quick_notice(child_added_message)
@@ -7666,7 +7726,7 @@ def render_parent_message_items(
                         st.session_state.pop(reply_key, None)
                         st.session_state.pop(reply_media_key, None)
                         st.session_state.pop(reply_open_key, None)
-                        st.success("Reply sent.")
+                        st.session_state["notification_sent"] = "Reply sent."
                         st.rerun()
                     else:
                         st.error("The reply was not saved permanently. Please check the GitHub data key and try again.")
@@ -8275,6 +8335,7 @@ def render_parent_important_documents():
 
 
 def render_parent_dashboard():
+    show_pending_sent_confirmation()
     parent = current_parent_record()
     children = load_children()
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
@@ -8348,6 +8409,7 @@ def render_parent_dashboard():
 
 
 def render_parent_messages():
+    show_pending_sent_confirmation()
     parent = current_parent_record()
     messages = current_parent_messages()
     if not parent:
@@ -8752,9 +8814,7 @@ def render_admin_messages():
     deleted_message = st.session_state.pop("message_deleted_notice", "")
     if deleted_message:
         st.success(deleted_message)
-    notification_sent = st.session_state.pop("notification_sent", "")
-    if notification_sent:
-        st.success(notification_sent)
+    show_pending_sent_confirmation()
     if not messages:
         st.markdown('<div class="panel parents-panel"><div class="muted">No messages have been sent yet.</div></div>', unsafe_allow_html=True)
         return
