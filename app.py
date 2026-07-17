@@ -2788,12 +2788,21 @@ def show_sent_confirmation(message):
         return
     lower_message = clean_message.lower()
     title = "Message sent" if ("message" in lower_message or "reply" in lower_message) else "Done"
+    copy_lines = [
+        part.strip()
+        for part in re.split(r"(?<=[.!?])\s+", clean_message)
+        if part.strip()
+    ]
+    copy_html = "".join(
+        f'<div class="sent-confirmation-copy-line">{html.escape(line)}</div>'
+        for line in copy_lines
+    )
     st.markdown(
         '<div class="sent-confirmation">'
         '<div class="sent-confirmation-icon">&#10003;</div>'
         '<div>'
         f'<div class="sent-confirmation-title">{html.escape(title)}</div>'
-        f'<div class="sent-confirmation-copy">{html.escape(clean_message)}</div>'
+        f'<div class="sent-confirmation-copy">{copy_html}</div>'
         '</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -4128,13 +4137,17 @@ st.markdown(
         font-size: 1.1rem;
         font-weight: 950;
         line-height: 1.1;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }}
     .sent-confirmation-copy {{
         color: var(--ink);
         font-size: .98rem;
         font-weight: 760;
-        line-height: 1.35;
+        line-height: 1.16;
+    }}
+    .sent-confirmation-copy-line {{
+        margin: 0;
+        line-height: 1.16;
     }}
     .admin-new-message-alert {{
         display: flex;
