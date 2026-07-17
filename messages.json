@@ -183,7 +183,8 @@
         "Message": "Brilliant",
         "Attachments": [],
         "CreatedAt": "2026-07-17T22:09:45",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-17T22:11:46"
       }
     ],
     "LastReplyAt": "2026-07-17T22:09:45"
