@@ -8393,7 +8393,7 @@ def render_admin_message_item(
         message_container = st.container()
     with message_container:
         st.markdown(message_card_html, unsafe_allow_html=True)
-        _action_spacer, reply_col, delete_col = st.columns([5, 1, 1], gap="small")
+        reply_col, delete_col, _action_spacer = st.columns([1, 1, 5], gap="small")
         if reply_col.button(
             "Reply",
             key=f"admin_reply_message_{message_id or index}",
