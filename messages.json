@@ -99,7 +99,8 @@
         "Message": "Reply function",
         "Attachments": [],
         "CreatedAt": "2026-07-17T08:47:55",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-17T08:49:09"
       }
     ],
     "LastReplyAt": "2026-07-17T08:47:55"
