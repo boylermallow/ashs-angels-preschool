@@ -23,7 +23,9 @@
     "CreatedAt": "2026-07-12T23:29:47",
     "Status": "Sent",
     "Read": true,
-    "ReadAt": "2026-07-12T23:30:19"
+    "ReadAt": "2026-07-12T23:30:19",
+    "ParentArchived": true,
+    "ParentArchivedAt": "2026-07-17T22:35:40"
   },
   {
     "ID": "5f94dc07f01c43378a64b60d35c85e4c",
