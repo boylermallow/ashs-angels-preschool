@@ -63,7 +63,9 @@
         "AdminReadAt": "2026-07-16T23:12:35"
       }
     ],
-    "LastReplyAt": "2026-07-16T23:12:06"
+    "LastReplyAt": "2026-07-16T23:12:06",
+    "ParentArchived": true,
+    "ParentArchivedAt": "2026-07-17T22:35:31"
   },
   {
     "ID": "6c606fcd5a2a47a0ab2350e0254d2737",
