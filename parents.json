@@ -97,10 +97,11 @@
     "Email": "noneofyourbusiness@zoomail.org",
     "EmergencyContact1": "007",
     "EmergencyContact2": "008",
-    "Status": "Pending",
-    "ChildID": "",
-    "ChildName": "",
+    "Status": "Approved",
+    "ChildID": "59353f061fe2403e9c5317bc7aaa6d05",
+    "ChildName": "Pinocchio Pleisch",
     "salt": "7e9444c9f5042055668590ffbc1e1c9b",
-    "hash": "c661319e7a4923dd876fe9212404adc578355e06d9b62f60e261c59d3dec40aa"
+    "hash": "c661319e7a4923dd876fe9212404adc578355e06d9b62f60e261c59d3dec40aa",
+    "Address": "Castlepark"
   }
 ]
