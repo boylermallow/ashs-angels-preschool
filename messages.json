@@ -222,7 +222,8 @@
         "Message": "Yes I got",
         "Attachments": [],
         "CreatedAt": "2026-07-17T22:23:34",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-17T22:26:23"
       }
     ],
     "LastReplyAt": "2026-07-17T22:23:34"
