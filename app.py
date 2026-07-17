@@ -6097,6 +6097,10 @@ st.markdown(
         .parent-message-card.is-first {{
             margin-top: -30px;
         }}
+        div[data-testid="stHorizontalBlock"]:has(div[class*="_message_open_reply_"]) {{
+            gap: 6px !important;
+            margin-top: -8px;
+        }}
         .parent-row {{
             grid-template-columns: 1fr;
             gap: 12px;
