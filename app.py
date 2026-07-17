@@ -4839,6 +4839,10 @@ st.markdown(
         max-width: 100%;
         margin-bottom: 12px;
     }}
+    .parent-child-heading.no-thumb {{
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }}
     .parent-child-heading .child-thumb {{
         position: static;
         width: 58px;
@@ -4867,6 +4871,7 @@ st.markdown(
         font-size: 1.08rem;
         font-weight: 950;
         line-height: 1.1;
+        white-space: nowrap;
     }}
     .parent-contact-name {{
         color: var(--ink);
@@ -8865,7 +8870,7 @@ def render_parent_approvals():
         elif status == "Approved" and child_name != "No child assigned":
             child_heading_thumb = f'<img class="child-thumb placeholder" src="{child_silhouette_url()}" alt="No child photo">'
         child_heading_html = (
-            '<div class="parent-child-heading">'
+            f'<div class="parent-child-heading{"" if child_heading_thumb else " no-thumb"}">'
             f'{child_heading_thumb}'
             '<div>'
             '<div class="parent-card-label">Child</div>'
