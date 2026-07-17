@@ -3157,15 +3157,15 @@ st.markdown(
         background: var(--panel);
         border: 1px solid var(--line);
         border-radius: 8px;
-        padding: 150px 24px 24px;
+        padding: 128px 24px 24px;
         box-shadow: var(--shadow);
         position: sticky;
         top: 92px;
-        margin-top: 86px;
+        margin-top: 70px;
     }}
     .side-logo {{
         width: 100%;
-        height: 166px;
+        height: 138px;
         object-fit: contain;
         display: block;
         margin: 0;
@@ -3177,12 +3177,12 @@ st.markdown(
     }}
     .side-logo-link {{
         display: block;
-        width: 250px;
+        width: 210px;
         max-width: 100%;
         margin: 0;
         text-decoration: none;
         position: absolute;
-        top: -86px;
+        top: -72px;
         left: 50%;
         transform: translateX(-50%);
     }}
@@ -3271,7 +3271,7 @@ st.markdown(
         display: flex; align-items: center; justify-content: space-between; gap: 18px;
         border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 16px;
     }}
-    .login-logo {{ width: 126px; height: 86px; object-fit: contain; flex: 0 0 auto; }}
+    .login-logo {{ width: 108px; height: 74px; object-fit: contain; flex: 0 0 auto; }}
     .role-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0 18px; }}
     .role-card {{
         border: 1px solid var(--line); border-radius: 8px; padding: 14px;
@@ -3472,7 +3472,7 @@ st.markdown(
     }}
     .app-title {{ font-size: 1.55rem; font-weight: 900; color: var(--brand-blue); line-height: 1.1; }}
     .app-subtitle {{ color: var(--muted); margin-top: 4px; font-weight: 650; }}
-    .top-logo {{ width: 124px; height: 82px; object-fit: contain; flex: 0 0 auto; }}
+    .top-logo {{ width: 104px; height: 68px; object-fit: contain; flex: 0 0 auto; }}
     .tabs {{
         display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px;
     }}
@@ -6160,8 +6160,8 @@ st.markdown(
             transform: translateY(-3.5px) rotate(-45deg);
         }}
         .mobile-menu-logo {{
-            width: 210px;
-            height: 116px;
+            width: 170px;
+            height: 94px;
             object-fit: contain;
             display: block;
         }}
@@ -6245,7 +6245,7 @@ st.markdown(
             margin-top: 2px;
         }}
         .app-top {{ align-items: flex-start; }}
-        .top-logo {{ width: 96px; height: 66px; }}
+        .top-logo {{ width: 82px; height: 56px; }}
         .quick-grid {{ grid-template-columns: 1fr; }}
         .parent-message-card.is-first {{ margin-top: 0; }}
         div[data-testid="stHorizontalBlock"]:has(div[class*="_message_open_reply_"]) {{
@@ -6288,7 +6288,7 @@ st.markdown(
             justify-content: space-between;
         }}
         .login-head {{ align-items: flex-start; }}
-        .login-logo {{ width: 96px; height: 66px; }}
+        .login-logo {{ width: 82px; height: 56px; }}
         .role-grid {{ grid-template-columns: 1fr; }}
         .child-row {{ grid-template-columns: 68px minmax(0, 1fr) auto; }}
         .profile-link {{ grid-template-columns: 68px minmax(0, 1fr); }}
