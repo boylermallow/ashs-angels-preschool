@@ -5632,8 +5632,9 @@ st.markdown(
     @media (max-width: 760px) {{
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
             display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-columns: 1fr !important;
             width: 100% !important;
+            gap: 10px !important;
         }}
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div {{
             width: 100% !important;
@@ -6445,9 +6446,9 @@ st.markdown(
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
             width: 100% !important;
             max-width: 100% !important;
-            gap: 8px !important;
+            gap: 10px !important;
             display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-columns: 1fr !important;
             align-items: stretch !important;
             justify-items: stretch !important;
             box-sizing: border-box !important;
@@ -6484,11 +6485,6 @@ st.markdown(
             white-space: normal !important;
             overflow-wrap: normal !important;
             word-break: keep-all !important;
-        }}
-    }}
-    @media (max-width: 360px) {{
-        div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
-            grid-template-columns: 1fr !important;
         }}
     }}
     </style>
