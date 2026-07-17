@@ -218,7 +218,7 @@
     ],
     "CreatedAt": "2026-07-17T22:21:52",
     "Status": "Replied",
-    "Read": false,
+    "Read": true,
     "Replies": [
       {
         "ID": "d50216152b1242889f886f38184ff514",
@@ -272,7 +272,8 @@
       }
     ],
     "LastReplyAt": "2026-07-17T23:02:51",
-    "ParentArchived": false
+    "ParentArchived": false,
+    "ReadAt": "2026-07-17T23:09:12"
   },
   {
     "ID": "e10befde0afd45a786873c65d07dda8d",
@@ -297,6 +298,7 @@
     ],
     "CreatedAt": "2026-07-17T23:07:59",
     "Status": "Sent",
-    "Read": false
+    "Read": true,
+    "ReadAt": "2026-07-17T23:09:12"
   }
 ]
