@@ -6772,17 +6772,6 @@ def render_side_menu(role, selected_page):
         f'<a class="menu-item {"active" if item == selected_page else ""}" href="{app_href(item)}" target="_self">{nav_label(item)}</a>'
         for item in nav_items
     )
-    mobile_push_status_html = ""
-    if role == "Admin":
-        mobile_push_status_html = (
-            f'<a class="mobile-push-status is-off" id="mobile-push-status" href="{app_href("Settings")}" '
-            'target="_self" aria-label="Device notifications are off" title="Device notifications are off">'
-            '<svg viewBox="0 0 24 24" aria-hidden="true">'
-            '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>'
-            '<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>'
-            '</svg>'
-            '</a>'
-        )
     menu_html = f"""
         <div class="mobile-menu">
           <input class="mobile-menu-toggle" id="mobile-menu-toggle" type="checkbox" aria-label="Open navigation menu">
@@ -6793,7 +6782,6 @@ def render_side_menu(role, selected_page):
           <a class="mobile-menu-logo-link" href="{app_href("Children")}" target="_self" aria-label="Go to children">
             <img class="mobile-menu-logo" src="{asset_url(LOGO_IMAGE)}" alt="Ash's Angels Preschool logo">
           </a>
-          {mobile_push_status_html}
           <div class="mobile-menu-panel">
             {items_html}
             <a class="sign-out" href="?sign_out=1" target="_self">Sign out</a>
@@ -6814,7 +6802,6 @@ def render_side_menu(role, selected_page):
         "".join(line.strip() for line in menu_html.splitlines()),
         unsafe_allow_html=True,
     )
-    render_mobile_push_status_bell()
 
 
 def render_delete_child_dialog(child):
