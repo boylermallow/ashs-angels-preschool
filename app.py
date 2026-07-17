@@ -4571,6 +4571,9 @@ st.markdown(
         background: #fffaf1;
         padding: 16px;
     }}
+    .parent-calendar-card {{
+        margin-bottom: 18px;
+    }}
     .admin-message-row {{
         display: block;
         height: auto;
@@ -6088,9 +6091,7 @@ st.markdown(
         .app-top {{ align-items: flex-start; }}
         .top-logo {{ width: 96px; height: 66px; }}
         .quick-grid {{ grid-template-columns: 1fr; }}
-        .parent-message-card.is-first {{
-            margin-top: -30px;
-        }}
+        .parent-message-card.is-first {{ margin-top: 0; }}
         div[data-testid="stHorizontalBlock"]:has(div[class*="_message_open_reply_"]) {{
             gap: 6px !important;
             margin-top: -8px;
@@ -8302,7 +8303,7 @@ def render_parent_dashboard():
 
     st.markdown(
         f"""
-        <div class="parent-row">
+        <div class="parent-row parent-calendar-card">
           <div>
             <div class="parent-name">Preschool Calendar</div>
             <div class="parent-detail">View key preschool dates and holidays for 2026/2027.</div>
