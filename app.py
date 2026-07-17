@@ -1709,6 +1709,31 @@ def send_admin_reply_push(message, reply):
     return web_sent or fcm_sent
 
 
+def send_parent_started_message_push(message):
+    message_text = str(message.get("Message", "") or "").strip()
+    if not message_text and message.get("Attachments"):
+        message_text = "Sent a photo/video message."
+    preview = message_text[:120]
+    child_name = message.get("ChildName", "a child")
+    parent_name = message.get("ParentName") or message.get("ParentEmail") or "A parent"
+    body = f"{parent_name} sent a message about {child_name}"
+    if preview:
+        body = f"{body}: {preview}"
+    message_id = message.get("ID", "")
+    payload = {
+        "title": "New parent message",
+        "body": body,
+        "url": message_href(message_id, auth_token=""),
+        "message_id": message_id,
+        "icon": PUSH_ICON_URL,
+        "badge": PUSH_ICON_URL,
+        "tag": f"admin-message-{message.get('ID', '')}",
+    }
+    web_sent = send_web_push_to_admins(payload)
+    fcm_sent = send_fcm_to_role("Admin", payload)
+    return web_sent or fcm_sent
+
+
 def render_admin_push_control():
     if st.session_state.get("role") != "Admin":
         return
@@ -2134,8 +2159,9 @@ def admin_unseen_message_count(messages=None):
     messages = load_messages() if messages is None else messages
     count = 0
     for message in messages:
+        thread_unseen = message_started_by_parent(message) and not message.get("AdminRead")
         replies = message.get("Replies", [])
-        if any(reply.get("From") == "Parent" and not reply.get("AdminRead") for reply in replies):
+        if thread_unseen or any(reply.get("From") == "Parent" and not reply.get("AdminRead") for reply in replies):
             count += 1
     return count
 
@@ -2143,7 +2169,25 @@ def admin_unseen_message_count(messages=None):
 def latest_admin_unseen_message(messages=None):
     messages = load_messages() if messages is None else messages
     latest = None
+
+    def consider(candidate):
+        nonlocal latest
+        if latest is None or candidate["CreatedAt"] > latest["CreatedAt"]:
+            latest = candidate
+
     for message in messages:
+        if message_started_by_parent(message) and not message.get("AdminRead"):
+            consider(
+                {
+                    "MessageID": message.get("ID", ""),
+                    "ReplyID": "",
+                    "ChildName": message.get("ChildName", "a child"),
+                    "ParentName": message.get("ParentName") or message.get("ParentEmail") or "A parent",
+                    "Message": message.get("Message", ""),
+                    "CreatedAt": message.get("CreatedAt", ""),
+                    "Action": "sent a message about",
+                }
+            )
         for reply in message.get("Replies", []):
             if reply.get("From") != "Parent" or reply.get("AdminRead"):
                 continue
@@ -2154,9 +2198,9 @@ def latest_admin_unseen_message(messages=None):
                 "ParentName": reply.get("ParentName") or message.get("ParentName") or "A parent",
                 "Message": reply.get("Message", ""),
                 "CreatedAt": reply.get("CreatedAt", ""),
+                "Action": "replied about",
             }
-            if latest is None or candidate["CreatedAt"] > latest["CreatedAt"]:
-                latest = candidate
+            consider(candidate)
     return latest
 
 
@@ -2182,6 +2226,7 @@ def render_admin_message_notification(messages=None):
     child_name = html.escape(latest.get("ChildName", "a child"))
     parent_name = html.escape(latest.get("ParentName", "A parent"))
     latest_message = html.escape(latest.get("Message", "")[:120])
+    latest_action = html.escape(latest.get("Action", "replied about"))
     notification_key = f'{latest.get("MessageID", "")}-{latest.get("ReplyID", "")}-{latest.get("CreatedAt", "")}'
     latest_message_url = message_href(latest.get("MessageID", ""))
     components.html(
@@ -2227,6 +2272,7 @@ def render_admin_message_notification(messages=None):
         const unseenCount = {int(unseen_count)};
         const childName = {json.dumps(latest.get("ChildName", "a child"))};
         const parentName = {json.dumps(latest.get("ParentName", "A parent"))};
+        const messageAction = {json.dumps(latest.get("Action", "replied about"))};
         const messagePreview = {json.dumps(latest.get("Message", "")[:120])};
         const state = document.getElementById("admin-notification-state");
         const button = document.getElementById("enable-admin-notifications");
@@ -2244,7 +2290,7 @@ def render_admin_message_notification(messages=None):
             window.localStorage.setItem("ash_admin_notification_key", notificationKey);
             if (!("Notification" in window) || Notification.permission !== "granted") return;
             const note = new Notification("New parent message", {{
-              body: parentName + " replied about " + childName + (messagePreview ? ": " + messagePreview : "."),
+              body: parentName + " " + messageAction + " " + childName + (messagePreview ? ": " + messagePreview : "."),
               tag: "ash-admin-message",
               renotify: true
             }});
@@ -2292,7 +2338,7 @@ def render_admin_message_notification(messages=None):
         <a class="admin-new-message-alert admin-new-message-link" href="{html.escape(latest_message_url)}" target="_self">
           <span class="admin-new-message-dot"></span>
           <div><strong>{unseen_count} new parent message{"s" if unseen_count != 1 else ""}</strong><br>
-          Latest: {parent_name} replied about {child_name}{(": " + latest_message) if latest_message else ""}</div>
+          Latest: {parent_name} {latest_action} {child_name}{(": " + latest_message) if latest_message else ""}</div>
         </a>
         """,
         unsafe_allow_html=True,
@@ -2315,6 +2361,10 @@ def mark_parent_replies_seen(messages):
     changed = False
     read_at = datetime.now().isoformat(timespec="seconds")
     for message in messages:
+        if message_started_by_parent(message) and not message.get("AdminRead"):
+            message["AdminRead"] = True
+            message["AdminReadAt"] = read_at
+            changed = True
         for reply in message.get("Replies", []):
             if reply.get("From") == "Parent" and not reply.get("AdminRead"):
                 reply["AdminRead"] = True
@@ -2407,6 +2457,43 @@ def send_session_parent_notifications(targets, message_body, attachments=None):
         if callable(fcm_sender):
             fcm_sender(message)
     return len(new_messages)
+
+
+def send_parent_message_to_school(parent, message_body, attachments=None):
+    clean_message = str(message_body or "").strip()
+    attachments = attachments or []
+    if not clean_message and not attachments:
+        return False
+
+    children = load_children()
+    children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
+    children_by_name = {lookup_key(child.get("Name", "")): child for child in children if child.get("Name")}
+    child = children_by_id.get(parent.get("ChildID", "")) or children_by_name.get(lookup_key(parent.get("ChildName", ""))) or {}
+    created_at = datetime.now().isoformat(timespec="seconds")
+    parent_name = str(parent.get("FirstName") or parent.get("Email") or "Parent").strip()
+    message = {
+        "ID": uuid.uuid4().hex,
+        "Type": "ParentMessage",
+        "StartedBy": "Parent",
+        "ChildID": child.get("ID") or parent.get("ChildID", ""),
+        "ChildName": child.get("Name") or parent.get("ChildName") or "Preschool message",
+        "ChildThumbnail": child.get("Thumbnail", ""),
+        "ParentID": parent.get("ID", ""),
+        "ParentName": parent_name,
+        "ParentEmail": parent.get("Email", ""),
+        "Message": clean_message,
+        "Attachments": attachments,
+        "CreatedAt": created_at,
+        "Status": "Sent",
+        "Read": True,
+        "ReadAt": created_at,
+        "AdminRead": False,
+    }
+    messages = load_messages()
+    saved = save_messages([*messages, message])
+    if saved:
+        send_parent_started_message_push(message)
+    return saved
 
 
 def add_parent_reply(message_id, parent, reply_body, attachments=None):
@@ -2534,6 +2621,13 @@ def message_activity_key(message):
         if isinstance(reply, dict)
     )
     return max(values) if values else ""
+
+
+def message_started_by_parent(message):
+    return (
+        str(message.get("StartedBy", "") or "").strip().lower() == "parent"
+        or str(message.get("Type", "") or "").strip().lower() == "parentmessage"
+    )
 
 
 def clean_message_text(value):
@@ -6696,6 +6790,79 @@ def render_create_message_dialog():
         st.rerun()
 
 
+def render_parent_create_message_dialog(parent):
+    message_key = "parent_create_message_body"
+    media_key = "parent_create_message_media"
+    children = load_children()
+    children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
+    children_by_name = {lookup_key(child.get("Name", "")): child for child in children if child.get("Name")}
+    child = children_by_id.get(parent.get("ChildID", "")) or children_by_name.get(lookup_key(parent.get("ChildName", ""))) or {
+        "Name": parent.get("ChildName") or "Your child",
+        "Thumbnail": "",
+    }
+
+    st.markdown(
+        '<div class="panel-title">Message preschool</div>'
+        '<div class="muted">Send a message to the preschool office.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="message-child admin-message-child create-message-target">'
+        f'{child_thumb_html(child)}'
+        '<div>'
+        f'<div class="parent-name">{html.escape(child.get("Name", "Your child"))}</div>'
+        '<div class="parent-detail">To: Preschool</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.form(key="parent_create_message_form", clear_on_submit=False):
+        message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+        media_files = st.file_uploader(
+            "Photos or videos",
+            type=MESSAGE_ATTACHMENT_TYPES,
+            accept_multiple_files=True,
+            key=media_key,
+            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
+        )
+        if media_files:
+            st.markdown(
+                '<div class="media-note">'
+                + html.escape(
+                    f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
+                )
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+        send_col, cancel_col = st.columns(2)
+        send_message = send_col.form_submit_button("Send message", width="stretch")
+        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+
+    if send_message:
+        if not message_body.strip() and not media_files:
+            st.warning("Please add a message, photo, or video first.")
+        else:
+            attachments, attachment_error = prepare_message_attachments(media_files)
+            if attachment_error:
+                st.warning(attachment_error)
+            elif send_parent_message_to_school(parent, message_body, attachments):
+                st.session_state["notification_sent"] = "Message sent to the preschool."
+                st.session_state.pop(message_key, None)
+                st.session_state.pop(media_key, None)
+                st.query_params.pop("create_parent_message", None)
+                st.query_params["app_page"] = "Messages"
+                st.rerun()
+            else:
+                st.error("The message was not saved permanently. Please try again.")
+
+    if cancel_message:
+        st.session_state.pop(message_key, None)
+        st.session_state.pop(media_key, None)
+        st.query_params.pop("create_parent_message", None)
+        st.rerun()
+
+
 def render_admin_reply_dialog(message):
     message_id = str(message.get("ID", "") or "")
     parent_name = str(message.get("ParentName") or message.get("ParentEmail") or "Parent")
@@ -6772,6 +6939,7 @@ def render_admin_reply_dialog(message):
 
 if hasattr(st, "dialog"):
     render_create_message_dialog = st.dialog("Create message")(render_create_message_dialog)
+    render_parent_create_message_dialog = st.dialog("Message preschool")(render_parent_create_message_dialog)
     render_admin_reply_dialog = st.dialog("Reply to parent")(render_admin_reply_dialog)
 
 
@@ -7612,6 +7780,7 @@ def render_parent_message_items(
     for message_index, message in enumerate(sorted_messages):
         message_id = message.get("ID", "")
         sent_date = message_datetime(message.get("CreatedAt", ""))
+        started_by_parent = message_started_by_parent(message)
         is_unread = not bool(message.get("Read"))
         anchor_id = message_anchor_id(message_id)
         target_class = " is-target" if target_message_id and message_id == target_message_id else ""
@@ -7661,14 +7830,16 @@ def render_parent_message_items(
             if show_summary
             else ""
         )
+        original_reply_class = "" if started_by_parent else " is-admin"
+        original_reply_author = "You" if started_by_parent else "Preschool"
         message_card_html = (
             f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
             f'<div class="parent-row parent-message-card{first_class}{target_class}">'
             '<div>'
             f'{summary_html}'
             '<div class="parent-message-thread">'
-            '<div class="reply-bubble is-admin">'
-            f'<div class="reply-meta"><span>Preschool</span><span class="reply-date">&middot; {html.escape(sent_date)}</span></div>'
+            f'<div class="reply-bubble{original_reply_class}">'
+            f'<div class="reply-meta"><span>{html.escape(original_reply_author)}</span><span class="reply-date">&middot; {html.escape(sent_date)}</span></div>'
             f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
             '</div>'
             f'{message_attachments}'
@@ -8411,13 +8582,24 @@ def render_parent_dashboard():
 def render_parent_messages():
     show_pending_sent_confirmation()
     parent = current_parent_record()
-    messages = current_parent_messages()
     if not parent:
         st.markdown(
             '<div class="panel parents-panel"><div class="muted">We could not find your parent registration yet.</div></div>',
             unsafe_allow_html=True,
         )
         return
+    if st.query_params.get("create_parent_message"):
+        render_parent_create_message_dialog(parent)
+    create_message_href = app_href("Messages", create_parent_message=1)
+    st.markdown(
+        '<div class="panel parents-panel messages-title-panel">'
+        '<div class="messages-title-row">'
+        '<div class="panel-title">Messages</div>'
+        f'<a class="create-message-button" href="{create_message_href}" target="_self">Create Message</a>'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+    messages = current_parent_messages()
     if not messages:
         st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
         return
@@ -8437,14 +8619,23 @@ def render_admin_message_item(
     anchor_id = message_anchor_id(message_id)
     target_class = " is-target" if target_message_id and message_id == target_message_id else ""
     sent_date = message_datetime(message.get("CreatedAt", ""))
-    read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
-    read_status = f"Read {read_at}" if message.get("Read") else "Unread"
-    read_badge_class = "read-badge is-read" if message.get("Read") else "read-badge"
-    read_icon = '<span class="read-tick">&#10003;</span>' if message.get("Read") else ""
     parent_name = message.get("ParentName", "") or message.get("ParentEmail", "Parent")
     child_name = message.get("ChildName", "Preschool message")
     child = message_child_record(message, children_by_id, children_by_name, parents_by_id, parents_by_email)
     child_name = child.get("Name") or child_name
+    started_by_parent = message_started_by_parent(message)
+    if started_by_parent:
+        read_at = message_datetime(message.get("AdminReadAt", "")) if message.get("AdminReadAt") else ""
+        read_status = f"Seen {read_at}" if message.get("AdminRead") else "New"
+        read_badge_class = "read-badge is-read" if message.get("AdminRead") else "read-badge"
+        read_icon = '<span class="read-tick">&#10003;</span>' if message.get("AdminRead") else ""
+        recipient_line = f"From {parent_name}"
+    else:
+        read_at = message_datetime(message.get("ReadAt", "")) if message.get("ReadAt") else ""
+        read_status = f"Read {read_at}" if message.get("Read") else "Unread"
+        read_badge_class = "read-badge is-read" if message.get("Read") else "read-badge"
+        read_icon = '<span class="read-tick">&#10003;</span>' if message.get("Read") else ""
+        recipient_line = f"To {parent_name}"
     replies = message.get("Replies", [])
     replies_html = ""
     if replies:
@@ -8478,6 +8669,25 @@ def render_admin_message_item(
     media_class = " has-media" if message_attachments else ""
     media_html = f'<div class="admin-message-media">{message_attachments}</div>' if message_attachments else ""
     delete_key = f"delete_message_{message_id or index}"
+    status_label = "Replied" if replies else ("Parent message" if started_by_parent else "Sent")
+    if started_by_parent and not message.get("AdminRead") and not replies:
+        status_label = "New"
+    if started_by_parent:
+        original_message_html = (
+            '<div class="reply-bubble">'
+            f'<div class="reply-meta"><span>{html.escape(parent_name)}</span>'
+            f'<span class="reply-date">&middot; {html.escape(sent_date or "Not recorded")}</span></div>'
+            f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
+            '</div>'
+        )
+    else:
+        original_message_html = (
+            '<div class="admin-message-original">'
+            '<div class="admin-message-label"><span>Me</span>'
+            f'<span class="admin-message-sent">&middot; {html.escape(sent_date or "Not recorded")}</span></div>'
+            f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
+            '</div>'
+        )
     message_card_html = (
         f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
         f'<div class="parent-row admin-message-row{target_class}">'
@@ -8487,21 +8697,17 @@ def render_admin_message_item(
         f'{child_thumb_html(child)}'
         '<div class="admin-message-heading">'
         f'<div class="parent-name">{html.escape(child_name)}</div>'
-        f'<div class="admin-message-recipient">To {html.escape(parent_name)}</div>'
+        f'<div class="admin-message-recipient">{html.escape(recipient_line)}</div>'
         '</div>'
         '</div>'
         '<div class="message-status-stack">'
-        f'<div class="parent-status">{"Replied" if replies else "Sent"}</div>'
+        f'<div class="parent-status">{html.escape(status_label)}</div>'
         f'<div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>'
         '</div>'
         '</div>'
         f'<div class="admin-message-content{media_class}">'
         '<div class="admin-message-thread">'
-        '<div class="admin-message-original">'
-        '<div class="admin-message-label"><span>Me</span>'
-        f'<span class="admin-message-sent">&middot; {html.escape(sent_date or "Not recorded")}</span></div>'
-        f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
-        '</div>'
+        f'{original_message_html}'
         f'{replies_html}'
         '</div>'
         f'{media_html}'
@@ -9100,7 +9306,7 @@ if saved_login_token:
 login_placeholder = st.empty()
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "move_document", "document_audience", "message_child", "message_session", "reply_message", "mobile_menu", "add_child", "create_message"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "move_document", "document_audience", "message_child", "message_session", "reply_message", "mobile_menu", "add_child", "create_message", "create_parent_message"):
         st.query_params.pop(protected_param, None)
     with login_placeholder.container():
         render_login(login_placeholder)
@@ -9124,6 +9330,8 @@ if current_role == "Admin" and st.query_params.get("add_child"):
 if current_role == "Admin" and st.query_params.get("create_message"):
     selected_page = "Messages"
 if current_role == "Admin" and st.query_params.get("reply_message"):
+    selected_page = "Messages"
+if current_role == "Parent" and st.query_params.get("create_parent_message"):
     selected_page = "Messages"
 if st.query_params.get("edit_child"):
     selected_page = "Children"
