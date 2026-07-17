@@ -5901,7 +5901,7 @@ st.markdown(
             --mobile-safe-top: max(env(safe-area-inset-top), 44px);
         }}
         .block-container {{
-            padding: calc(58px + var(--mobile-safe-top)) .85rem 2rem;
+            padding: calc(22px + var(--mobile-safe-top)) .85rem 2rem;
         }}
         .side-menu {{
             display: none;
@@ -6870,7 +6870,6 @@ def render_admin_children():
         for parent in parents
         if parent.get("ChildID") and parent.get("Status") == "Approved"
     }
-    st.markdown("<br>", unsafe_allow_html=True)
     notification_sent = st.session_state.pop("notification_sent", "")
     if notification_sent:
         st.success(notification_sent)
