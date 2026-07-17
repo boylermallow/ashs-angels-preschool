@@ -8293,31 +8293,6 @@ def render_parent_important_documents():
         )
 
 
-def render_parent_message_auto_refresh(key_prefix, interval_ms=15000):
-    reply_is_open = any(
-        key.startswith(f"{key_prefix}_reply_open_") and bool(value)
-        for key, value in st.session_state.items()
-    )
-    if reply_is_open:
-        return
-    components.html(
-        f"""
-        <script>
-        try {{
-          const parentWindow = window.parent;
-          if (parentWindow.__ashParentMessageRefreshTimer) {{
-            parentWindow.clearTimeout(parentWindow.__ashParentMessageRefreshTimer);
-          }}
-          parentWindow.__ashParentMessageRefreshTimer = parentWindow.setTimeout(() => {{
-            parentWindow.location.reload();
-          }}, {int(interval_ms)});
-        }} catch (error) {{}}
-        </script>
-        """,
-        height=0,
-    )
-
-
 def render_parent_dashboard():
     parent = current_parent_record()
     children = load_children()
@@ -8389,7 +8364,6 @@ def render_parent_dashboard():
             st.markdown(f'<a class="menu-item" href="{app_href("Messages")}" target="_self">View all messages</a>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="parent-row"><div><div class="parent-name">Messages</div><div class="parent-detail">No messages yet.</div></div></div>', unsafe_allow_html=True)
-    render_parent_message_auto_refresh("dashboard_message")
 
 
 def render_parent_messages():
@@ -8403,10 +8377,8 @@ def render_parent_messages():
         return
     if not messages:
         st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
-        render_parent_message_auto_refresh("parent_message")
         return
     render_parent_message_items(parent, messages)
-    render_parent_message_auto_refresh("parent_message")
 
 
 def render_admin_message_item(
