@@ -4642,11 +4642,69 @@ st.markdown(
     .admin-message-media {{
         min-width: 0;
     }}
+    .admin-message-thread,
+    .parent-message-thread {{
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }}
+    .admin-message-thread .reply-list,
+    .parent-message-thread .reply-list {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        margin-top: 0;
+    }}
     .admin-message-original {{
-        padding: 14px 16px;
-        border-left: 4px solid var(--brand-blue);
-        border-radius: 8px;
-        background: #f4f7fb;
+        padding: 12px 14px;
+    }}
+    .admin-message-original,
+    .admin-message-thread .reply-bubble,
+    .parent-message-thread .reply-bubble {{
+        position: relative;
+        width: fit-content;
+        min-width: 180px;
+        max-width: 78%;
+        border: 0;
+        box-shadow: 0 4px 12px rgba(35,52,95,.08);
+    }}
+    .admin-message-original,
+    .admin-message-thread .reply-bubble.is-admin,
+    .parent-message-thread .reply-bubble.is-admin {{
+        align-self: flex-end;
+        border-radius: 12px 12px 3px 12px;
+        background: #e4f3e7;
+    }}
+    .admin-message-thread .reply-bubble:not(.is-admin),
+    .parent-message-thread .reply-bubble:not(.is-admin) {{
+        align-self: flex-start;
+        border-radius: 12px 12px 12px 3px;
+        background: #e9f4ff;
+    }}
+    .admin-message-original::after,
+    .admin-message-thread .reply-bubble.is-admin::after,
+    .parent-message-thread .reply-bubble.is-admin::after,
+    .admin-message-thread .reply-bubble:not(.is-admin)::after,
+    .parent-message-thread .reply-bubble:not(.is-admin)::after {{
+        content: "";
+        position: absolute;
+        bottom: 0;
+        width: 12px;
+        height: 12px;
+        background: inherit;
+    }}
+    .admin-message-original::after,
+    .admin-message-thread .reply-bubble.is-admin::after,
+    .parent-message-thread .reply-bubble.is-admin::after {{
+        right: -7px;
+        clip-path: polygon(0 0, 0 100%, 100% 100%);
+    }}
+    .admin-message-thread .reply-bubble:not(.is-admin)::after,
+    .parent-message-thread .reply-bubble:not(.is-admin)::after {{
+        left: -7px;
+        clip-path: polygon(100% 0, 0 100%, 100% 100%);
     }}
     .admin-message-label {{
         display: flex;
@@ -4675,6 +4733,21 @@ st.markdown(
         line-height: 1.2;
     }}
     .admin-message-thread .reply-date {{
+        color: var(--muted);
+        font-weight: 700;
+    }}
+    .parent-message-thread .reply-meta {{
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+        color: var(--brand-blue);
+        font-size: .72rem;
+        font-weight: 850;
+        line-height: 1.2;
+    }}
+    .parent-message-thread .reply-date {{
         color: var(--muted);
         font-weight: 700;
     }}
@@ -4793,6 +4866,12 @@ st.markdown(
         .admin-message-content.has-media {{
             grid-template-columns: minmax(0, 1fr);
             gap: 14px;
+        }}
+        .admin-message-original,
+        .admin-message-thread .reply-bubble,
+        .parent-message-thread .reply-bubble {{
+            min-width: 0;
+            max-width: 88%;
         }}
         .admin-message-media .message-media-image,
         .admin-message-media .message-media-video {{
@@ -7485,6 +7564,7 @@ def render_parent_message_items(
     st.markdown('<div class="parents-list parent-message-list">', unsafe_allow_html=True)
     for message in sorted_messages:
         message_id = message.get("ID", "")
+        sent_date = message_datetime(message.get("CreatedAt", ""))
         is_unread = not bool(message.get("Read"))
         anchor_id = message_anchor_id(message_id)
         target_class = " is-target" if target_message_id and message_id == target_message_id else ""
@@ -7502,10 +7582,15 @@ def render_parent_message_items(
                     reply.get("Attachments", []),
                     f"{key_prefix}-{message_id}-reply-{reply_index}",
                 )
+                reply_date_html = (
+                    f'<span class="reply-date">&middot; {html.escape(reply_date)}</span>'
+                    if reply_date
+                    else ""
+                )
                 replies_html += (
                     f'<div class="reply-bubble{reply_class}">'
-                    f'<div class="reply-meta">{html.escape(reply_author_label(reply, "Parent"))}'
-                    f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
+                    f'<div class="reply-meta"><span>{html.escape(reply_author_label(reply, "Parent"))}</span>'
+                    f'{reply_date_html}</div>'
                     f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                     f'{reply_attachments}'
                     '</div>'
@@ -7521,10 +7606,15 @@ def render_parent_message_items(
             <div class="parent-row{target_class}">
               <div>
                 <div class="parent-name">{html.escape(message.get("ChildName", "Preschool message"))}</div>
-                <div class="parent-detail"><strong>Sent:</strong> {html.escape(message_datetime(message.get("CreatedAt", "")))}</div>
-                <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
-                {message_attachments}
-                {replies_html}
+                <div class="parent-detail"><strong>Sent:</strong> {html.escape(sent_date)}</div>
+                <div class="parent-message-thread">
+                  <div class="reply-bubble is-admin">
+                    <div class="reply-meta"><span>Preschool</span><span class="reply-date">&middot; {html.escape(sent_date)}</span></div>
+                    <div class="message-body">{message_body_html(message.get("Message", ""))}</div>
+                  </div>
+                  {message_attachments}
+                  {replies_html}
+                </div>
               </div>
               <div class="parent-status{' is-new' if is_unread else ''}">{'New' if is_unread else ('Replied' if replies else 'Message')}</div>
             </div>
