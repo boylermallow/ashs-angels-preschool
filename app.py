@@ -7603,7 +7603,12 @@ def render_parent_message_items(
             f"{key_prefix}-{message_id}",
         )
         status_class = " is-new" if is_unread else ""
-        status_label = "New" if is_unread else ("Replied" if replies else "Message")
+        status_label = "New" if is_unread else ("Replied" if replies else "")
+        status_html = (
+            f'<div class="parent-status{status_class}">{status_label}</div>'
+            if status_label
+            else ""
+        )
         message_card_html = (
             f'<span id="{html.escape(anchor_id)}" class="message-anchor"></span>'
             f'<div class="parent-row{target_class}">'
@@ -7619,7 +7624,7 @@ def render_parent_message_items(
             f'{replies_html}'
             '</div>'
             '</div>'
-            f'<div class="parent-status{status_class}">{status_label}</div>'
+            f'{status_html}'
             '</div>'
         )
         st.markdown(message_card_html, unsafe_allow_html=True)
