@@ -6444,14 +6444,23 @@ st.markdown(
         }}
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
             width: 100% !important;
+            max-width: 100% !important;
             gap: 8px !important;
             display: grid !important;
-            grid-template-columns: repeat(2, minmax(136px, 1fr)) !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            align-items: stretch !important;
+            justify-items: stretch !important;
+            box-sizing: border-box !important;
+            margin: 16px auto 0 !important;
+            overflow: hidden !important;
         }}
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) > div {{
             flex: none !important;
             width: 100% !important;
+            max-width: 100% !important;
             min-width: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
         }}
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) div[data-testid="stFormSubmitButton"] {{
             width: 100% !important;
@@ -6477,7 +6486,7 @@ st.markdown(
             word-break: keep-all !important;
         }}
     }}
-    @media (max-width: 340px) {{
+    @media (max-width: 360px) {{
         div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stFormSubmitButton"]) {{
             grid-template-columns: 1fr !important;
         }}
