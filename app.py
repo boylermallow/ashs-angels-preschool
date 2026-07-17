@@ -8719,7 +8719,7 @@ def render_parent_messages():
     if not messages:
         st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
         return
-    render_parent_message_items(parent, messages)
+    render_parent_message_items(parent, messages, show_summary=False)
 
 
 def render_admin_message_item(
