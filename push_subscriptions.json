@@ -1,16 +1,5 @@
 [
   {
-    "ID": "5be05c9e2f9e4262919b8d5dae1e3fe4",
-    "Role": "Parent",
-    "Email": "youprint.ie@gmail.com",
-    "Transport": "FCM",
-    "Platform": "android",
-    "TokenHash": "e7f116b2da6b315305cd8bf3075c1a70e4ffd3fe760b29b89e9cf337a248b914",
-    "FCMToken": "eSw_vGEFRROzd2xh1az_Dg:APA91bFhDU398iHAiDWAdryu4wHbe8aQshNATEiUAfryx-bk8ZoActbNgOfWzmzVGrUWehYvvMciozjSCuvorUfMcUrVI3Dtc5Z2Gd191JzyD-ZxFp525F0",
-    "CreatedAt": "2026-07-14T22:47:47",
-    "LastSeenAt": "2026-07-14T22:47:47"
-  },
-  {
     "ID": "48dab8ed5684469a9d7b7e01d757f910",
     "Role": "Parent",
     "Email": "youprint.ie@gmail.com",
