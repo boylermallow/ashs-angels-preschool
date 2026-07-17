@@ -1672,6 +1672,15 @@ def send_fcm_to_parent(message):
     return send_fcm_to_user("Parent", parent_email, payload) if payload else False
 
 
+def send_admin_followup_to_parent(message, reply):
+    followup_message = dict(message)
+    followup_message["Message"] = str(reply.get("Message", "") or "").strip()
+    followup_message["Attachments"] = reply.get("Attachments", []) or []
+    web_sent = send_web_push_to_parent(followup_message)
+    fcm_sent = send_fcm_to_parent(followup_message)
+    return web_sent or fcm_sent
+
+
 def send_admin_reply_push(message, reply):
     reply_text = str(reply.get("Message", "") or "").strip()
     if not reply_text and reply.get("Attachments"):
@@ -2434,6 +2443,37 @@ def add_parent_reply(message_id, parent, reply_body, attachments=None):
     return False
 
 
+def add_admin_reply(message_id, reply_body, attachments=None):
+    clean_reply = str(reply_body or "").strip()
+    attachments = attachments or []
+    if not clean_reply and not attachments:
+        return False
+    messages = load_messages()
+    for message in messages:
+        if message.get("ID") != message_id:
+            continue
+        replies = message.setdefault("Replies", [])
+        created_at = datetime.now().isoformat(timespec="seconds")
+        reply = {
+            "ID": uuid.uuid4().hex,
+            "From": "Admin",
+            "Message": clean_reply,
+            "Attachments": attachments,
+            "CreatedAt": created_at,
+        }
+        replies.append(reply)
+        message["LastReplyAt"] = created_at
+        message["Read"] = False
+        message.pop("ReadAt", None)
+        message["ParentArchived"] = False
+        message.pop("ParentArchivedAt", None)
+        saved = save_messages(messages)
+        if saved:
+            send_admin_followup_to_parent(message, reply)
+        return saved
+    return False
+
+
 def mark_messages_read(message_ids, parent_email):
     clean_email = str(parent_email or "").strip().lower()
     ids = {message_id for message_id in message_ids if message_id}
@@ -2513,6 +2553,17 @@ def message_body_html(value):
     if not text:
         return ""
     return "<br>".join(html.escape(line) for line in text.splitlines())
+
+
+def reply_author_label(reply, viewer_role):
+    sender = str(reply.get("From", "") or "").strip().lower()
+    if sender == "admin":
+        return "Me" if viewer_role == "Admin" else "Preschool"
+    if sender == "parent":
+        if viewer_role == "Parent":
+            return "You"
+        return str(reply.get("ParentName") or "Parent")
+    return str(reply.get("ParentName") or reply.get("From") or "Reply")
 
 
 def replies_for_parent(parent_email):
@@ -4225,6 +4276,10 @@ st.markdown(
         border-radius: 8px;
         padding: 10px 12px;
     }}
+    .reply-bubble.is-admin {{
+        border-left-color: #7084b8;
+        background: #f4f7fb;
+    }}
     .reply-meta {{
         color: var(--muted);
         font-size: .86rem;
@@ -4687,6 +4742,24 @@ st.markdown(
     div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stButton"] button:hover * {{
         color: #a81526 !important;
         fill: #a81526 !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] [class*="st-key-admin_reply_message_"] button {{
+        border-color: #b8c9ec !important;
+        background: #edf4ff !important;
+        color: var(--brand-blue) !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] [class*="st-key-admin_reply_message_"] button * {{
+        color: var(--brand-blue) !important;
+        fill: var(--brand-blue) !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] [class*="st-key-admin_reply_message_"] button:hover {{
+        border-color: var(--brand-blue) !important;
+        background: #e2edff !important;
+        color: var(--brand-blue) !important;
+    }}
+    div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] [class*="st-key-admin_reply_message_"] button:hover * {{
+        color: var(--brand-blue) !important;
+        fill: var(--brand-blue) !important;
     }}
     div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"]:has(.admin-message-row.is-target) {{
         border-color: var(--brand-blue);
@@ -6461,8 +6534,83 @@ def render_create_message_dialog():
         st.rerun()
 
 
+def render_admin_reply_dialog(message):
+    message_id = str(message.get("ID", "") or "")
+    parent_name = str(message.get("ParentName") or message.get("ParentEmail") or "Parent")
+    child_name = str(message.get("ChildName") or "Preschool message")
+    reply_key = f"admin_reply_body_{message_id}"
+    media_key = f"admin_reply_media_{message_id}"
+
+    st.markdown(
+        f'<div class="panel-title">Reply to {html.escape(parent_name)}</div>'
+        f'<div class="parent-child-card no-photo"><div>'
+        f'<div class="parent-child-name">{html.escape(child_name)}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+    reply_body = st.text_area(
+        "Reply",
+        placeholder="Write your reply here...",
+        height=140,
+        key=reply_key,
+    )
+    media_files = st.file_uploader(
+        "Photos or videos",
+        type=MESSAGE_ATTACHMENT_TYPES,
+        accept_multiple_files=True,
+        key=media_key,
+        help=(
+            f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. "
+            f"Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}."
+        ),
+    )
+    if media_files:
+        st.markdown(
+            '<div class="media-note">'
+            + html.escape(
+                f"{len(media_files)} file{'s' if len(media_files) != 1 else ''} ready to send."
+            )
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+    send_col, cancel_col = st.columns(2, gap="small")
+    if send_col.button(
+        "Send reply",
+        type="primary",
+        icon=":material/reply:",
+        key=f"admin_send_reply_{message_id}",
+        width="stretch",
+    ):
+        if not str(reply_body or "").strip() and not media_files:
+            st.warning("Please write a reply or add a photo/video first.")
+        else:
+            attachments, attachment_error = prepare_message_attachments(media_files)
+            if attachment_error:
+                st.warning(attachment_error)
+            elif add_admin_reply(message_id, reply_body, attachments):
+                st.session_state["notification_sent"] = f"Reply sent to {parent_name}."
+                st.session_state.pop(reply_key, None)
+                st.session_state.pop(media_key, None)
+                st.query_params.pop("reply_message", None)
+                st.rerun()
+            else:
+                st.error("The reply was not saved permanently. Please check the GitHub data key and try again.")
+
+    if cancel_col.button(
+        "Cancel",
+        key=f"admin_cancel_reply_{message_id}",
+        width="stretch",
+    ):
+        st.session_state.pop(reply_key, None)
+        st.session_state.pop(media_key, None)
+        st.query_params.pop("reply_message", None)
+        st.rerun()
+
+
 if hasattr(st, "dialog"):
     render_create_message_dialog = st.dialog("Create message")(render_create_message_dialog)
+    render_admin_reply_dialog = st.dialog("Reply to parent")(render_admin_reply_dialog)
 
 
 def render_login(login_placeholder=None):
@@ -7328,13 +7476,15 @@ def render_parent_message_items(
             replies_html = '<div class="reply-list">'
             for reply_index, reply in enumerate(replies):
                 reply_date = message_datetime(reply.get("CreatedAt", ""))
+                reply_sender = str(reply.get("From", "") or "").strip().lower()
+                reply_class = " is-admin" if reply_sender == "admin" else ""
                 reply_attachments = message_attachments_html(
                     reply.get("Attachments", []),
                     f"{key_prefix}-{message_id}-reply-{reply_index}",
                 )
                 replies_html += (
-                    '<div class="reply-bubble">'
-                    f'<div class="reply-meta">{html.escape(reply.get("From", "Parent"))}'
+                    f'<div class="reply-bubble{reply_class}">'
+                    f'<div class="reply-meta">{html.escape(reply_author_label(reply, "Parent"))}'
                     f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
                     f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                     f'{reply_attachments}'
@@ -8146,13 +8296,15 @@ def render_admin_message_item(
         replies_html = '<div class="reply-list">'
         for reply_index, reply in enumerate(replies):
             reply_date = message_datetime(reply.get("CreatedAt", ""))
+            reply_sender = str(reply.get("From", "") or "").strip().lower()
+            reply_class = " is-admin" if reply_sender == "admin" else ""
             reply_attachments = message_attachments_html(
                 reply.get("Attachments", []),
                 f"admin-{message_id or index}-reply-{reply_index}",
             )
             replies_html += (
-                '<div class="reply-bubble">'
-                f'<div class="reply-meta">{html.escape(reply.get("ParentName") or reply.get("From", "Parent"))}'
+                f'<div class="reply-bubble{reply_class}">'
+                f'<div class="reply-meta">{html.escape(reply_author_label(reply, "Admin"))}'
                 f'{(" - " + html.escape(reply_date)) if reply_date else ""}</div>'
                 f'<div class="message-body">{message_body_html(reply.get("Message", ""))}</div>'
                 f'{reply_attachments}'
@@ -8203,12 +8355,24 @@ def render_admin_message_item(
         message_container = st.container()
     with message_container:
         st.markdown(message_card_html, unsafe_allow_html=True)
-        if st.button(
+        _action_spacer, reply_col, delete_col = st.columns([5, 1, 1], gap="small")
+        if reply_col.button(
+            "Reply",
+            key=f"admin_reply_message_{message_id or index}",
+            type="tertiary",
+            icon=":material/reply:",
+            help="Reply in this thread",
+            width="stretch",
+        ):
+            st.query_params["reply_message"] = message_id
+            st.rerun()
+        if delete_col.button(
             "Delete",
             key=delete_key,
             type="tertiary",
             icon=":material/delete:",
             help="Delete message",
+            width="stretch",
         ):
             st.session_state["confirm_delete_message_id"] = message_id
             st.rerun()
@@ -8468,6 +8632,16 @@ def render_admin_messages():
     parents_by_email = {lookup_key(parent.get("Email", "")): parent for parent in parents if parent.get("Email")}
     if st.query_params.get("create_message"):
         render_create_message_dialog()
+    reply_message_id = str(st.query_params.get("reply_message", "") or "")
+    if reply_message_id:
+        reply_message = next(
+            (message for message in messages if message.get("ID") == reply_message_id),
+            None,
+        )
+        if reply_message:
+            render_admin_reply_dialog(reply_message)
+        else:
+            st.query_params.pop("reply_message", None)
     create_message_href = app_href("Messages", create_message=1)
     st.markdown(
         '<div class="panel parents-panel messages-title-panel">'
@@ -8768,7 +8942,7 @@ if saved_login_token:
 login_placeholder = st.empty()
 
 if not st.session_state.get("logged_in"):
-    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "move_document", "document_audience", "message_child", "message_session", "mobile_menu", "add_child", "create_message"):
+    for protected_param in ("app_page", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "move_document", "document_audience", "message_child", "message_session", "reply_message", "mobile_menu", "add_child", "create_message"):
         st.query_params.pop(protected_param, None)
     with login_placeholder.container():
         render_login(login_placeholder)
@@ -8791,6 +8965,8 @@ if current_role == "Admin" and st.query_params.get("add_child"):
     selected_page = st.query_params.get("app_page", "Children")
 if current_role == "Admin" and st.query_params.get("create_message"):
     selected_page = "Messages"
+if current_role == "Admin" and st.query_params.get("reply_message"):
+    selected_page = "Messages"
 if st.query_params.get("edit_child"):
     selected_page = "Children"
 if st.query_params.get("edit_parent"):
@@ -8807,7 +8983,7 @@ with content_col:
     if current_role == "Admin":
         admin_interaction_open = any(
             st.query_params.get(param)
-            for param in ("message_child", "message_session", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "create_message")
+            for param in ("message_child", "message_session", "reply_message", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "create_message")
         )
         if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
