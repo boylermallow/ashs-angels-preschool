@@ -87,8 +87,21 @@
       }
     ],
     "CreatedAt": "2026-07-17T08:44:49",
-    "Status": "Sent",
+    "Status": "Replied",
     "Read": true,
-    "ReadAt": "2026-07-17T08:46:58"
+    "ReadAt": "2026-07-17T08:46:58",
+    "Replies": [
+      {
+        "ID": "3d80c1dbdfc04a138a8abec5838ebdf5",
+        "From": "Parent",
+        "ParentID": "62919d5ce8e24a2fbc5c14fbe11f4900",
+        "ParentName": "Liam O' Boyle",
+        "Message": "Reply function",
+        "Attachments": [],
+        "CreatedAt": "2026-07-17T08:47:55",
+        "AdminRead": false
+      }
+    ],
+    "LastReplyAt": "2026-07-17T08:47:55"
   }
 ]
