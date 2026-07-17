@@ -280,6 +280,28 @@ def github_api_request(method, path, payload=None, warn=True):
         return None
 
 
+def github_latest_path_commit(path):
+    safe_path = quote(str(path or ""), safe="")
+    safe_branch = quote(DATA_BRANCH, safe="")
+    url = f"https://api.github.com/repos/{DATA_REPOSITORY}/commits?path={safe_path}&sha={safe_branch}&per_page=1"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = github_data_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = Request(url, headers=headers, method="GET")
+    try:
+        with urlopen(request, timeout=12) as response:
+            commits = json.loads(response.read().decode("utf-8"))
+        if isinstance(commits, list) and commits:
+            return str(commits[0].get("sha", "") or "")
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError):
+        pass
+    return ""
+
+
 def load_persistent_json(path, fallback):
     local_value = read_json(APP_DIR / path, fallback)
     remote = github_api_request("GET", path)
@@ -2342,6 +2364,82 @@ def render_admin_message_notification(messages=None):
         </a>
         """,
         unsafe_allow_html=True,
+    )
+
+
+def render_admin_message_live_refresh(interval_ms=45000):
+    if st.session_state.get("role") != "Admin":
+        return
+    current_version = github_latest_path_commit(MESSAGES_FILE.name)
+    if not current_version:
+        return
+    commits_url = (
+        f"https://api.github.com/repos/{DATA_REPOSITORY}/commits"
+        f"?path={quote(MESSAGES_FILE.name, safe='')}&sha={quote(DATA_BRANCH, safe='')}&per_page=1"
+    )
+    components.html(
+        f"""
+        <script>
+        (function() {{
+          const parentWindow = window.parent || window;
+          const currentVersion = {json.dumps(current_version)};
+          const commitsUrl = {json.dumps(commits_url)};
+          const intervalMs = {int(interval_ms)};
+          const timerKey = "__ashAdminMessageRefreshTimer";
+          const handlerKey = "__ashAdminMessageRefreshVisibilityHandler";
+          let checking = false;
+
+          try {{
+            if (parentWindow[timerKey]) {{
+              parentWindow.clearInterval(parentWindow[timerKey]);
+            }}
+            if (parentWindow[handlerKey]) {{
+              parentWindow.removeEventListener("visibilitychange", parentWindow[handlerKey]);
+            }}
+          }} catch (error) {{}}
+
+          async function latestMessageVersion() {{
+            const response = await parentWindow.fetch(commitsUrl + "&_=" + Date.now(), {{
+              cache: "no-store",
+              headers: {{ "Accept": "application/vnd.github+json" }}
+            }});
+            if (!response.ok) return "";
+            const commits = await response.json();
+            if (!Array.isArray(commits) || !commits.length) return "";
+            return commits[0] && commits[0].sha ? String(commits[0].sha) : "";
+          }}
+
+          async function checkForMessageChanges() {{
+            if (checking) return;
+            try {{
+              if (parentWindow.document && parentWindow.document.hidden) return;
+            }} catch (error) {{}}
+            checking = true;
+            try {{
+              const latestVersion = await latestMessageVersion();
+              if (latestVersion && latestVersion !== currentVersion) {{
+                parentWindow.location.reload();
+              }}
+            }} catch (error) {{
+            }} finally {{
+              checking = false;
+            }}
+          }}
+
+          parentWindow[timerKey] = parentWindow.setInterval(checkForMessageChanges, intervalMs);
+          parentWindow[handlerKey] = function() {{
+            try {{
+              if (!parentWindow.document.hidden) {{
+                parentWindow.setTimeout(checkForMessageChanges, 750);
+              }}
+            }} catch (error) {{}}
+          }};
+          parentWindow.addEventListener("visibilitychange", parentWindow[handlerKey]);
+          parentWindow.setTimeout(checkForMessageChanges, Math.min(15000, intervalMs));
+        }})();
+        </script>
+        """,
+        height=0,
     )
 
 
@@ -9036,6 +9134,7 @@ def render_admin_messages():
             parents_by_email,
         )
     mark_parent_replies_seen(stored_messages)
+    render_admin_message_live_refresh()
     components.html(
         """
         <script>
@@ -9352,6 +9451,8 @@ with content_col:
             st.query_params.get(param)
             for param in ("message_child", "message_session", "reply_message", "add_child", "edit_child", "edit_parent", "children_edit", "delete_child", "delete_document", "create_message")
         )
+        if selected_page == "Children" and not admin_interaction_open:
+            render_admin_message_live_refresh()
         if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
         if selected_page == "Parents":
