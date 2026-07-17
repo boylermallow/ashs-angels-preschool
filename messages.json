@@ -211,7 +211,20 @@
       }
     ],
     "CreatedAt": "2026-07-17T22:21:52",
-    "Status": "Sent",
-    "Read": false
+    "Status": "Replied",
+    "Read": false,
+    "Replies": [
+      {
+        "ID": "d50216152b1242889f886f38184ff514",
+        "From": "Parent",
+        "ParentID": "62919d5ce8e24a2fbc5c14fbe11f4900",
+        "ParentName": "Liam O' Boyle",
+        "Message": "Yes I got",
+        "Attachments": [],
+        "CreatedAt": "2026-07-17T22:23:34",
+        "AdminRead": false
+      }
+    ],
+    "LastReplyAt": "2026-07-17T22:23:34"
   }
 ]
