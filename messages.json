@@ -388,7 +388,9 @@
       }
     ],
     "LastReplyAt": "2026-07-17T23:28:04",
-    "ReadAt": "2026-07-17T23:28:27"
+    "ReadAt": "2026-07-17T23:28:27",
+    "ParentArchived": true,
+    "ParentArchivedAt": "2026-07-18T17:07:03"
   },
   {
     "ID": "dc1233a04a3d40d89fc1ac1cacaa6f4e",
