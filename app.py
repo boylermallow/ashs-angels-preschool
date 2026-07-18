@@ -7146,10 +7146,15 @@ def render_admin_reply_dialog(message):
         if not str(reply_body or "").strip() and not media_files:
             st.warning("Please write a reply or add a photo/video first.")
         else:
-            attachments, attachment_error = prepare_message_attachments(media_files)
+            st.info("Sending reply, please wait...")
+            with st.spinner("Sending reply..."):
+                attachments, attachment_error = prepare_message_attachments(media_files)
+                reply_saved = False
+                if not attachment_error:
+                    reply_saved = add_admin_reply(message_id, reply_body, attachments)
             if attachment_error:
                 st.warning(attachment_error)
-            elif add_admin_reply(message_id, reply_body, attachments):
+            elif reply_saved:
                 st.session_state["notification_sent"] = f"Reply sent to {parent_name}."
                 st.session_state.pop(reply_key, None)
                 st.session_state.pop(media_key, None)
@@ -8111,10 +8116,15 @@ def render_parent_message_items(
                 if not str(reply_body or "").strip() and not reply_media_files:
                     st.warning("Please write a reply or add a photo/video first.")
                 else:
-                    reply_attachments, attachment_error = prepare_message_attachments(reply_media_files)
+                    st.info("Sending reply, please wait...")
+                    with st.spinner("Sending reply..."):
+                        reply_attachments, attachment_error = prepare_message_attachments(reply_media_files)
+                        reply_saved = False
+                        if not attachment_error:
+                            reply_saved = add_parent_reply(message_id, parent, reply_body, reply_attachments)
                     if attachment_error:
                         st.warning(attachment_error)
-                    elif add_parent_reply(message_id, parent, reply_body, reply_attachments):
+                    elif reply_saved:
                         st.session_state.pop(reply_key, None)
                         st.session_state.pop(reply_media_key, None)
                         st.session_state.pop(reply_open_key, None)
