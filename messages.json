@@ -190,8 +190,26 @@
         "CreatedAt": "2026-07-18T20:36:55",
         "AdminRead": true,
         "AdminReadAt": "2026-07-18T20:37:23"
+      },
+      {
+        "ID": "b532c82fa59944209efc7b965f157970",
+        "From": "Admin",
+        "Message": "Testing message reply function",
+        "Attachments": [
+          {
+            "ID": "b637eeec7cd24730b2f6006b13b40385",
+            "Kind": "image",
+            "FileName": "740059836_122179530608861671_3348058927318660345_n.jpg",
+            "MimeType": "image/jpeg",
+            "Size": 130641,
+            "Path": "assets/messages/2026/07/345a7e384bce48aa99fd42d632178bad.jpg",
+            "Url": "https://raw.githubusercontent.com/boylermallow/ashs-angels-preschool/main/assets/messages/2026/07/345a7e384bce48aa99fd42d632178bad.jpg"
+          }
+        ],
+        "CreatedAt": "2026-07-18T20:38:38"
       }
     ],
-    "LastReplyAt": "2026-07-18T20:36:55"
+    "LastReplyAt": "2026-07-18T20:38:38",
+    "ParentArchived": false
   }
 ]
