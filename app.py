@@ -3842,6 +3842,27 @@ st.markdown(
         gap: 8px;
         min-width: 0;
     }}
+    .document-file-visual.document-drag-source {{
+        padding: 8px;
+        margin: -8px;
+        border: 2px dashed transparent;
+        border-radius: 8px;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }}
+    .document-file-visual.document-drag-source:hover,
+    .document-file-visual.document-drag-source:focus-visible {{
+        border-color: #8fb7db;
+        background: #edf6ff;
+        box-shadow: 0 0 0 3px rgba(41, 73, 153, .12);
+        outline: none;
+        transform: translateY(-2px);
+    }}
+    .document-file-visual.document-drag-source:active {{
+        cursor: grabbing;
+    }}
     .document-file-name {{
         width: 100%;
         color: var(--muted);
@@ -8475,6 +8496,12 @@ def render_document_drag_controls(documents):
               pdfIcon.setAttribute("tabindex", "0");
               pdfIcon.setAttribute("aria-label", `Move PDF document to ${{keyboardDestination}}`);
             }}
+            const fileVisual = row.querySelector(".document-file-visual");
+            if (fileVisual) {{
+              fileVisual.setAttribute("role", "button");
+              fileVisual.setAttribute("tabindex", "0");
+              fileVisual.setAttribute("aria-label", `Move PDF document to ${{keyboardDestination}}`);
+            }}
 
             const bindDragSource = (source) => {{
               if (!source || source.dataset.documentDragBound === "true") return;
@@ -8527,6 +8554,7 @@ def render_document_drag_controls(documents):
               source.addEventListener("pointercancel", clearDragState);
             }};
             bindDragSource(handle);
+            bindDragSource(fileVisual);
             bindDragSource(pdfIcon);
           }};
 
