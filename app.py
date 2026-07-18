@@ -4496,6 +4496,13 @@ st.markdown(
         margin: 0;
         line-height: 1.15;
     }}
+    .messages-title-actions {{
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+    }}
     .create-message-button {{
         display: inline-flex;
         align-items: center;
@@ -4513,6 +4520,16 @@ st.markdown(
     .create-message-button:hover {{
         transform: translateY(-1px);
         box-shadow: 0 10px 20px rgba(47,78,161,.24);
+    }}
+    .message-filter-button {{
+        background: #ffffff;
+        color: var(--brand-blue) !important;
+        border: 1px solid var(--line);
+        box-shadow: none;
+    }}
+    .message-filter-button:hover {{
+        background: #eef6fc;
+        box-shadow: none;
     }}
     .create-message-target {{
         margin: 16px 0;
@@ -6412,6 +6429,11 @@ st.markdown(
         .messages-title-row {{
             align-items: stretch;
             flex-direction: column;
+        }}
+        .messages-title-actions {{
+            align-items: stretch;
+            flex-direction: column;
+            width: 100%;
         }}
         .messages-title-panel .panel-title {{
             margin: 0;
@@ -8707,19 +8729,41 @@ def render_parent_messages():
     if st.query_params.get("create_parent_message"):
         render_parent_create_message_dialog(parent)
     create_message_href = app_href("Messages", create_parent_message=1)
+    all_messages = current_parent_messages()
+    active_messages = [message for message in all_messages if not message.get("ParentArchived")]
+    archived_messages = [message for message in all_messages if message.get("ParentArchived")]
+    show_archived = str(st.query_params.get("show_archived", "") or "") == "1"
+    visible_messages = archived_messages if show_archived else active_messages
+    archive_toggle_href = app_href("Messages") if show_archived else app_href("Messages", show_archived=1)
+    archive_toggle_label = (
+        "View active messages"
+        if show_archived
+        else f"View archived messages{f' ({len(archived_messages)})' if archived_messages else ''}"
+    )
+    archive_toggle_html = (
+        f'<a class="create-message-button message-filter-button" href="{archive_toggle_href}" target="_self">{archive_toggle_label}</a>'
+        if show_archived or archived_messages
+        else ""
+    )
     st.markdown(
         '<div class="panel parents-panel messages-title-panel">'
         '<div class="messages-title-row">'
         '<div class="panel-title">Messages</div>'
+        '<div class="messages-title-actions">'
         f'<a class="create-message-button" href="{create_message_href}" target="_self">Create Message</a>'
+        f'{archive_toggle_html}'
+        '</div>'
         '</div></div>',
         unsafe_allow_html=True,
     )
-    messages = current_parent_messages()
-    if not messages:
-        st.markdown('<div class="panel parents-panel"><div class="muted">No messages yet.</div></div>', unsafe_allow_html=True)
+    if not visible_messages:
+        empty_text = "No archived messages yet." if show_archived else "No messages yet."
+        st.markdown(
+            f'<div class="panel parents-panel"><div class="muted">{empty_text}</div></div>',
+            unsafe_allow_html=True,
+        )
         return
-    render_parent_message_items(parent, messages, show_summary=False)
+    render_parent_message_items(parent, visible_messages, show_summary=False)
 
 
 def render_admin_message_item(
