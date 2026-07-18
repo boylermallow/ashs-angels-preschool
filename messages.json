@@ -188,7 +188,8 @@
           }
         ],
         "CreatedAt": "2026-07-18T20:36:55",
-        "AdminRead": false
+        "AdminRead": true,
+        "AdminReadAt": "2026-07-18T20:37:23"
       }
     ],
     "LastReplyAt": "2026-07-18T20:36:55"
