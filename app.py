@@ -5649,6 +5649,27 @@ st.markdown(
         color: var(--brand-blue) !important;
         fill: var(--brand-blue) !important;
     }}
+    @media (min-width: 761px) {{
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stHorizontalBlock"]:has([class*="st-key-admin_reply_message_"]) {{
+            justify-content: center !important;
+            gap: 12px !important;
+        }}
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stHorizontalBlock"]:has([class*="st-key-admin_reply_message_"]) > div[data-testid="stColumn"]:has([class*="st-key-admin_reply_message_"]),
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stHorizontalBlock"]:has([class*="st-key-admin_reply_message_"]) > div[data-testid="stColumn"]:has([class*="st-key-delete_message_"]) {{
+            flex: 0 0 150px !important;
+            width: 150px !important;
+            min-width: 150px !important;
+        }}
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stHorizontalBlock"]:has([class*="st-key-admin_reply_message_"]) > div[data-testid="stColumn"]:not(:has([class*="st-key-admin_reply_message_"])):not(:has([class*="st-key-delete_message_"])) {{
+            display: none !important;
+        }}
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stHorizontalBlock"]:has([class*="st-key-admin_reply_message_"]) div[data-testid="stButton"] {{
+            justify-content: center;
+        }}
+        div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"] div[data-testid="stHorizontalBlock"]:has([class*="st-key-admin_reply_message_"]) div[data-testid="stButton"] button {{
+            width: 100% !important;
+        }}
+    }}
     div[data-testid="stVerticalBlock"][class*="st-key-admin_message_card_"]:has(.admin-message-row.is-target) {{
         border-color: var(--brand-blue);
         box-shadow: 0 0 0 4px rgba(47,79,163,.18), 0 14px 28px rgba(35,52,95,.12);
