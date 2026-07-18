@@ -406,6 +406,7 @@
     "Status": "Sent",
     "Read": true,
     "ReadAt": "2026-07-18T14:58:39",
-    "AdminRead": false
+    "AdminRead": true,
+    "AdminReadAt": "2026-07-18T15:04:18"
   }
 ]
