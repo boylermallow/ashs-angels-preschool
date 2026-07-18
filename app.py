@@ -2691,6 +2691,17 @@ def set_parent_message_archived(message_id, parent_email, archived=True):
     return False
 
 
+def handle_parent_message_archive(message_id, parent_email, archived=True):
+    if set_parent_message_archived(message_id, parent_email, archived=archived):
+        st.session_state["notification_sent"] = (
+            "Message archived. It has been hidden from your dashboard."
+            if archived
+            else "Message restored. It is back in your active messages."
+        )
+    else:
+        st.session_state["parent_message_archive_error"] = "The message could not be updated. Please try again."
+
+
 def delete_message(message_id):
     messages = load_messages()
     kept_messages = [message for message in messages if message.get("ID") != message_id]
@@ -2787,7 +2798,14 @@ def show_sent_confirmation(message):
     if not clean_message:
         return
     lower_message = clean_message.lower()
-    title = "Message sent" if ("message" in lower_message or "reply" in lower_message) else "Done"
+    if "archived" in lower_message:
+        title = "Message archived"
+    elif "restored" in lower_message:
+        title = "Message restored"
+    elif "message" in lower_message or "reply" in lower_message:
+        title = "Message sent"
+    else:
+        title = "Done"
     copy_lines = [
         part.strip()
         for part in re.split(r"(?<=[.!?])\s+", clean_message)
@@ -2813,6 +2831,12 @@ def show_pending_sent_confirmation():
     notice = st.session_state.pop("notification_sent", "")
     if notice:
         show_sent_confirmation(notice)
+
+
+def show_parent_message_archive_error():
+    archive_error = st.session_state.pop("parent_message_archive_error", "")
+    if archive_error:
+        st.error(archive_error)
 
 
 def child_thumb_html(child):
@@ -8009,20 +8033,14 @@ def render_parent_message_items(
             is_archived = bool(message.get("ParentArchived"))
             archive_label = "Restore" if is_archived else "Archive"
             archive_icon = ":material/unarchive:" if is_archived else ":material/archive:"
-            if action_columns[1].button(
+            action_columns[1].button(
                 archive_label,
                 icon=archive_icon,
                 key=f"{key_prefix}_archive_{message_id}",
+                on_click=handle_parent_message_archive,
+                args=(message_id, parent.get("Email", ""), not is_archived),
                 width="stretch",
-            ):
-                if set_parent_message_archived(
-                    message_id,
-                    parent.get("Email", ""),
-                    archived=not is_archived,
-                ):
-                    st.rerun()
-                else:
-                    st.error("The message could not be updated. Please try again.")
+            )
         if st.session_state.get(reply_open_key):
             reply_media_key = f"{key_prefix}_reply_media_{message_id}"
             reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
@@ -8655,6 +8673,7 @@ def render_parent_important_documents():
 
 def render_parent_dashboard():
     show_pending_sent_confirmation()
+    show_parent_message_archive_error()
     parent = current_parent_record()
     children = load_children()
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
@@ -8729,6 +8748,7 @@ def render_parent_dashboard():
 
 def render_parent_messages():
     show_pending_sent_confirmation()
+    show_parent_message_archive_error()
     parent = current_parent_record()
     if not parent:
         st.markdown(
