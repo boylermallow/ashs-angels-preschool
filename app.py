@@ -3313,13 +3313,79 @@ def message_parent_targets(children, parents):
     return sorted(targets, key=lambda item: item["Sort"])
 
 
-def parent_registration_invite_url(guardian):
+def parent_invite_secret():
+    configured_secret = setting("PARENT_INVITE_SECRET") or DEFAULT_ADMIN_PASSWORD
+    if configured_secret:
+        return configured_secret
+    users = load_users()
+    admin_account = users.get(DEFAULT_ADMIN_EMAIL.lower(), {}) if DEFAULT_ADMIN_EMAIL else {}
+    if not admin_account:
+        admin_account = next(
+            (account for account in users.values() if account.get("role") == "Admin"),
+            {},
+        )
+    return f"{admin_account.get('salt', '')}|{admin_account.get('hash', '')}"
+
+
+def parent_invite_signature(child_id, email):
+    message = f"{str(child_id or '').strip()}|{lookup_key(email)}"
+    return hmac.new(
+        parent_invite_secret().encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def invited_child_from_query(email):
+    child_id = str(st.query_params.get("invite_child", "") or "").strip()
+    supplied_signature = str(st.query_params.get("invite_signature", "") or "").strip()
+    clean_email = lookup_key(email)
+    if not child_id or not supplied_signature or not clean_email:
+        return None
+    expected_signature = parent_invite_signature(child_id, clean_email)
+    if not secrets.compare_digest(supplied_signature, expected_signature):
+        return None
+    child = next((item for item in load_children() if item.get("ID") == child_id), None)
+    if not child:
+        return None
+    guardian_matches = any(
+        lookup_key(guardian.get("Email", "")) == clean_email
+        for guardian in child_guardians(child)
+    )
+    return child if guardian_matches else None
+
+
+def mark_child_guardian_invited(child_id, email):
+    clean_email = lookup_key(email)
+    children = load_children()
+    child = next((item for item in children if item.get("ID") == child_id), None)
+    if not child:
+        return False
+    guardians = child_guardians(child)
+    changed = False
+    for guardian in guardians:
+        if lookup_key(guardian.get("Email", "")) == clean_email and not guardian.get("Invited"):
+            guardian["Invited"] = True
+            changed = True
+    if not changed:
+        return True
+    child["Guardians"] = guardians
+    return save_children(children)
+
+
+def parent_registration_invite_url(child, guardian):
     params = ["login_role=ParentRegister"]
     invite_values = {
         "invite_name": str(guardian.get("Name", "") or "").strip(),
         "invite_email": str(guardian.get("Email", "") or "").strip().lower(),
         "invite_relationship": clean_contact_relationship(guardian.get("Relationship", ""), "Guardian"),
+        "invite_child": str(child.get("ID", "") or "").strip(),
     }
+    if invite_values["invite_child"] and invite_values["invite_email"]:
+        invite_values["invite_signature"] = parent_invite_signature(
+            invite_values["invite_child"],
+            invite_values["invite_email"],
+        )
     params.extend(
         f"{quote(key, safe='')}={quote(value, safe='')}"
         for key, value in invite_values.items()
@@ -3328,17 +3394,20 @@ def parent_registration_invite_url(guardian):
     return f"{APP_PUBLIC_URL}/?{'&'.join(params)}"
 
 
-def guardian_invite_mailto(guardian):
+def guardian_invite_mailto(child, guardian):
     email = str(guardian.get("Email", "") or "").strip().lower()
     if not email:
         return ""
     name = str(guardian.get("Name", "") or "there").strip()
-    registration_url = parent_registration_invite_url(guardian)
-    subject = "Invitation to the Ash's Angels Preschool app"
+    child_name = str(child.get("Name", "") or "your child").strip()
+    relationship = clean_contact_relationship(guardian.get("Relationship", ""), "parent/guardian")
+    registration_url = parent_registration_invite_url(child, guardian)
+    subject = f"Invitation to join {child_name} on the Ash's Angels Preschool app"
     body = (
         f"Hi {name},\n\n"
-        "You have been invited to use the Ash's Angels Preschool app. "
-        "Use the link below to create your parent login:\n\n"
+        f"You have been invited as {relationship} of {child_name} on the "
+        "Ash's Angels Preschool app. Use the link below to create your parent login. "
+        f"Your account will be connected to {child_name}:\n\n"
         f"{registration_url}\n\n"
         "After registering, you can sign in to view messages, documents and preschool dates.\n\n"
         "Ash's Angels Preschool"
@@ -3370,19 +3439,20 @@ def guardian_summary_html(child, parents=None):
         parent = parents_by_email.get(email_key, {})
         invited = bool(guardian.get("Invited") or (parent.get("salt") and parent.get("hash")))
         initial = html.escape((name[:1] or "P").upper())
-        invite_href = guardian_invite_mailto(guardian)
+        invite_href = guardian_invite_mailto(child, guardian)
         if invited:
             invited_line = (
                 '<div class="guardian-invited"><span class="guardian-check">&#10003;</span> '
-                'Invited to use the app</div>'
+                'Invited as parent</div>'
             )
         elif invite_href:
             invited_line = (
                 f'<a class="guardian-invite-button" href="{html.escape(invite_href, quote=True)}" '
-                f'aria-label="Invite {html.escape(name, quote=True)} to use the app">'
+                f'aria-label="Invite {html.escape(name, quote=True)} as a parent of '
+                f'{html.escape(str(child.get("Name", "this child")), quote=True)}">'
                 '<svg viewBox="0 0 24 24" aria-hidden="true">'
                 '<path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/>'
-                '</svg><span>Invite to use app</span></a>'
+                '</svg><span>Invite as parent</span></a>'
             )
         else:
             invited_line = '<div class="guardian-not-invited">Add an email address to send an invitation.</div>'
@@ -6906,6 +6976,9 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
             st.query_params.get("invite_relationship", ""),
             "Guardian",
         )
+        invited_child = invited_child_from_query(invite_email)
+        if invited_child:
+            st.info(f"You have been invited as a parent of {invited_child.get('Name', 'this child')}.")
         first_name = st.text_input("Parent first name", value=invite_name)
         relationship = st.selectbox(
             "Relationship to child",
@@ -6925,6 +6998,7 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
             clean_emergency_2 = str(emergency_contact_2 or "").strip()
             clean_password = str(password or "").strip()
             clean_confirm_password = str(confirm_password or "").strip()
+            invited_child = invited_child_from_query(clean_email)
             if not clean_name or not clean_email or not clean_emergency_1 or not clean_password:
                 st.warning("Please add the parent's first name, email address, emergency contact 1 phone, and a password.")
             elif clean_password != clean_confirm_password:
@@ -6934,32 +7008,66 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
                 existing = next((parent for parent in parents if parent.get("Email", "").lower() == clean_email), None)
                 if existing:
                     if existing.get("salt") and existing.get("hash"):
-                        st.info("This parent is already registered. Please use Parent Login.")
+                        if invited_child:
+                            existing["ChildID"] = invited_child.get("ID", "")
+                            existing["ChildName"] = invited_child.get("Name", "")
+                            existing["Status"] = "Approved"
+                            if save_parents(parents):
+                                mark_child_guardian_invited(invited_child.get("ID", ""), clean_email)
+                                st.success(
+                                    f"This parent login is now connected to {invited_child.get('Name', 'the child')}. "
+                                    "Please use Parent Login."
+                                )
+                            else:
+                                st.error("The parent invitation could not be saved. Please try again.")
+                        else:
+                            st.info("This parent is already registered. Please use Parent Login.")
                     else:
                         existing["FirstName"] = clean_name
                         existing["Relationship"] = clean_relationship
                         existing["EmergencyContact1"] = clean_emergency_1
                         existing["EmergencyContact2"] = clean_emergency_2
                         existing.update(hash_password(clean_password))
-                        save_parents(parents)
-                        st.success("Parent login has been added. Please use Parent Login after approval.")
+                        if invited_child:
+                            existing["ChildID"] = invited_child.get("ID", "")
+                            existing["ChildName"] = invited_child.get("Name", "")
+                            existing["Status"] = "Approved"
+                        if save_parents(parents):
+                            if invited_child:
+                                mark_child_guardian_invited(invited_child.get("ID", ""), clean_email)
+                                st.success(
+                                    f"Parent login added and connected to {invited_child.get('Name', 'the child')}. "
+                                    "Please use Parent Login."
+                                )
+                            else:
+                                st.success("Parent login has been added. Please use Parent Login after approval.")
+                        else:
+                            st.error("The parent registration could not be saved. Please try again.")
                 else:
-                    parents.append(
-                        {
-                            "ID": uuid.uuid4().hex,
-                            "FirstName": clean_name,
-                            "Relationship": clean_relationship,
-                            "Email": clean_email,
-                            "EmergencyContact1": clean_emergency_1,
-                            "EmergencyContact2": clean_emergency_2,
-                            "Status": "Pending",
-                            "ChildID": "",
-                            "ChildName": "",
-                            **hash_password(clean_password),
-                        }
-                    )
-                    save_parents(parents)
-                    st.success("Registration sent. The preschool can approve and assign a child from the admin area.")
+                    parent = {
+                        "ID": uuid.uuid4().hex,
+                        "FirstName": clean_name,
+                        "Relationship": clean_relationship,
+                        "Email": clean_email,
+                        "EmergencyContact1": clean_emergency_1,
+                        "EmergencyContact2": clean_emergency_2,
+                        "Status": "Approved" if invited_child else "Pending",
+                        "ChildID": invited_child.get("ID", "") if invited_child else "",
+                        "ChildName": invited_child.get("Name", "") if invited_child else "",
+                        **hash_password(clean_password),
+                    }
+                    parents.append(parent)
+                    if save_parents(parents):
+                        if invited_child:
+                            mark_child_guardian_invited(invited_child.get("ID", ""), clean_email)
+                            st.success(
+                                f"Parent login added and connected to {invited_child.get('Name', 'the child')}. "
+                                "Please use Parent Login."
+                            )
+                        else:
+                            st.success("Registration sent. The preschool can approve and assign a child from the admin area.")
+                    else:
+                        st.error("The parent registration could not be saved. Please try again.")
         if st.button("Cancel", width="stretch"):
             st.session_state.pop("login_role", None)
             st.query_params.pop("login_role", None)
