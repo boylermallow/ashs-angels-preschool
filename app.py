@@ -1039,13 +1039,24 @@ def uploaded_media_preview_data_uri(file_name, mime_type, file_bytes):
     return f"data:image/png;base64,{encoded}"
 
 
-def render_uploaded_media_preview(uploaded_files):
+def uploaded_media_identity(uploaded_file, file_bytes):
+    file_name = Path(str(getattr(uploaded_file, "name", "") or "Upload")).name
+    mime_type = str(getattr(uploaded_file, "type", "") or mimetypes.guess_type(file_name)[0] or "")
+    head = file_bytes[:4096]
+    tail = file_bytes[-4096:] if len(file_bytes) > 4096 else b""
+    digest = hashlib.sha1(head + tail).hexdigest()[:16]
+    return hashlib.sha1(f"{file_name}|{mime_type}|{len(file_bytes)}|{digest}".encode("utf-8")).hexdigest()
+
+
+def render_uploaded_media_preview(uploaded_files, media_key):
     files = [file for file in (uploaded_files or []) if file is not None]
     if not files:
         return
 
-    items = []
-    for uploaded_file in files:
+    removed_key = f"{media_key}_removed_uploads"
+    signature_key = f"{media_key}_upload_signature"
+    rows = []
+    for index, uploaded_file in enumerate(files):
         file_bytes = uploaded_file.getvalue()
         size = len(file_bytes)
         file_name = Path(str(getattr(uploaded_file, "name", "") or "Upload")).name
@@ -1053,10 +1064,40 @@ def render_uploaded_media_preview(uploaded_files):
         preview_bytes = uploaded_media_preview_image_bytes(file_name, mime_type, file_bytes)
         too_large = size > MESSAGE_ATTACHMENT_MAX_BYTES
         size_text = "Too large" if too_large else file_size_label(size)
-        items.append((file_name, mime_type, preview_bytes, size_text, too_large))
+        file_id = f"{uploaded_media_identity(uploaded_file, file_bytes)}_{index}"
+        rows.append(
+            {
+                "id": file_id,
+                "file": uploaded_file,
+                "name": file_name,
+                "mime_type": mime_type,
+                "preview_bytes": preview_bytes,
+                "size_text": size_text,
+                "too_large": too_large,
+            }
+        )
 
-    for file_name, mime_type, preview_bytes, size_text, too_large in items:
-        thumb_col, detail_col = st.columns([0.24, 1], vertical_alignment="center")
+    current_signature = "|".join(row["id"] for row in rows)
+    if st.session_state.get(signature_key) != current_signature:
+        current_ids = {row["id"] for row in rows}
+        st.session_state[removed_key] = [
+            file_id for file_id in st.session_state.get(removed_key, []) if file_id in current_ids
+        ]
+        st.session_state[signature_key] = current_signature
+
+    removed_ids = set(st.session_state.get(removed_key, []))
+    active_rows = [row for row in rows if row["id"] not in removed_ids]
+    if not active_rows:
+        st.caption("All selected files have been removed.")
+        return []
+
+    for row in active_rows:
+        file_name = row["name"]
+        mime_type = row["mime_type"]
+        preview_bytes = row["preview_bytes"]
+        size_text = row["size_text"]
+        too_large = row["too_large"]
+        thumb_col, detail_col, remove_col = st.columns([0.18, 0.62, 0.2], vertical_alignment="center")
         if preview_bytes:
             thumb_col.image(preview_bytes, width=76)
         else:
@@ -1069,6 +1110,18 @@ def render_uploaded_media_preview(uploaded_files):
             '</div>',
             unsafe_allow_html=True,
         )
+        if remove_col.button(
+            "Remove",
+            icon=":material/close:",
+            key=f"{media_key}_remove_upload_{row['id']}",
+            help=f"Remove {file_name}",
+            width="stretch",
+        ):
+            removed_ids.add(row["id"])
+            st.session_state[removed_key] = sorted(removed_ids)
+            st.rerun()
+
+    return [row["file"] for row in active_rows]
 
 
 def render_message_media_uploader(media_key):
@@ -1083,7 +1136,7 @@ def render_message_media_uploader(media_key):
                 f"Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}."
             ),
         )
-        render_uploaded_media_preview(media_files)
+        media_files = render_uploaded_media_preview(media_files, media_key)
     return media_files
 
 
