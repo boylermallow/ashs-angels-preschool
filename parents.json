@@ -126,11 +126,13 @@
     "FirstName": "Mel",
     "Relationship": "Dad",
     "Email": "meloboylemallow@gmail.com",
-    "EmergencyContact1": "0851480642",
+    "EmergencyContact1": "911",
     "EmergencyContact2": "",
     "Address": "Quartertown Mallow",
     "Status": "Approved",
     "ChildID": "22464097d6894909858ce48dbca8b2f0",
-    "ChildName": "Testing child 2"
+    "ChildName": "Testing child 2",
+    "salt": "b8ae3539fb1a53a9ddcd8ef5cba56450",
+    "hash": "adf61f149aeef682e401279833eb132a65027b91c24b96fd784a8b5edfab2796"
   }
 ]
