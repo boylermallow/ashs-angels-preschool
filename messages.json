@@ -272,8 +272,9 @@
       }
     ],
     "LastReplyAt": "2026-07-17T23:02:51",
-    "ParentArchived": false,
-    "ReadAt": "2026-07-17T23:09:12"
+    "ParentArchived": true,
+    "ReadAt": "2026-07-17T23:09:12",
+    "ParentArchivedAt": "2026-07-18T17:17:52"
   },
   {
     "ID": "e10befde0afd45a786873c65d07dda8d",
