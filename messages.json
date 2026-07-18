@@ -404,9 +404,19 @@
     "Attachments": [],
     "CreatedAt": "2026-07-18T14:58:39",
     "Status": "Sent",
-    "Read": true,
-    "ReadAt": "2026-07-18T14:58:39",
+    "Read": false,
     "AdminRead": true,
-    "AdminReadAt": "2026-07-18T15:04:18"
+    "AdminReadAt": "2026-07-18T15:04:18",
+    "Replies": [
+      {
+        "ID": "504f747e1f0d485292a62117c9f01de5",
+        "From": "Admin",
+        "Message": "Ok",
+        "Attachments": [],
+        "CreatedAt": "2026-07-18T15:04:30"
+      }
+    ],
+    "LastReplyAt": "2026-07-18T15:04:30",
+    "ParentArchived": false
   }
 ]
