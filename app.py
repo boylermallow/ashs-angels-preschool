@@ -3874,6 +3874,17 @@ st.markdown(
         overflow-wrap: anywhere;
         text-align: center;
     }}
+    .signed-document-meta {{
+        color: var(--muted);
+        font-size: .9rem;
+        font-weight: 760;
+        line-height: 1.35;
+        margin-top: 3px;
+    }}
+    .signed-document-meta strong {{
+        color: var(--ink);
+        font-weight: 900;
+    }}
     .document-pdf-icon {{
         position: relative;
         display: inline-flex;
@@ -5856,6 +5867,7 @@ st.markdown(
         color: #ffffff !important;
         fill: #ffffff !important;
     }}
+    div[data-testid="stVerticalBlock"][class*="st-key-signed_document_row_"] [data-testid="stDownloadButton"] button,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button {{
@@ -5872,10 +5884,12 @@ st.markdown(
         line-height: 1 !important;
         white-space: nowrap !important;
     }}
+    div[data-testid="stVerticalBlock"][class*="st-key-signed_document_row_"] [data-testid="stHorizontalBlock"],
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stHorizontalBlock"] {{
         gap: 24px !important;
         margin-top: 20px !important;
     }}
+    div[data-testid="stVerticalBlock"][class*="st-key-signed_document_row_"] [data-testid="stDownloadButton"] button *,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a *,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button *,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button * {{
@@ -5887,6 +5901,7 @@ st.markdown(
         line-height: 1 !important;
         white-space: nowrap !important;
     }}
+    div[data-testid="stVerticalBlock"][class*="st-key-signed_document_row_"] [data-testid="stDownloadButton"] button:hover,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stLinkButton"] a:hover,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stDownloadButton"] button:hover,
     div[data-testid="stVerticalBlock"][class*="st-key-document_row_"] [data-testid="stButton"] button:hover {{
@@ -8591,6 +8606,72 @@ def render_document_drag_controls(documents):
     )
 
 
+def render_signed_documents_section():
+    signed_parents = [
+        parent
+        for parent in load_parents()
+        if parent_statement_signed(parent)
+    ]
+    if not signed_parents:
+        return
+
+    signed_parents.sort(
+        key=lambda parent: str(parent.get("ParentStatementSignedAt") or ""),
+        reverse=True,
+    )
+    st.markdown('<div class="documents-rule"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="documents-section-heading">Signed documents</div>', unsafe_allow_html=True)
+
+    for index, parent in enumerate(signed_parents):
+        safe_id_source = parent.get("ID") or parent.get("Email") or f"parent_{index}"
+        parent_file_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(safe_id_source)) or f"parent_{index}"
+        parent_name = parent.get("FirstName") or parent.get("ParentStatementSignature") or "Parent"
+        child_name = parent.get("ChildName") or "No child assigned"
+        signed_at = message_datetime(parent.get("ParentStatementSignedAt", ""))
+        signed_size = file_size_label(parent.get("ParentStatementSignedPdfSize", 0))
+        signed_size_html = f" | {html.escape(signed_size)}" if signed_size else ""
+        signed_pdf = load_signed_parent_statement(parent)
+        try:
+            signature_page = signature_page_from_signed_pdf(signed_pdf) if signed_pdf else b""
+        except Exception:
+            signature_page = b""
+
+        with st.container(border=True, key=f"signed_document_row_{parent_file_id}_{index}"):
+            st.markdown(
+                '<div class="document-file-summary">'
+                + '<div class="document-file-visual">'
+                + '<div class="document-pdf-icon" role="img" aria-label="Signed PDF document"><span aria-hidden="true">PDF</span></div>'
+                + '<div class="document-file-name">Signed statement.pdf</div>'
+                + '</div>'
+                + '<div class="document-file-copy">'
+                + f'<div class="parent-name">{html.escape(PARENT_STATEMENT_VERSION)}</div>'
+                + f'<div class="signed-document-meta"><strong>Parent:</strong> {html.escape(parent_name)}</div>'
+                + f'<div class="signed-document-meta"><strong>Child:</strong> {html.escape(child_name)}</div>'
+                + f'<div class="signed-document-meta"><strong>Signed:</strong> {html.escape(signed_at)}{signed_size_html}</div>'
+                + '</div></div>',
+                unsafe_allow_html=True,
+            )
+            actions = st.columns([1.1, 1.45, 3.45], gap="small", vertical_alignment="center")
+            actions[0].download_button(
+                "Signed PDF",
+                data=signed_pdf or b"",
+                file_name=f"parent-statement-{parent_file_id}-signed.pdf",
+                mime="application/pdf",
+                icon=":material/download:",
+                disabled=not bool(signed_pdf),
+                key=f"documents_signed_statement_{parent_file_id}_{index}",
+            )
+            actions[1].download_button(
+                "Print signature page",
+                data=signature_page or b"",
+                file_name=f"parent-statement-{parent_file_id}-signature-page.pdf",
+                mime="application/pdf",
+                icon=":material/print:",
+                disabled=not bool(signature_page),
+                key=f"documents_signature_page_{parent_file_id}_{index}",
+            )
+
+
 def render_documents():
     is_admin = st.session_state.get("role") == "Admin"
     move_document_id = str(st.query_params.get("move_document", "") or "")
@@ -8751,6 +8832,7 @@ def render_documents():
 
         if is_admin:
             render_document_drag_controls(documents)
+            render_signed_documents_section()
         st.markdown('<div class="documents-bottom-space" aria-hidden="true"></div>', unsafe_allow_html=True)
 
 
