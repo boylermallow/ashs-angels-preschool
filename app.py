@@ -3413,15 +3413,15 @@ st.markdown(
         background: var(--panel);
         border: 1px solid var(--line);
         border-radius: 8px;
-        padding: 128px 24px 24px;
+        padding: 158px 24px 24px;
         box-shadow: var(--shadow);
         position: sticky;
         top: 92px;
-        margin-top: 70px;
+        margin-top: 92px;
     }}
     .side-logo {{
         width: 100%;
-        height: 138px;
+        height: 172px;
         object-fit: contain;
         display: block;
         margin: 0;
@@ -3433,12 +3433,12 @@ st.markdown(
     }}
     .side-logo-link {{
         display: block;
-        width: 210px;
+        width: 268px;
         max-width: 100%;
         margin: 0;
         text-decoration: none;
         position: absolute;
-        top: -72px;
+        top: -94px;
         left: 50%;
         transform: translateX(-50%);
     }}
