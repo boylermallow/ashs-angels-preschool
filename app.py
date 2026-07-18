@@ -1017,7 +1017,8 @@ def file_size_label(size_bytes):
 
 def uploaded_media_preview_image_bytes(file_name, mime_type, file_bytes):
     clean_mime = str(mime_type or mimetypes.guess_type(str(file_name or ""))[0] or "")
-    if not clean_mime.startswith("image/"):
+    image_extension = Path(str(file_name or "")).suffix.lower()
+    if not clean_mime.startswith("image/") and image_extension not in {".png", ".jpg", ".jpeg", ".webp"}:
         return b""
     try:
         image = Image.open(BytesIO(file_bytes))
@@ -1138,6 +1139,12 @@ def render_message_media_uploader(media_key):
         )
         media_files = render_uploaded_media_preview(media_files, media_key)
     return media_files
+
+
+def clear_message_media_uploader(media_key):
+    st.session_state.pop(media_key, None)
+    st.session_state.pop(f"{media_key}_removed_uploads", None)
+    st.session_state.pop(f"{media_key}_upload_signature", None)
 
 
 def safe_attachment_extension(uploaded_file):
@@ -7265,12 +7272,11 @@ def render_message_dialog(child, parent):
         f'<div class="muted">This will send a message about {html.escape(child_name)}.</div>',
         unsafe_allow_html=True,
     )
-    with st.form(key=f"message_form_{child_id}", clear_on_submit=False):
-        message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-        media_files = render_message_media_uploader(media_key)
-        send_col, cancel_col = st.columns(2)
-        send_message = send_col.form_submit_button("Send message", width="stretch")
-        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+    message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+    media_files = render_message_media_uploader(media_key)
+    send_col, cancel_col = st.columns(2)
+    send_message = send_col.button("Send message", key=f"message_send_{child_id}", width="stretch")
+    cancel_message = cancel_col.button("Cancel", key=f"message_cancel_{child_id}", width="stretch")
 
     if send_message:
         if not message_body.strip() and not media_files:
@@ -7285,7 +7291,7 @@ def render_message_dialog(child, parent):
                 else:
                     st.session_state["notification_sent"] = f"Message sent to {parent_name}. They need to enable message notifications on their device before alerts will appear."
                 st.session_state.pop(message_key, None)
-                st.session_state.pop(media_key, None)
+                clear_message_media_uploader(media_key)
                 st.query_params.pop("message_child", None)
                 st.rerun()
             else:
@@ -7293,7 +7299,7 @@ def render_message_dialog(child, parent):
 
     if cancel_message:
         st.session_state.pop(message_key, None)
-        st.session_state.pop(media_key, None)
+        clear_message_media_uploader(media_key)
         st.query_params.pop("message_child", None)
         st.rerun()
 
@@ -7322,41 +7328,45 @@ def render_session_message_dialog(session_name, children, parents):
             st.rerun()
         return
 
-    with st.form(key=f"session_message_form_{session_key}", clear_on_submit=False):
-        st.markdown("**Recipients**")
-        recipient_selections = []
-        recipient_state_keys = []
-        recipient_columns = st.columns(2) if len(targets) > 1 else [st.container()]
-        for index, (child, parent) in enumerate(targets):
-            parent_name = str(parent.get("FirstName") or parent.get("Email") or "Parent").strip()
-            child_name = str(child.get("Name") or "Child").strip()
-            recipient_identity = str(parent.get("ID") or parent.get("Email") or index)
-            recipient_key = (
-                f"session_recipient_{session_key}_"
-                f"{hashlib.sha256(recipient_identity.encode('utf-8')).hexdigest()[:12]}"
+    st.markdown("**Recipients**")
+    recipient_selections = []
+    recipient_state_keys = []
+    recipient_columns = st.columns(2) if len(targets) > 1 else [st.container()]
+    for index, (child, parent) in enumerate(targets):
+        parent_name = str(parent.get("FirstName") or parent.get("Email") or "Parent").strip()
+        child_name = str(child.get("Name") or "Child").strip()
+        recipient_identity = str(parent.get("ID") or parent.get("Email") or index)
+        recipient_key = (
+            f"session_recipient_{session_key}_"
+            f"{hashlib.sha256(recipient_identity.encode('utf-8')).hexdigest()[:12]}"
+        )
+        recipient_state_keys.append(recipient_key)
+        with recipient_columns[index % len(recipient_columns)]:
+            is_selected = st.checkbox(
+                f"{parent_name} - {child_name}",
+                value=True,
+                key=recipient_key,
             )
-            recipient_state_keys.append(recipient_key)
-            with recipient_columns[index % len(recipient_columns)]:
-                is_selected = st.checkbox(
-                    f"{parent_name} - {child_name}",
-                    value=True,
-                    key=recipient_key,
-                )
-            recipient_selections.append(((child, parent), is_selected))
+        recipient_selections.append(((child, parent), is_selected))
 
-        message_body = st.text_area(
-            "Message",
-            placeholder="Write your message here...",
-            height=150,
-            key=message_key,
-        )
-        media_files = render_message_media_uploader(media_key)
-        send_col, cancel_col = st.columns(2)
-        send_message = send_col.form_submit_button(
-            "Send to selected parents",
-            width="stretch",
-        )
-        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+    message_body = st.text_area(
+        "Message",
+        placeholder="Write your message here...",
+        height=150,
+        key=message_key,
+    )
+    media_files = render_message_media_uploader(media_key)
+    send_col, cancel_col = st.columns(2)
+    send_message = send_col.button(
+        "Send to selected parents",
+        key=f"session_message_send_{session_key}",
+        width="stretch",
+    )
+    cancel_message = cancel_col.button(
+        "Cancel",
+        key=f"session_message_cancel_{session_key}",
+        width="stretch",
+    )
 
     selected_targets = [target for target, is_selected in recipient_selections if is_selected]
     if send_message:
@@ -7376,7 +7386,7 @@ def render_session_message_dialog(session_name, children, parents):
                         f"parent{'s' if sent_count != 1 else ''}."
                     )
                     st.session_state.pop(message_key, None)
-                    st.session_state.pop(media_key, None)
+                    clear_message_media_uploader(media_key)
                     for recipient_key in recipient_state_keys:
                         st.session_state.pop(recipient_key, None)
                     st.query_params.pop("message_session", None)
@@ -7386,7 +7396,7 @@ def render_session_message_dialog(session_name, children, parents):
 
     if cancel_message:
         st.session_state.pop(message_key, None)
-        st.session_state.pop(media_key, None)
+        clear_message_media_uploader(media_key)
         for recipient_key in recipient_state_keys:
             st.session_state.pop(recipient_key, None)
         st.query_params.pop("message_session", None)
@@ -7443,12 +7453,11 @@ def render_create_message_dialog():
         unsafe_allow_html=True,
     )
 
-    with st.form(key="admin_create_message_form", clear_on_submit=False):
-        message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-        media_files = render_message_media_uploader(media_key)
-        send_col, cancel_col = st.columns(2)
-        send_message = send_col.form_submit_button("Send message", width="stretch")
-        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+    message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+    media_files = render_message_media_uploader(media_key)
+    send_col, cancel_col = st.columns(2)
+    send_message = send_col.button("Send message", key="admin_create_message_send", width="stretch")
+    cancel_message = cancel_col.button("Cancel", key="admin_create_message_cancel", width="stretch")
 
     if send_message:
         if not message_body.strip() and not media_files:
@@ -7464,7 +7473,7 @@ def render_create_message_dialog():
                 else:
                     st.session_state["notification_sent"] = f"Message sent to {parent_name}. They need to enable message notifications on their device before alerts will appear."
                 st.session_state.pop(message_key, None)
-                st.session_state.pop(media_key, None)
+                clear_message_media_uploader(media_key)
                 st.query_params.pop("create_message", None)
                 st.query_params["app_page"] = "Messages"
                 st.rerun()
@@ -7473,7 +7482,7 @@ def render_create_message_dialog():
 
     if cancel_message:
         st.session_state.pop(message_key, None)
-        st.session_state.pop(media_key, None)
+        clear_message_media_uploader(media_key)
         st.query_params.pop("create_message", None)
         st.rerun()
 
@@ -7505,12 +7514,11 @@ def render_parent_create_message_dialog(parent):
         unsafe_allow_html=True,
     )
 
-    with st.form(key="parent_create_message_form", clear_on_submit=False):
-        message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-        media_files = render_message_media_uploader(media_key)
-        send_col, cancel_col = st.columns(2)
-        send_message = send_col.form_submit_button("Send message", width="stretch")
-        cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
+    message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
+    media_files = render_message_media_uploader(media_key)
+    send_col, cancel_col = st.columns(2)
+    send_message = send_col.button("Send message", key="parent_create_message_send", width="stretch")
+    cancel_message = cancel_col.button("Cancel", key="parent_create_message_cancel", width="stretch")
 
     if send_message:
         if not message_body.strip() and not media_files:
@@ -7522,7 +7530,7 @@ def render_parent_create_message_dialog(parent):
             elif send_parent_message_to_school(parent, message_body, attachments):
                 st.session_state["notification_sent"] = "Message sent to the preschool."
                 st.session_state.pop(message_key, None)
-                st.session_state.pop(media_key, None)
+                clear_message_media_uploader(media_key)
                 st.query_params.pop("create_parent_message", None)
                 st.query_params["app_page"] = "Messages"
                 st.rerun()
@@ -7531,7 +7539,7 @@ def render_parent_create_message_dialog(parent):
 
     if cancel_message:
         st.session_state.pop(message_key, None)
-        st.session_state.pop(media_key, None)
+        clear_message_media_uploader(media_key)
         st.query_params.pop("create_parent_message", None)
         st.rerun()
 
@@ -7580,7 +7588,7 @@ def render_admin_reply_dialog(message):
             elif reply_saved:
                 st.session_state["notification_sent"] = f"Reply sent to {parent_name}."
                 st.session_state.pop(reply_key, None)
-                st.session_state.pop(media_key, None)
+                clear_message_media_uploader(media_key)
                 st.query_params.pop("reply_message", None)
                 st.rerun()
             else:
@@ -7592,7 +7600,7 @@ def render_admin_reply_dialog(message):
         width="stretch",
     ):
         st.session_state.pop(reply_key, None)
-        st.session_state.pop(media_key, None)
+        clear_message_media_uploader(media_key)
         st.query_params.pop("reply_message", None)
         st.rerun()
 
