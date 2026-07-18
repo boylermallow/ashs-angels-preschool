@@ -244,9 +244,19 @@
     "Attachments": [],
     "CreatedAt": "2026-07-18T19:55:09",
     "Status": "Sent",
-    "Read": true,
-    "ReadAt": "2026-07-18T19:55:09",
+    "Read": false,
     "AdminRead": true,
-    "AdminReadAt": "2026-07-18T19:58:47"
+    "AdminReadAt": "2026-07-18T19:58:47",
+    "Replies": [
+      {
+        "ID": "4ea60baf58054c57a3ac7e34fda9f700",
+        "From": "Admin",
+        "Message": "Ok. Hope he gets well soon",
+        "Attachments": [],
+        "CreatedAt": "2026-07-18T19:59:35"
+      }
+    ],
+    "LastReplyAt": "2026-07-18T19:59:35",
+    "ParentArchived": false
   }
 ]
