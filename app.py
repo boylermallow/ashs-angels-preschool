@@ -3313,10 +3313,51 @@ def message_parent_targets(children, parents):
     return sorted(targets, key=lambda item: item["Sort"])
 
 
-def guardian_summary_html(child):
+def parent_registration_invite_url(guardian):
+    params = ["login_role=ParentRegister"]
+    invite_values = {
+        "invite_name": str(guardian.get("Name", "") or "").strip(),
+        "invite_email": str(guardian.get("Email", "") or "").strip().lower(),
+        "invite_relationship": clean_contact_relationship(guardian.get("Relationship", ""), "Guardian"),
+    }
+    params.extend(
+        f"{quote(key, safe='')}={quote(value, safe='')}"
+        for key, value in invite_values.items()
+        if value
+    )
+    return f"{APP_PUBLIC_URL}/?{'&'.join(params)}"
+
+
+def guardian_invite_mailto(guardian):
+    email = str(guardian.get("Email", "") or "").strip().lower()
+    if not email:
+        return ""
+    name = str(guardian.get("Name", "") or "there").strip()
+    registration_url = parent_registration_invite_url(guardian)
+    subject = "Invitation to the Ash's Angels Preschool app"
+    body = (
+        f"Hi {name},\n\n"
+        "You have been invited to use the Ash's Angels Preschool app. "
+        "Use the link below to create your parent login:\n\n"
+        f"{registration_url}\n\n"
+        "After registering, you can sign in to view messages, documents and preschool dates.\n\n"
+        "Ash's Angels Preschool"
+    )
+    return (
+        f"mailto:{quote(email, safe='@._+-')}"
+        f"?subject={quote(subject, safe='')}&body={quote(body, safe='')}"
+    )
+
+
+def guardian_summary_html(child, parents=None):
     guardians = child_guardians(child)
     if not guardians:
         return ""
+    parents_by_email = {
+        lookup_key(parent.get("Email", "")): parent
+        for parent in (parents or [])
+        if parent.get("Email")
+    }
     rows = []
     for guardian in guardians:
         name = guardian.get("Name") or "Parent/guardian"
@@ -3325,13 +3366,26 @@ def guardian_summary_html(child):
         contact_bits = [guardian.get("Email", ""), guardian.get("Phone", "")]
         contact_line = " &bull; ".join(html.escape(bit) for bit in contact_bits if bit)
         address_line = html.escape(guardian.get("Address", ""))
-        invited = guardian.get("Invited")
+        email_key = lookup_key(guardian.get("Email", ""))
+        parent = parents_by_email.get(email_key, {})
+        invited = bool(guardian.get("Invited") or (parent.get("salt") and parent.get("hash")))
         initial = html.escape((name[:1] or "P").upper())
-        invited_line = (
-            '<div class="guardian-invited"><span class="guardian-check">&#10003;</span> Invited to use the app</div>'
-            if invited
-            else '<div class="guardian-not-invited">Not invited to use the app yet</div>'
-        )
+        invite_href = guardian_invite_mailto(guardian)
+        if invited:
+            invited_line = (
+                '<div class="guardian-invited"><span class="guardian-check">&#10003;</span> '
+                'Invited to use the app</div>'
+            )
+        elif invite_href:
+            invited_line = (
+                f'<a class="guardian-invite-button" href="{html.escape(invite_href, quote=True)}" '
+                f'aria-label="Invite {html.escape(name, quote=True)} to use the app">'
+                '<svg viewBox="0 0 24 24" aria-hidden="true">'
+                '<path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/>'
+                '</svg><span>Invite to use app</span></a>'
+            )
+        else:
+            invited_line = '<div class="guardian-not-invited">Add an email address to send an invitation.</div>'
         contact_html = f'<div class="guardian-contact">{contact_line}</div>' if contact_line else ""
         address_html = f'<div class="guardian-address">{address_line}</div>' if address_line else ""
         details = (
@@ -4600,6 +4654,39 @@ st.markdown(
     }}
     .guardian-not-invited {{
         color: var(--muted);
+    }}
+    .guardian-invite-button {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 40px;
+        margin-top: 10px;
+        border: 1px solid var(--brand-blue);
+        border-radius: 8px;
+        background: var(--brand-blue);
+        color: #ffffff !important;
+        font-size: .92rem;
+        font-weight: 850;
+        line-height: 1;
+        padding: 0 14px;
+        text-decoration: none !important;
+        box-shadow: 0 6px 14px rgba(35,52,95,.14);
+    }}
+    .guardian-invite-button:hover {{
+        background: #203d86;
+        border-color: #203d86;
+        color: #ffffff !important;
+    }}
+    .guardian-invite-button svg {{
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: 0 0 auto;
     }}
     .guardian-check {{
         display: inline-grid;
@@ -6813,9 +6900,19 @@ st.markdown(
 def render_sign_in_dialog(selected_role, login_placeholder=None):
     if selected_role == "ParentRegister":
         st.markdown('<div class="panel-title">Parent Registration</div>', unsafe_allow_html=True)
-        first_name = st.text_input("Parent first name")
-        relationship = st.selectbox("Relationship to child", CONTACT_RELATIONSHIPS, index=relationship_index("Guardian"))
-        email = st.text_input("Email address")
+        invite_name = str(st.query_params.get("invite_name", "") or "").strip()
+        invite_email = str(st.query_params.get("invite_email", "") or "").strip().lower()
+        invite_relationship = clean_contact_relationship(
+            st.query_params.get("invite_relationship", ""),
+            "Guardian",
+        )
+        first_name = st.text_input("Parent first name", value=invite_name)
+        relationship = st.selectbox(
+            "Relationship to child",
+            CONTACT_RELATIONSHIPS,
+            index=relationship_index(invite_relationship),
+        )
+        email = st.text_input("Email address", value=invite_email)
         emergency_contact_1 = st.text_input("Emergency contact 1 phone")
         emergency_contact_2 = st.text_input("Emergency contact 2 phone (optional)")
         password = st.text_input("Create password")
@@ -7503,7 +7600,7 @@ def render_admin_children():
                 edit_panel = st.container()
             with edit_panel:
                 st.markdown('<div class="panel-title">Edit Child</div>', unsafe_allow_html=True)
-                guardian_preview = guardian_summary_html(editing_child)
+                guardian_preview = guardian_summary_html(editing_child, parents)
                 if guardian_preview:
                     st.markdown(guardian_preview, unsafe_allow_html=True)
                 selected_parent_id = st.selectbox(
