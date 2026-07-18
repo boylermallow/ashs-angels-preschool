@@ -8761,19 +8761,6 @@ def render_parent_dashboard():
         )
         return
 
-    st.markdown(
-        f"""
-        <div class="parent-row parent-calendar-card">
-          <div>
-            <div class="parent-name">Preschool Calendar</div>
-            <div class="parent-detail">View key preschool dates and holidays for 2026/2027.</div>
-          </div>
-          <a class="parent-status parent-action-button" href="{app_href("Calendar")}" target="_self">Open</a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     status = parent.get("Status", "Pending")
     child = children_by_id.get(parent.get("ChildID", ""))
     if status != "Approved":
@@ -8819,6 +8806,19 @@ def render_parent_dashboard():
             st.markdown(f'<a class="menu-item" href="{app_href("Messages")}" target="_self">View all messages</a>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="parent-row"><div><div class="parent-name">Messages</div><div class="parent-detail">No messages yet.</div></div></div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="parent-row parent-calendar-card">
+          <div>
+            <div class="parent-name">Preschool Calendar</div>
+            <div class="parent-detail">View key preschool dates and holidays for 2026/2027.</div>
+          </div>
+          <a class="parent-status parent-action-button" href="{app_href("Calendar")}" target="_self">Open</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_parent_messages():
