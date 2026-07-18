@@ -9065,7 +9065,6 @@ def render_admin_message_item(
             width="stretch",
         ):
             st.session_state["confirm_delete_message_id"] = message_id
-            st.rerun()
         if st.session_state.get("confirm_delete_message_id") == message_id:
             render_delete_message_dialog(message)
 
