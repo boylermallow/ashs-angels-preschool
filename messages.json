@@ -417,7 +417,8 @@
       }
     ],
     "LastReplyAt": "2026-07-18T15:04:30",
-    "ParentArchived": false,
-    "ReadAt": "2026-07-18T17:06:32"
+    "ParentArchived": true,
+    "ReadAt": "2026-07-18T17:06:32",
+    "ParentArchivedAt": "2026-07-18T17:06:52"
   }
 ]
