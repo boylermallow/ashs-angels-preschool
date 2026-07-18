@@ -6521,6 +6521,15 @@ st.markdown(
             overflow-wrap: normal !important;
             word-break: keep-all !important;
         }}
+        div[data-testid="stElementContainer"]:has(.admin-children-page-marker) {{
+            display: none !important;
+        }}
+        .block-container:has(.admin-children-page-marker) {{
+            padding-top: 0 !important;
+        }}
+        .block-container:has(.admin-children-page-marker) .session-columns {{
+            margin-top: 0 !important;
+        }}
     }}
     </style>
     """,
@@ -7218,6 +7227,7 @@ if hasattr(st, "dialog"):
 
 
 def render_admin_children():
+    st.markdown('<div class="admin-children-page-marker"></div>', unsafe_allow_html=True)
     children = load_children()
     parents = load_parents()
     approved_parent_by_child = {
