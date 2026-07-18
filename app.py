@@ -8642,9 +8642,6 @@ def render_documents():
                 + '<div class="document-file-visual">'
                 + '<div class="document-pdf-icon" role="img" aria-label="PDF document"><span aria-hidden="true">PDF</span></div>'
                 + f'<div class="document-file-name" title="{html.escape(file_name, quote=True)}">{html.escape(file_name)}</div>'
-                + '</div>'
-                + '<div class="document-file-copy">'
-                + f'<div class="parent-name">{html.escape(document.get("Title", "Document"))}</div>'
                 + '</div></div>',
                 unsafe_allow_html=True,
             )
