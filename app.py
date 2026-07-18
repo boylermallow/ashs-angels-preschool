@@ -9460,8 +9460,6 @@ def render_admin_message_item(
         message.get("Attachments", []),
         f"admin-{message_id or index}",
     )
-    media_class = " has-media" if message_attachments else ""
-    media_html = f'<div class="admin-message-media">{message_attachments}</div>' if message_attachments else ""
     delete_key = f"delete_message_{message_id or index}"
     status_label = "Replied" if replies else ("Parent message" if started_by_parent else "Sent")
     if started_by_parent and not message.get("AdminRead") and not replies:
@@ -9472,6 +9470,7 @@ def render_admin_message_item(
             f'<div class="reply-meta"><span>{html.escape(parent_name)}</span>'
             f'<span class="reply-date">&middot; {html.escape(sent_date or "Not recorded")}</span></div>'
             f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
+            f'{message_attachments}'
             '</div>'
         )
     else:
@@ -9480,6 +9479,7 @@ def render_admin_message_item(
             '<div class="admin-message-label"><span>Me</span>'
             f'<span class="admin-message-sent">&middot; {html.escape(sent_date or "Not recorded")}</span></div>'
             f'<div class="message-body">{message_body_html(message.get("Message", ""))}</div>'
+            f'{message_attachments}'
             '</div>'
         )
     message_card_html = (
@@ -9499,12 +9499,11 @@ def render_admin_message_item(
         f'<div class="{read_badge_class}">{read_icon}<span>{html.escape(read_status)}</span></div>'
         '</div>'
         '</div>'
-        f'<div class="admin-message-content{media_class}">'
+        '<div class="admin-message-content">'
         '<div class="admin-message-thread">'
         f'{original_message_html}'
         f'{replies_html}'
         '</div>'
-        f'{media_html}'
         '</div>'
         '</div>'
         '</div>'
