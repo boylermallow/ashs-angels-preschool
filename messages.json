@@ -404,7 +404,7 @@
     "Attachments": [],
     "CreatedAt": "2026-07-18T14:58:39",
     "Status": "Sent",
-    "Read": false,
+    "Read": true,
     "AdminRead": true,
     "AdminReadAt": "2026-07-18T15:04:18",
     "Replies": [
@@ -417,6 +417,7 @@
       }
     ],
     "LastReplyAt": "2026-07-18T15:04:30",
-    "ParentArchived": false
+    "ParentArchived": false,
+    "ReadAt": "2026-07-18T17:06:32"
   }
 ]
