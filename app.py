@@ -8334,6 +8334,7 @@ def render_document_drag_controls(documents):
           const doc = parentWindow.document;
           const records = {records_json};
           const audiences = {audiences_json};
+          const recordById = new Map(records.map((record) => [record.id, record]));
           let activeRecord = null;
           let activeRow = null;
           let activeZone = null;
@@ -8399,6 +8400,12 @@ def render_document_drag_controls(documents):
             }});
             zone.addEventListener("drop", (event) => {{
               event.preventDefault();
+              const droppedId = event.dataTransfer?.getData("text/plain") || "";
+              if (!activeRecord && droppedId && recordById.has(droppedId)) {{
+                activeRecord = recordById.get(droppedId);
+                const droppedMarker = doc.querySelector(`.document-drag-marker[data-document-id="${{droppedId}}"]`);
+                activeRow = droppedMarker && keyedAncestor(droppedMarker, `document_row_${{droppedId}}`);
+              }}
               moveTo(zone);
             }});
           }};
@@ -8430,14 +8437,23 @@ def render_document_drag_controls(documents):
               if (!source || source.dataset.documentDragBound === "true") return;
               source.dataset.documentDragBound = "true";
               source.classList.add("document-drag-source");
-              source.draggable = false;
+              source.draggable = true;
               source.title = "Drag document to another section";
-              source.addEventListener("mousedown", (event) => {{
+              source.addEventListener("dragstart", (event) => {{
                 activeRecord = record;
                 activeRow = row;
                 row.classList.add("is-dragging");
                 doc.body?.classList.add("document-is-dragging");
-                event.preventDefault();
+                if (event.dataTransfer) {{
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", record.id);
+                  event.dataTransfer.setDragImage(source, source.offsetWidth / 2, source.offsetHeight / 2);
+                }}
+              }});
+              source.addEventListener("dragend", clearDragState);
+              source.addEventListener("mousedown", (event) => {{
+                if (event.button !== 0) return;
+                source.focus?.();
               }});
               source.addEventListener("keydown", (event) => {{
                 if (event.key !== "Enter" && event.key !== " ") return;
@@ -8453,7 +8469,7 @@ def render_document_drag_controls(documents):
                 activeRow = row;
                 row.classList.add("is-dragging");
                 doc.body?.classList.add("document-is-dragging");
-                source.setPointerCapture(event.pointerId);
+                source.setPointerCapture?.(event.pointerId);
                 event.preventDefault();
               }});
               source.addEventListener("pointermove", (event) => {{
