@@ -2313,10 +2313,10 @@ def render_admin_message_notification(messages=None):
             color: #23345f;
           }}
           .notification-tools {{
-            display: flex;
+            display: none;
             align-items: center;
             gap: 10px;
-            min-height: 42px;
+            min-height: 0;
           }}
           #enable-admin-notifications {{
             appearance: none;
@@ -2406,7 +2406,7 @@ def render_admin_message_notification(messages=None):
         updatePermissionState();
         </script>
         """,
-        height=48,
+        height=0,
     )
     st.markdown(
         f"""
