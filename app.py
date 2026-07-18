@@ -1015,10 +1015,10 @@ def file_size_label(size_bytes):
     return f"{size_bytes}B"
 
 
-def uploaded_media_preview_data_uri(file_name, mime_type, file_bytes):
+def uploaded_media_preview_image_bytes(file_name, mime_type, file_bytes):
     clean_mime = str(mime_type or mimetypes.guess_type(str(file_name or ""))[0] or "")
     if not clean_mime.startswith("image/"):
-        return ""
+        return b""
     try:
         image = Image.open(BytesIO(file_bytes))
         image.thumbnail((220, 220), Image.Resampling.LANCZOS)
@@ -1027,8 +1027,15 @@ def uploaded_media_preview_data_uri(file_name, mime_type, file_bytes):
         buffer = BytesIO()
         image.save(buffer, format="PNG", optimize=True)
     except Exception:
+        return b""
+    return buffer.getvalue()
+
+
+def uploaded_media_preview_data_uri(file_name, mime_type, file_bytes):
+    preview_bytes = uploaded_media_preview_image_bytes(file_name, mime_type, file_bytes)
+    if not preview_bytes:
         return ""
-    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    encoded = base64.b64encode(preview_bytes).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
 
@@ -1043,29 +1050,41 @@ def render_uploaded_media_preview(uploaded_files):
         size = len(file_bytes)
         file_name = Path(str(getattr(uploaded_file, "name", "") or "Upload")).name
         mime_type = str(getattr(uploaded_file, "type", "") or mimetypes.guess_type(file_name)[0] or "")
-        preview_src = uploaded_media_preview_data_uri(file_name, mime_type, file_bytes)
+        preview_bytes = uploaded_media_preview_image_bytes(file_name, mime_type, file_bytes)
         too_large = size > MESSAGE_ATTACHMENT_MAX_BYTES
-        card_class = " upload-preview-card is-too-large" if too_large else " upload-preview-card"
-        if preview_src:
-            preview_html = (
-                f'<img class="upload-preview-thumb" src="{html.escape(preview_src, quote=True)}" '
-                f'alt="{html.escape(file_name, quote=True)} preview">'
-            )
-        elif mime_type.startswith("video/"):
-            preview_html = '<div class="upload-preview-icon" aria-hidden="true">&#9658;</div>'
-        else:
-            preview_html = '<div class="upload-preview-icon" aria-hidden="true">&#9679;</div>'
         size_text = "Too large" if too_large else file_size_label(size)
-        items.append(
-            f'<div class="{card_class.strip()}">'
-            f'{preview_html}'
+        items.append((file_name, mime_type, preview_bytes, size_text, too_large))
+
+    for file_name, mime_type, preview_bytes, size_text, too_large in items:
+        thumb_col, detail_col = st.columns([0.24, 1], vertical_alignment="center")
+        if preview_bytes:
+            thumb_col.image(preview_bytes, width=76)
+        else:
+            icon = "&#9658;" if mime_type.startswith("video/") else "&#9679;"
+            thumb_col.markdown(f'<div class="upload-preview-icon" aria-hidden="true">{icon}</div>', unsafe_allow_html=True)
+        detail_col.markdown(
             '<div class="upload-preview-detail">'
             f'<div class="upload-preview-name">{html.escape(file_name)}</div>'
-            f'<div class="upload-preview-size">{html.escape(size_text)}</div>'
-            '</div>'
-            '</div>'
+            f'<div class="upload-preview-size{" is-too-large" if too_large else ""}">{html.escape(size_text)}</div>'
+            '</div>',
+            unsafe_allow_html=True,
         )
-    st.markdown(f'<div class="upload-preview-list">{"".join(items)}</div>', unsafe_allow_html=True)
+
+
+def render_message_media_uploader(media_key):
+    with st.container(key=f"media_upload_{media_key}"):
+        media_files = st.file_uploader(
+            "Photos or videos",
+            type=MESSAGE_ATTACHMENT_TYPES,
+            accept_multiple_files=True,
+            key=media_key,
+            help=(
+                f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. "
+                f"Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}."
+            ),
+        )
+        render_uploaded_media_preview(media_files)
+    return media_files
 
 
 def safe_attachment_extension(uploaded_file):
@@ -4656,6 +4675,10 @@ st.markdown(
         font-weight: 760;
         line-height: 1.2;
     }}
+    div[class*="st-key-media_upload_"] div[data-testid="stFileUploaderFile"],
+    div[class*="st-key-media-upload-"] div[data-testid="stFileUploaderFile"] {{
+        display: none !important;
+    }}
     .upload-preview-list {{
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -4679,8 +4702,8 @@ st.markdown(
     }}
     .upload-preview-thumb,
     .upload-preview-icon {{
-        width: 58px;
-        height: 58px;
+        width: 76px;
+        height: 76px;
         border-radius: 7px;
         background: #e9f4ff;
     }}
@@ -4700,21 +4723,23 @@ st.markdown(
         min-width: 0;
         display: grid;
         gap: 2px;
+        padding: 4px 0;
     }}
     .upload-preview-name {{
         color: var(--ink);
-        font-size: .84rem;
+        font-size: .92rem;
         font-weight: 850;
         line-height: 1.15;
         overflow-wrap: anywhere;
     }}
     .upload-preview-size {{
         color: var(--muted);
-        font-size: .78rem;
+        font-size: .82rem;
         font-weight: 760;
         line-height: 1.15;
     }}
-    .upload-preview-card.is-too-large .upload-preview-size {{
+    .upload-preview-card.is-too-large .upload-preview-size,
+    .upload-preview-size.is-too-large {{
         color: #b42318;
     }}
     .message-media-grid {{
@@ -6819,14 +6844,7 @@ def render_message_dialog(child, parent):
     )
     with st.form(key=f"message_form_{child_id}", clear_on_submit=False):
         message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-        media_files = st.file_uploader(
-            "Photos or videos",
-            type=MESSAGE_ATTACHMENT_TYPES,
-            accept_multiple_files=True,
-            key=media_key,
-            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
-        )
-        render_uploaded_media_preview(media_files)
+        media_files = render_message_media_uploader(media_key)
         send_col, cancel_col = st.columns(2)
         send_message = send_col.form_submit_button("Send message", width="stretch")
         cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
@@ -6909,14 +6927,7 @@ def render_session_message_dialog(session_name, children, parents):
             height=150,
             key=message_key,
         )
-        media_files = st.file_uploader(
-            "Photos or videos",
-            type=MESSAGE_ATTACHMENT_TYPES,
-            accept_multiple_files=True,
-            key=media_key,
-            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
-        )
-        render_uploaded_media_preview(media_files)
+        media_files = render_message_media_uploader(media_key)
         send_col, cancel_col = st.columns(2)
         send_message = send_col.form_submit_button(
             "Send to selected parents",
@@ -7011,14 +7022,7 @@ def render_create_message_dialog():
 
     with st.form(key="admin_create_message_form", clear_on_submit=False):
         message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-        media_files = st.file_uploader(
-            "Photos or videos",
-            type=MESSAGE_ATTACHMENT_TYPES,
-            accept_multiple_files=True,
-            key=media_key,
-            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
-        )
-        render_uploaded_media_preview(media_files)
+        media_files = render_message_media_uploader(media_key)
         send_col, cancel_col = st.columns(2)
         send_message = send_col.form_submit_button("Send message", width="stretch")
         cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
@@ -7080,14 +7084,7 @@ def render_parent_create_message_dialog(parent):
 
     with st.form(key="parent_create_message_form", clear_on_submit=False):
         message_body = st.text_area("Message", placeholder="Write your message here...", height=150, key=message_key)
-        media_files = st.file_uploader(
-            "Photos or videos",
-            type=MESSAGE_ATTACHMENT_TYPES,
-            accept_multiple_files=True,
-            key=media_key,
-            help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
-        )
-        render_uploaded_media_preview(media_files)
+        media_files = render_message_media_uploader(media_key)
         send_col, cancel_col = st.columns(2)
         send_message = send_col.form_submit_button("Send message", width="stretch")
         cancel_message = cancel_col.form_submit_button("Cancel", width="stretch")
@@ -7136,17 +7133,7 @@ def render_admin_reply_dialog(message):
         height=140,
         key=reply_key,
     )
-    media_files = st.file_uploader(
-        "Photos or videos",
-        type=MESSAGE_ATTACHMENT_TYPES,
-        accept_multiple_files=True,
-        key=media_key,
-        help=(
-            f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. "
-            f"Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}."
-        ),
-    )
-    render_uploaded_media_preview(media_files)
+    media_files = render_message_media_uploader(media_key)
 
     send_col, cancel_col = st.columns(2, gap="small")
     if send_col.button(
@@ -8118,14 +8105,7 @@ def render_parent_message_items(
         if st.session_state.get(reply_open_key):
             reply_media_key = f"{key_prefix}_reply_media_{message_id}"
             reply_body = st.text_area("Reply", key=reply_key, placeholder="Write your reply here...", height=120)
-            reply_media_files = st.file_uploader(
-                "Photos or videos",
-                type=MESSAGE_ATTACHMENT_TYPES,
-                accept_multiple_files=True,
-                key=reply_media_key,
-                help=f"Add up to {MESSAGE_ATTACHMENT_MAX_COUNT} files. Each file can be up to {file_size_label(MESSAGE_ATTACHMENT_MAX_BYTES)}.",
-            )
-            render_uploaded_media_preview(reply_media_files)
+            reply_media_files = render_message_media_uploader(reply_media_key)
             send_col, cancel_col = st.columns(2)
             if send_col.button("Send Reply", key=f"{key_prefix}_send_reply_{message_id}", type="primary", width="stretch"):
                 if not str(reply_body or "").strip() and not reply_media_files:
