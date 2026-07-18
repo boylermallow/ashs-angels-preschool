@@ -92,7 +92,7 @@
     ],
     "CreatedAt": "2026-07-17T08:44:49",
     "Status": "Replied",
-    "Read": true,
+    "Read": false,
     "Replies": [
       {
         "ID": "3d80c1dbdfc04a138a8abec5838ebdf5",
@@ -143,11 +143,45 @@
         "CreatedAt": "2026-07-18T17:20:09",
         "AdminRead": true,
         "AdminReadAt": "2026-07-18T17:29:41"
+      },
+      {
+        "ID": "752cab1f58fa42ed8393b26de25561e5",
+        "From": "Admin",
+        "Message": "",
+        "Attachments": [
+          {
+            "ID": "be5b6e22524047b7903fc11fa3bea80f",
+            "Kind": "image",
+            "FileName": "bedroom.png",
+            "MimeType": "image/png",
+            "Size": 1516924,
+            "Path": "assets/messages/2026/07/7d95dc46e3eb44e28ad5f9ab615638b0.png",
+            "Url": "https://raw.githubusercontent.com/boylermallow/ashs-angels-preschool/main/assets/messages/2026/07/7d95dc46e3eb44e28ad5f9ab615638b0.png"
+          },
+          {
+            "ID": "7c82e43b31b24ccebd183fc84bf583a7",
+            "Kind": "image",
+            "FileName": "Screenshot at Jul 04 14-34-03.png",
+            "MimeType": "image/png",
+            "Size": 2536335,
+            "Path": "assets/messages/2026/07/2772490212104927ad50fc1ebcdf93b6.png",
+            "Url": "https://raw.githubusercontent.com/boylermallow/ashs-angels-preschool/main/assets/messages/2026/07/2772490212104927ad50fc1ebcdf93b6.png"
+          },
+          {
+            "ID": "5762761cd00945b79cd7df8e40425622",
+            "Kind": "image",
+            "FileName": "outside.jpg",
+            "MimeType": "image/jpeg",
+            "Size": 648872,
+            "Path": "assets/messages/2026/07/ae9078b6f0044e4194fb542b0bd99638.jpg",
+            "Url": "https://raw.githubusercontent.com/boylermallow/ashs-angels-preschool/main/assets/messages/2026/07/ae9078b6f0044e4194fb542b0bd99638.jpg"
+          }
+        ],
+        "CreatedAt": "2026-07-18T17:30:36"
       }
     ],
-    "LastReplyAt": "2026-07-18T17:20:09",
-    "ParentArchived": false,
-    "ReadAt": "2026-07-17T10:35:44"
+    "LastReplyAt": "2026-07-18T17:30:36",
+    "ParentArchived": false
   },
   {
     "ID": "a93c5bb33d0e4ae29cdf5d3d331d4740",
