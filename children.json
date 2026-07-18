@@ -266,5 +266,22 @@
         "Invited": true
       }
     ]
+  },
+  {
+    "ID": "22464097d6894909858ce48dbca8b2f0",
+    "Name": "Testing child 2",
+    "DOB": "",
+    "Session": "Morning Session",
+    "Thumbnail": "",
+    "Guardians": [
+      {
+        "Name": "Mel",
+        "Relationship": "Guardian",
+        "Email": "meloboylemallow@gmail.com",
+        "Phone": "",
+        "Address": "",
+        "Invited": false
+      }
+    ]
   }
 ]
