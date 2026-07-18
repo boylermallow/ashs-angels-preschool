@@ -6422,6 +6422,27 @@ st.markdown(
         font-size: .98rem !important;
         font-weight: 780 !important;
     }}
+    #root [data-testid="stDialog"][data-baseweb="modal"],
+    #root [data-baseweb="modal"][data-testid="stDialog"] {{
+        background: rgba(35, 52, 95, .12) !important;
+        background-color: rgba(35, 52, 95, .12) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: clamp(16px, 4vw, 32px) !important;
+    }}
+    #root [data-testid="stDialog"][data-baseweb="modal"] > div,
+    #root [data-baseweb="modal"][data-testid="stDialog"] > div {{
+        background: transparent !important;
+        background-color: transparent !important;
+        flex: 0 1 auto !important;
+    }}
+    #root [data-testid="stDialog"][data-baseweb="modal"] [role="dialog"],
+    #root [data-baseweb="modal"][data-testid="stDialog"] [role="dialog"] {{
+        width: min(720px, calc(100vw - 32px)) !important;
+        max-width: min(720px, calc(100vw - 32px)) !important;
+        margin: 0 auto !important;
+    }}
     div[data-testid="stSegmentedControl"] {{
         width: fit-content;
         max-width: 100%;
