@@ -2351,6 +2351,90 @@ def latest_admin_unseen_message(messages=None):
     return latest
 
 
+def mark_parent_registration_for_admin(parent):
+    parent["RegisteredAt"] = datetime.now().isoformat(timespec="seconds")
+    parent["AdminRegistrationSeen"] = False
+
+
+def admin_unseen_parent_registrations(parents=None):
+    parents = load_parents() if parents is None else parents
+    registrations = [
+        parent
+        for parent in parents
+        if parent.get("RegisteredAt") and not parent.get("AdminRegistrationSeen")
+    ]
+    return sorted(registrations, key=lambda parent: parent.get("RegisteredAt", ""), reverse=True)
+
+
+def mark_admin_parent_registrations_seen(parents):
+    changed = False
+    seen_at = datetime.now().isoformat(timespec="seconds")
+    for parent in parents:
+        if not parent.get("RegisteredAt") or parent.get("AdminRegistrationSeen"):
+            continue
+        parent["AdminRegistrationSeen"] = True
+        parent["AdminRegistrationSeenAt"] = seen_at
+        changed = True
+    return changed
+
+
+def render_admin_registration_notification(parents=None):
+    if st.session_state.get("role") != "Admin":
+        return
+    registrations = admin_unseen_parent_registrations(parents)
+    if not registrations:
+        return
+
+    latest = registrations[0]
+    registration_count = len(registrations)
+    parent_name = str(latest.get("FirstName") or latest.get("Email") or "A parent").strip()
+    parent_email = str(latest.get("Email", "")).strip()
+    child_name = str(latest.get("ChildName", "")).strip()
+    detail = f"registered for {child_name}" if child_name else "is awaiting approval"
+    parent_page_url = app_href("Parents")
+    notification_key = f'{latest.get("ID", "")}-{latest.get("RegisteredAt", "")}'
+    components.html(
+        f"""
+        <script>
+        (function() {{
+          try {{
+            const key = {json.dumps(notification_key)};
+            if (window.localStorage.getItem("ash_admin_registration_notification_key") === key) return;
+            window.localStorage.setItem("ash_admin_registration_notification_key", key);
+            if (!("Notification" in window) || Notification.permission !== "granted") return;
+            const note = new Notification("New parent registration", {{
+              body: {json.dumps(parent_name + " " + detail + ".")},
+              tag: "ash-admin-parent-registration",
+              renotify: true
+            }});
+            note.onclick = () => {{
+              try {{
+                window.parent.focus();
+                window.parent.location.href = {json.dumps(parent_page_url)};
+              }} catch (error) {{}}
+            }};
+          }} catch (error) {{}}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+    latest_summary = f"Latest: {parent_name}"
+    if parent_email and parent_email.lower() != parent_name.lower():
+        latest_summary += f" ({parent_email})"
+    latest_summary += f" {detail}."
+    st.markdown(
+        f"""
+        <a class="admin-new-message-alert admin-new-message-link admin-registration-alert" href="{html.escape(parent_page_url)}" target="_self">
+          <span class="admin-new-message-dot"></span>
+          <div><strong>{registration_count} new parent registration{"s" if registration_count != 1 else ""}</strong><br>
+          {html.escape(latest_summary)}</div>
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_admin_message_notification(messages=None):
     if st.session_state.get("role") != "Admin":
         return
@@ -2495,20 +2579,27 @@ def render_admin_message_notification(messages=None):
 def render_admin_message_live_refresh(interval_ms=45000):
     if st.session_state.get("role") != "Admin":
         return
-    current_version = github_latest_path_commit(MESSAGES_FILE.name)
-    if not current_version:
+    watched_files = (MESSAGES_FILE.name, PARENTS_FILE.name)
+    current_versions = {
+        file_name: github_latest_path_commit(file_name)
+        for file_name in watched_files
+    }
+    if not any(current_versions.values()):
         return
-    commits_url = (
-        f"https://api.github.com/repos/{DATA_REPOSITORY}/commits"
-        f"?path={quote(MESSAGES_FILE.name, safe='')}&sha={quote(DATA_BRANCH, safe='')}&per_page=1"
-    )
+    commits_urls = {
+        file_name: (
+            f"https://api.github.com/repos/{DATA_REPOSITORY}/commits"
+            f"?path={quote(file_name, safe='')}&sha={quote(DATA_BRANCH, safe='')}&per_page=1"
+        )
+        for file_name in watched_files
+    }
     components.html(
         f"""
         <script>
         (function() {{
           const parentWindow = window.parent || window;
-          const currentVersion = {json.dumps(current_version)};
-          const commitsUrl = {json.dumps(commits_url)};
+          const currentVersions = {json.dumps(current_versions)};
+          const commitsUrls = {json.dumps(commits_urls)};
           const intervalMs = {int(interval_ms)};
           const timerKey = "__ashAdminMessageRefreshTimer";
           const handlerKey = "__ashAdminMessageRefreshVisibilityHandler";
@@ -2523,7 +2614,7 @@ def render_admin_message_live_refresh(interval_ms=45000):
             }}
           }} catch (error) {{}}
 
-          async function latestMessageVersion() {{
+          async function latestVersion(commitsUrl) {{
             const response = await parentWindow.fetch(commitsUrl + "&_=" + Date.now(), {{
               cache: "no-store",
               headers: {{ "Accept": "application/vnd.github+json" }}
@@ -2534,15 +2625,19 @@ def render_admin_message_live_refresh(interval_ms=45000):
             return commits[0] && commits[0].sha ? String(commits[0].sha) : "";
           }}
 
-          async function checkForMessageChanges() {{
+          async function checkForDataChanges() {{
             if (checking) return;
             try {{
               if (parentWindow.document && parentWindow.document.hidden) return;
             }} catch (error) {{}}
             checking = true;
             try {{
-              const latestVersion = await latestMessageVersion();
-              if (latestVersion && latestVersion !== currentVersion) {{
+              const entries = Object.entries(commitsUrls);
+              const latestVersions = await Promise.all(entries.map(([, url]) => latestVersion(url)));
+              const changed = entries.some(([fileName], index) => (
+                latestVersions[index] && latestVersions[index] !== currentVersions[fileName]
+              ));
+              if (changed) {{
                 parentWindow.location.reload();
               }}
             }} catch (error) {{
@@ -2551,16 +2646,16 @@ def render_admin_message_live_refresh(interval_ms=45000):
             }}
           }}
 
-          parentWindow[timerKey] = parentWindow.setInterval(checkForMessageChanges, intervalMs);
+          parentWindow[timerKey] = parentWindow.setInterval(checkForDataChanges, intervalMs);
           parentWindow[handlerKey] = function() {{
             try {{
               if (!parentWindow.document.hidden) {{
-                parentWindow.setTimeout(checkForMessageChanges, 750);
+                parentWindow.setTimeout(checkForDataChanges, 750);
               }}
             }} catch (error) {{}}
           }};
           parentWindow.addEventListener("visibilitychange", parentWindow[handlerKey]);
-          parentWindow.setTimeout(checkForMessageChanges, Math.min(15000, intervalMs));
+          parentWindow.setTimeout(checkForDataChanges, Math.min(15000, intervalMs));
         }})();
         </script>
         """,
@@ -4479,6 +4574,16 @@ st.markdown(
     .admin-new-message-link:hover {{
         background: #fff4dc;
         box-shadow: 0 14px 28px rgba(35,52,95,.16);
+    }}
+    .admin-registration-alert {{
+        background: #eef9f2;
+        border-color: #159455;
+    }}
+    .admin-registration-alert:hover {{
+        background: #e1f5e8;
+    }}
+    .admin-registration-alert .admin-new-message-dot {{
+        background: #17b968;
     }}
     .admin-new-message-dot {{
         width: 14px;
@@ -7012,6 +7117,7 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
                             existing["ChildID"] = invited_child.get("ID", "")
                             existing["ChildName"] = invited_child.get("Name", "")
                             existing["Status"] = "Approved"
+                            mark_parent_registration_for_admin(existing)
                             if save_parents(parents):
                                 mark_child_guardian_invited(invited_child.get("ID", ""), clean_email)
                                 st.success(
@@ -7032,6 +7138,7 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
                             existing["ChildID"] = invited_child.get("ID", "")
                             existing["ChildName"] = invited_child.get("Name", "")
                             existing["Status"] = "Approved"
+                        mark_parent_registration_for_admin(existing)
                         if save_parents(parents):
                             if invited_child:
                                 mark_child_guardian_invited(invited_child.get("ID", ""), clean_email)
@@ -7056,6 +7163,7 @@ def render_sign_in_dialog(selected_role, login_placeholder=None):
                         "ChildName": invited_child.get("Name", "") if invited_child else "",
                         **hash_password(clean_password),
                     }
+                    mark_parent_registration_for_admin(parent)
                     parents.append(parent)
                     if save_parents(parents):
                         if invited_child:
@@ -9775,7 +9883,7 @@ def render_parent_approvals():
     children_by_id = {child.get("ID", ""): child for child in children if child.get("ID")}
     edit_parent_id = st.query_params.get("edit_parent")
 
-    parents_changed = False
+    parents_changed = mark_admin_parent_registrations_seen(parents)
     for parent in parents:
         if not parent.get("ID"):
             parent["ID"] = uuid.uuid4().hex
@@ -10013,6 +10121,8 @@ with content_col:
             render_admin_message_live_refresh()
         if selected_page != "Messages" and not admin_interaction_open:
             render_admin_message_notification()
+        if selected_page != "Parents" and not admin_interaction_open:
+            render_admin_registration_notification()
         if selected_page == "Parents":
             render_parent_approvals()
         elif selected_page == "Messages":
