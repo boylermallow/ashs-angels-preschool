@@ -4517,9 +4517,9 @@ st.markdown(
     .sent-confirmation {{
         display: flex;
         align-items: flex-start;
-        gap: 14px;
+        gap: 12px;
         margin: 0 0 18px;
-        padding: 16px 18px;
+        padding: 14px 16px;
         border: 2px solid rgba(31, 111, 68, .28);
         border-radius: 8px;
         background: #d9f2df;
@@ -4549,12 +4549,16 @@ st.markdown(
     .sent-confirmation-copy {{
         color: var(--ink);
         font-size: .98rem;
-        font-weight: 760;
-        line-height: 1.16;
+        font-weight: 400;
+        line-height: 1.35;
     }}
     .sent-confirmation-copy-line {{
         margin: 0;
-        line-height: 1.16;
+        font-weight: 400;
+        line-height: 1.35;
+    }}
+    .sent-confirmation-copy-line + .sent-confirmation-copy-line {{
+        margin-top: 2px;
     }}
     .admin-new-message-alert {{
         display: flex;
